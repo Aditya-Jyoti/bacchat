@@ -13,7 +13,7 @@ class SplashCenter extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           Material3Loader(
-            size: 300,
+            size: 250,
             strokeWidth: 32,
             value: 0.75,
             showAsStatic: true,
