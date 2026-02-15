@@ -28,7 +28,7 @@ class SplashTopText extends StatelessWidget {
           "The Open Source Split Tracking App",
           textAlign: TextAlign.center,
           style: GoogleFonts.montserrat(
-            fontSize: 16,
+            fontSize: 12,
             fontWeight: FontWeight.w900,
             color: colors.onSurface,
           ),
