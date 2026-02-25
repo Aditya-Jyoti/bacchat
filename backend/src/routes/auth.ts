@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import type { Router as ExpressRouter } from 'express';
-import { body } from 'express-validator';
+import { body, query } from 'express-validator';
 import prisma from '../config/database';
 import { hashPassword, comparePassword } from '../utils/password';
 import { generateToken } from '../utils/jwt';
@@ -223,21 +223,16 @@ router.post(
 /**
  * @openapi
  * /auth/verify-email:
- *   post:
+ *   get:
  *     tags:
  *       - Auth
  *     summary: Verify email address with token
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - token
- *             properties:
- *               token:
- *                 type: string
+ *     parameters:
+ *       - in: query
+ *         name: token
+ *         required: true
+ *         schema:
+ *           type: string
  *     responses:
  *       200:
  *         description: Email verified successfully
@@ -257,13 +252,13 @@ router.post(
  *       500:
  *         description: Internal server error
  */
-router.post(
+router.get(
   '/verify-email',
-  [body('token').notEmpty().withMessage('Token is required')],
+  [query('token').notEmpty().withMessage('Token is required')],
   validate,
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const { token } = req.body;
+      const { token } = req.query as { token: string };
 
       // Find verification token
       const verificationToken = await prisma.verificationToken.findUnique({
