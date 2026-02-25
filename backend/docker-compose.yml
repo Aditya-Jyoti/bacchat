@@ -36,7 +36,7 @@ services:
       - ./src:/app/src
       - ./prisma:/app/prisma
       - /app/node_modules
-    command: npm run dev
+    command: sh -c "pnpm migrate:deploy && pnpm dev"
 
 volumes:
   postgres_data:
