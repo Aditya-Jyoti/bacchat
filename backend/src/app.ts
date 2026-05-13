@@ -32,6 +32,7 @@ app.use('/api/auth', authRoutes);
 app.use('/v1/auth', authRoutes);
 app.use('/v1/groups', groupRoutes);
 app.use('/v1', inviteRoutes);
+app.use('/', inviteRoutes); // invite links are shared without /v1 prefix
 app.use('/v1', splitRoutes);
 app.use('/v1', settlementRoutes);
 app.use('/v1', balanceRoutes);
