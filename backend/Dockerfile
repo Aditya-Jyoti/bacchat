@@ -26,7 +26,9 @@ COPY prisma ./prisma/
 # Route source files are needed at runtime so swagger-jsdoc can parse @openapi comments
 COPY src/routes ./src/routes
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/src/generated ./src/generated
+# Compiled code resolves '../generated/prisma' relative to dist/config/,
+# so the generated client must land at dist/generated/, not src/generated/
+COPY --from=builder /app/src/generated ./dist/generated
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
