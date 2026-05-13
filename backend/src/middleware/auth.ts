@@ -4,6 +4,7 @@ import prisma from '../config/database';
 
 export interface AuthRequest extends Request {
   userId?: string;
+  isGuest?: boolean;
 }
 
 export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
@@ -23,7 +24,15 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
       return;
     }
 
-    // Verify user still exists
+    const revoked = await prisma.revokedToken.findUnique({
+      where: { jti: decoded.jti },
+    });
+
+    if (revoked) {
+      res.status(401).json({ error: 'Token has been revoked' });
+      return;
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
     });
@@ -34,6 +43,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
     }
 
     req.userId = decoded.userId;
+    req.isGuest = decoded.isGuest;
     next();
   } catch (error) {
     console.error('Authentication error:', error);

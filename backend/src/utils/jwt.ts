@@ -1,14 +1,18 @@
 import jwt from 'jsonwebtoken';
+import { randomUUID } from 'crypto';
 
-interface TokenPayload {
+export interface TokenPayload {
   userId: string;
+  isGuest: boolean;
+  jti: string;
+  exp?: number;
 }
 
-export const generateToken = (userId: string): string => {
+export const generateToken = (userId: string, isGuest: boolean): string => {
   return jwt.sign(
-    { userId },
+    { userId, isGuest, jti: randomUUID() },
     process.env.JWT_SECRET!,
-    { expiresIn:  '7d' } // hardcoded since it was giving errors i couldn't be bothered with
+    { expiresIn: isGuest ? '7d' : '30d' }
   );
 };
 
