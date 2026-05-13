@@ -1,5 +1,10 @@
 class FormatUtils {
   static String formatMoney(double amount) {
+    if (amount < 0) return '-₹${_compact(amount.abs())}';
+    return '₹${_compact(amount)}';
+  }
+
+  static String _compact(double amount) {
     if (amount >= 1000) {
       return amount
           .toStringAsFixed(0)

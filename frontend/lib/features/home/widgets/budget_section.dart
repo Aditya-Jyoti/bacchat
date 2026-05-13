@@ -47,7 +47,7 @@ class BudgetSection extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '\$${FormatUtils.formatMoney(budgetData.moneySpent)}',
+                  FormatUtils.formatMoney(budgetData.moneySpent),
                   style: GoogleFonts.montserrat(
                     fontSize: 48,
                     fontWeight: FontWeight.w700,
@@ -56,7 +56,7 @@ class BudgetSection extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '\$${FormatUtils.formatMoney(budgetData.monthlyBudget)}',
+                  FormatUtils.formatMoney(budgetData.monthlyBudget),
                   style: GoogleFonts.montserrat(
                     fontSize: 24,
                     fontWeight: FontWeight.w500,
@@ -79,7 +79,7 @@ class BudgetSection extends StatelessWidget {
         Expanded(
           child: _buildStatItem(
             context,
-            '\$${FormatUtils.formatMoney(budgetData.monthlyBudget)}',
+            FormatUtils.formatMoney(budgetData.monthlyBudget),
             'monthly budget',
           ),
         ),
@@ -87,7 +87,7 @@ class BudgetSection extends StatelessWidget {
         Expanded(
           child: _buildStatItem(
             context,
-            '\$${FormatUtils.formatMoney(budgetData.dailyBudget)}',
+            FormatUtils.formatMoney(budgetData.dailyBudget),
             'daily budget',
           ),
         ),
