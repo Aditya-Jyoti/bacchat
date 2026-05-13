@@ -82,20 +82,23 @@ class _UserHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
       child: Row(
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: scheme.primaryContainer,
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                initial,
-                style: GoogleFonts.montserrat(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: scheme.onPrimaryContainer,
+          GestureDetector(
+            onTap: () => context.push('/profile'),
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: scheme.primaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  initial,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onPrimaryContainer,
+                  ),
                 ),
               ),
             ),
@@ -483,65 +486,80 @@ class _CategoryCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final isOver = cat.progress >= 1.0;
 
+    final barColor = isOver ? scheme.error : scheme.primary;
+
     return Card(
       margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Text(cat.icon, style: const TextStyle(fontSize: 20)),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    cat.name,
-                    style: GoogleFonts.montserrat(
-                      fontWeight: FontWeight.w600,
-                      color: scheme.onSurface,
+            // Colored left accent stripe
+            Container(
+              width: 4,
+              color: barColor,
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 16, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(cat.icon, style: const TextStyle(fontSize: 18)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            cat.name,
+                            style: GoogleFonts.montserrat(
+                              fontWeight: FontWeight.w600,
+                              color: scheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          cat.isFixed ? 'Fixed' : 'Variable',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 11,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ),
-                Text(
-                  cat.isFixed ? 'Fixed' : 'Variable',
-                  style: GoogleFonts.montserrat(
-                    fontSize: 11,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  FormatUtils.formatMoney(cat.spent),
-                  style: GoogleFonts.montserrat(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: isOver ? scheme.error : scheme.onSurface,
-                  ),
-                ),
-                Text(
-                  FormatUtils.formatMoney(cat.monthlyLimit),
-                  style: GoogleFonts.montserrat(
-                    fontSize: 13,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: cat.progress,
-                minHeight: 6,
-                backgroundColor: scheme.surfaceContainerHighest,
-                valueColor: AlwaysStoppedAnimation(
-                  isOver ? scheme.error : scheme.primary,
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          FormatUtils.formatMoney(cat.spent),
+                          style: GoogleFonts.montserrat(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: isOver ? scheme.error : scheme.onSurface,
+                          ),
+                        ),
+                        Text(
+                          'of ${FormatUtils.formatMoney(cat.monthlyLimit)}',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 12,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: cat.progress,
+                        minHeight: 8,
+                        backgroundColor: scheme.outline.withValues(alpha: 0.25),
+                        valueColor: AlwaysStoppedAnimation(barColor),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

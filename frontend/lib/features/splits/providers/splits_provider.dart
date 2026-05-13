@@ -72,7 +72,7 @@ final splitsForGroupProvider =
     FutureProvider.family<List<SplitCard>, String>((ref, groupId) async {
   final client = ref.read(apiClientProvider);
   final resp = await client.get('/groups/$groupId/splits');
-  final list = resp.data as List<dynamic>;
+  final list = (resp.data as List<dynamic>?) ?? [];
   return list.map((s) {
     final m = s as Map<String, dynamic>;
     final shares = m['shares'] as List<dynamic>;

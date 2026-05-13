@@ -53,10 +53,6 @@ final appRouter = GoRouter(
           path: '/home/activity',
           builder: (context, state) => const ActivityScreen(),
         ),
-        GoRoute(
-          path: '/home/profile',
-          builder: (context, state) => const ProfileScreen(),
-        ),
       ],
     ),
 
@@ -101,6 +97,11 @@ final appRouter = GoRouter(
       builder: (context, state) => GuestJoinScreen(
         inviteCode: state.pathParameters['inviteCode']!,
       ),
+    ),
+
+    GoRoute(
+      path: '/profile',
+      builder: (context, state) => const ProfileScreen(),
     ),
 
     GoRoute(

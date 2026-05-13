@@ -101,38 +101,63 @@ class _GroupDetailBody extends ConsumerWidget {
           ],
         ),
 
-        // Members row
+        // Members row — compact strip
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Members',
-                  style: GoogleFonts.montserrat(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: scheme.onSurfaceVariant,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      'Members · ${group.members.length}',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    ...group.members.take(8).map((m) {
+                      final isMe = m.id == currentUser?.id;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: Tooltip(
+                          message: isMe ? 'You' : m.name,
+                          child: CircleAvatar(
+                            radius: 13,
+                            backgroundColor: isMe
+                                ? scheme.primary
+                                : scheme.secondaryContainer,
+                            child: Text(
+                              m.initial,
+                              style: GoogleFonts.montserrat(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: isMe
+                                    ? scheme.onPrimary
+                                    : scheme.onSecondaryContainer,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                    if (group.members.length > 8)
+                      Text(
+                        '+${group.members.length - 8}',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 11,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 10),
-                SizedBox(
-                  height: 56,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: group.members.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 8),
-                    itemBuilder: (_, i) {
-                      final m = group.members[i];
-                      return _MemberAvatar(member: m, isCurrentUser: m.id == currentUser?.id);
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Divider(),
+                const Divider(height: 1),
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                   child: Text(
                     'Splits',
                     style: GoogleFonts.montserrat(
@@ -173,59 +198,6 @@ class _GroupDetailBody extends ConsumerWidget {
         ),
 
         const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Member avatar chip
-// ---------------------------------------------------------------------------
-
-class _MemberAvatar extends StatelessWidget {
-  const _MemberAvatar({required this.member, required this.isCurrentUser});
-  final MemberInfo member;
-  final bool isCurrentUser;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Column(
-      children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isCurrentUser
-                ? scheme.primary
-                : scheme.secondaryContainer,
-            border: isCurrentUser
-                ? Border.all(color: scheme.primary, width: 2)
-                : null,
-          ),
-          child: Center(
-            child: Text(
-              member.initial,
-              style: GoogleFonts.montserrat(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: isCurrentUser
-                    ? scheme.onPrimary
-                    : scheme.onSecondaryContainer,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          isCurrentUser ? 'You' : member.name.split(' ').first,
-          style: GoogleFonts.montserrat(
-            fontSize: 10,
-            color: scheme.onSurfaceVariant,
-          ),
-          overflow: TextOverflow.ellipsis,
-        ),
       ],
     );
   }

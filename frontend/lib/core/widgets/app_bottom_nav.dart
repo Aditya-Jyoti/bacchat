@@ -13,7 +13,6 @@ class AppBottomNav extends ConsumerWidget {
     '/home/dashboard',
     '/home/splits',
     '/home/activity',
-    '/home/profile',
   ];
 
   int _locationToIndex(String location) {
@@ -59,11 +58,6 @@ class AppBottomNav extends ConsumerWidget {
             icon: Icon(Icons.history_outlined),
             selectedIcon: Icon(Icons.history),
             label: 'Activity',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
           ),
         ],
       ),
