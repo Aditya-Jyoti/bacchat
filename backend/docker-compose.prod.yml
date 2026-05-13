@@ -4,7 +4,7 @@ services:
     image: postgres:16-alpine
     container_name: bacchat-postgres
     restart: unless-stopped
-    env_file: .env.production
+    env_file: .env.production.local
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -19,7 +19,7 @@ services:
       dockerfile: Dockerfile
     container_name: bacchat-backend
     restart: unless-stopped
-    env_file: .env.production
+    env_file: .env.production.local
     depends_on:
       postgres:
         condition: service_healthy
