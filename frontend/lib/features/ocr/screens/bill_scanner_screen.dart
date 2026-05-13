@@ -113,10 +113,22 @@ class _BillScannerScreenState extends ConsumerState<BillScannerScreen> {
         }
       }
 
-      final shares = shareMap.entries
+      var shares = shareMap.entries
           .where((e) => e.value > 0.001)
           .map((e) => (userId: e.key, amount: e.value))
           .toList();
+
+      // Clamp floating-point drift: ensure shares sum exactly to total
+      if (shares.isNotEmpty) {
+        final drift = total - shares.fold(0.0, (s, e) => s + e.amount);
+        if (drift.abs() > 0.0001) {
+          final last = shares.last;
+          shares = [
+            ...shares.sublist(0, shares.length - 1),
+            (userId: last.userId, amount: last.amount + drift),
+          ];
+        }
+      }
 
       await ref.read(splitsEditorProvider.notifier).createSplit(
         groupId: widget.groupId,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/utils/format_money.dart';
@@ -20,12 +21,35 @@ class SplitDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final split = ref.watch(splitDetailProvider(splitId));
+    final currentUser = ref.read(authProvider).when(
+      data: (u) => u,
+      loading: () => null,
+      error: (_, _) => null,
+    );
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
           'Split Detail',
           style: GoogleFonts.montserrat(fontWeight: FontWeight.w700),
+        ),
+        actions: split.when(
+          data: (s) {
+            if (s == null) return null;
+            final canDelete = currentUser != null &&
+                (s.paidById == currentUser.id);
+            if (!canDelete) return null;
+            return [
+              IconButton(
+                icon: Icon(Icons.delete_outline,
+                    color: Theme.of(context).colorScheme.error),
+                tooltip: 'Delete split',
+                onPressed: () => _confirmDelete(context, ref, s),
+              ),
+            ];
+          },
+          loading: () => null,
+          error: (_, _) => null,
         ),
       ),
       body: split.when(
@@ -37,6 +61,45 @@ class SplitDetailScreen extends ConsumerWidget {
         },
       ),
     );
+  }
+
+  Future<void> _confirmDelete(
+      BuildContext context, WidgetRef ref, SplitFull split) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete split?',
+            style: GoogleFonts.montserrat(fontWeight: FontWeight.w700)),
+        content: Text(
+          '"${split.title}" will be permanently deleted. All shares will be removed.',
+          style: GoogleFonts.montserrat(),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await ref
+          .read(splitsEditorProvider.notifier)
+          .deleteSplit(split.id, groupId);
+      if (context.mounted) context.pop();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
   }
 }
 

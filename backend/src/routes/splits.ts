@@ -316,4 +316,59 @@ router.get('/splits/:splitId', authenticate, async (req: AuthRequest, res: Respo
   }
 });
 
+/**
+ * @openapi
+ * /splits/{splitId}:
+ *   delete:
+ *     tags:
+ *       - Splits
+ *     summary: Delete a split (payer or group admin only)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: splitId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       204:
+ *         description: Split deleted
+ *       403:
+ *         description: Only payer or group admin can delete
+ *       404:
+ *         description: Split not found
+ */
+router.delete('/splits/:splitId', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.userId!;
+    const { splitId } = req.params;
+
+    const split = await prisma.split.findUnique({ where: { id: splitId } });
+    if (!split) {
+      res.status(404).json({ error: 'Split not found' });
+      return;
+    }
+
+    const member = await prisma.groupMember.findFirst({
+      where: { groupId: split.groupId, userId },
+    });
+    if (!member) {
+      res.status(403).json({ error: 'You are not a member of this group' });
+      return;
+    }
+
+    if (!member.isAdmin && split.paidBy !== userId) {
+      res.status(403).json({ error: 'Only the payer or a group admin can delete this split' });
+      return;
+    }
+
+    await prisma.split.delete({ where: { id: splitId } });
+    res.status(204).send();
+  } catch (error) {
+    console.error('Delete split error:', error);
+    res.status(500).json({ error: 'Failed to delete split' });
+  }
+});
+
 export default router;

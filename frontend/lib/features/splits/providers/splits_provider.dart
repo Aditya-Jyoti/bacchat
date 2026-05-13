@@ -252,6 +252,13 @@ class SplitsEditor extends Notifier<void> {
     return split['id'] as String;
   }
 
+  Future<void> deleteSplit(String splitId, String groupId) async {
+    await _client.delete('/splits/$splitId');
+    ref.invalidate(splitsForGroupProvider(groupId));
+    ref.invalidate(splitGroupsProvider);
+    ref.invalidate(groupBalanceProvider(groupId));
+  }
+
   Future<void> settleShare(String shareId, String groupId, String splitId) async {
     await _client.patch('/shares/$shareId/settle');
     ref.invalidate(splitDetailProvider(splitId));
