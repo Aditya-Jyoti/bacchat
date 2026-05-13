@@ -1,0 +1,125 @@
+class GroupCard {
+  final int id;
+  final String name;
+  final String emoji;
+  final int memberCount;
+  final double netBalance;
+  final String inviteCode;
+
+  const GroupCard({
+    required this.id,
+    required this.name,
+    required this.emoji,
+    required this.memberCount,
+    required this.netBalance,
+    required this.inviteCode,
+  });
+
+  bool get isSettled => netBalance.abs() < 0.01;
+  bool get youAreOwed => netBalance > 0.01;
+  bool get youOwe => netBalance < -0.01;
+}
+
+class MemberInfo {
+  final int id;
+  final String name;
+  final bool isGuest;
+
+  const MemberInfo({
+    required this.id,
+    required this.name,
+    required this.isGuest,
+  });
+
+  String get initial => name.isNotEmpty ? name[0].toUpperCase() : '?';
+}
+
+class GroupDetail {
+  final int id;
+  final String name;
+  final String emoji;
+  final String inviteCode;
+  final List<MemberInfo> members;
+
+  const GroupDetail({
+    required this.id,
+    required this.name,
+    required this.emoji,
+    required this.inviteCode,
+    required this.members,
+  });
+}
+
+class SplitCard {
+  final int id;
+  final String title;
+  final String? description;
+  final String category;
+  final double totalAmount;
+  final int paidById;
+  final String paidByName;
+  final int shareCount;
+  final DateTime createdAt;
+
+  const SplitCard({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.category,
+    required this.totalAmount,
+    required this.paidById,
+    required this.paidByName,
+    required this.shareCount,
+    required this.createdAt,
+  });
+}
+
+class ShareDetail {
+  final int id;
+  final int userId;
+  final String userName;
+  final double amount;
+  final bool isSettled;
+
+  const ShareDetail({
+    required this.id,
+    required this.userId,
+    required this.userName,
+    required this.amount,
+    required this.isSettled,
+  });
+}
+
+class SplitFull {
+  final int id;
+  final int groupId;
+  final String title;
+  final String? description;
+  final String category;
+  final double totalAmount;
+  final String splitType;
+  final int paidById;
+  final String paidByName;
+  final DateTime createdAt;
+  final List<ShareDetail> shares;
+
+  const SplitFull({
+    required this.id,
+    required this.groupId,
+    required this.title,
+    required this.description,
+    required this.category,
+    required this.totalAmount,
+    required this.splitType,
+    required this.paidById,
+    required this.paidByName,
+    required this.createdAt,
+    required this.shares,
+  });
+
+  double get settledAmount =>
+      shares.where((s) => s.isSettled).fold(0.0, (sum, s) => sum + s.amount);
+
+  double get unsettledAmount =>
+      shares.where((s) => !s.isSettled).fold(0.0, (sum, s) => sum + s.amount);
+}
