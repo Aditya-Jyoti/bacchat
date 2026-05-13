@@ -1,196 +1,183 @@
-import 'package:drift/drift.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:uuid/uuid.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../core/database/database_provider.dart';
+import '../../../core/api/api_client.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/debt_models.dart';
 import '../models/split_models.dart';
-import '../services/debt_simplifier.dart';
 
 part 'splits_provider.g.dart';
 
 // ---------------------------------------------------------------------------
-// Groups list with net balance per group
+// Groups list with net balance
 // ---------------------------------------------------------------------------
 
-@riverpod
-Future<List<GroupCard>> splitGroups(Ref ref) async {
+final splitGroupsProvider = FutureProvider<List<GroupCard>>((ref) async {
   final user = await ref.watch(authProvider.future);
   if (user == null) return [];
+  final client = ref.read(apiClientProvider);
+  final resp = await client.get('/groups');
+  final list = resp.data as List<dynamic>;
+  return list.map((g) {
+    final m = g as Map<String, dynamic>;
+    return GroupCard(
+      id: m['id'] as String,
+      name: m['name'] as String,
+      emoji: m['emoji'] as String,
+      memberCount: m['member_count'] as int,
+      netBalance: (m['net_balance'] as num).toDouble(),
+      inviteCode: m['invite_code'] as String,
+    );
+  }).toList();
+});
 
-  final db = ref.read(appDatabaseProvider);
-  final groups = await db.splitGroupsDao.getGroupsForUser(user.id);
+// ---------------------------------------------------------------------------
+// Group detail — members list
+// ---------------------------------------------------------------------------
 
-  final result = <GroupCard>[];
-  for (final group in groups) {
-    final members = await db.groupMembersDao.getMembersOfGroup(group.id);
-    final groupSplits = await db.splitsDao.getSplitsForGroup(group.id);
-
-    double netBalance = 0;
-    for (final split in groupSplits) {
-      final shares = await db.splitSharesDao.getSharesForSplit(split.id);
-      if (split.paidBy == user.id) {
-        for (final share in shares) {
-          if (share.userId != user.id && !share.isSettled) {
-            netBalance += share.amount;
-          }
-        }
-      } else {
-        for (final share in shares) {
-          if (share.userId == user.id && !share.isSettled) {
-            netBalance -= share.amount;
-          }
-        }
-      }
+final groupDetailProvider =
+    FutureProvider.family<GroupDetail?, String>((ref, groupId) async {
+  final client = ref.read(apiClientProvider);
+  try {
+    final resp = await client.get('/groups/$groupId');
+    final m = resp.data as Map<String, dynamic>;
+    final members = (m['members'] as List<dynamic>).map((mem) {
+      final mm = mem as Map<String, dynamic>;
+      return MemberInfo(
+        id: mm['id'] as String,
+        name: mm['name'] as String,
+        isGuest: mm['is_guest'] as bool? ?? false,
+      );
+    }).toList();
+    return GroupDetail(
+      id: m['id'] as String,
+      name: m['name'] as String,
+      emoji: m['emoji'] as String,
+      inviteCode: m['invite_code'] as String,
+      members: members,
+    );
+  } on DioException catch (e) {
+    if (e.response?.statusCode == 404 || e.response?.statusCode == 403) {
+      return null;
     }
-
-    result.add(GroupCard(
-      id: group.id,
-      name: group.name,
-      emoji: group.emoji,
-      memberCount: members.length,
-      netBalance: netBalance,
-      inviteCode: group.inviteCode,
-    ));
+    rethrow;
   }
-
-  return result;
-}
-
-// ---------------------------------------------------------------------------
-// Group detail (info + members)
-// ---------------------------------------------------------------------------
-
-@riverpod
-Future<GroupDetail?> groupDetail(Ref ref, int groupId) async {
-  final db = ref.read(appDatabaseProvider);
-  final group = await db.splitGroupsDao.getGroupById(groupId);
-  if (group == null) return null;
-
-  final users = await db.groupMembersDao.getMembersOfGroup(groupId);
-  final members = users
-      .map((u) => MemberInfo(id: u.id, name: u.name, isGuest: u.isGuest))
-      .toList();
-
-  return GroupDetail(
-    id: group.id,
-    name: group.name,
-    emoji: group.emoji,
-    inviteCode: group.inviteCode,
-    members: members,
-  );
-}
+});
 
 // ---------------------------------------------------------------------------
 // Splits list for a group
 // ---------------------------------------------------------------------------
 
-@riverpod
-Future<List<SplitCard>> splitsForGroup(Ref ref, int groupId) async {
-  final db = ref.read(appDatabaseProvider);
-  final splitList = await db.splitsDao.getSplitsForGroup(groupId);
-
-  final result = <SplitCard>[];
-  for (final split in splitList) {
-    final payer = await db.usersDao.getUserById(split.paidBy);
-    final shares = await db.splitSharesDao.getSharesForSplit(split.id);
-    result.add(SplitCard(
-      id: split.id,
-      title: split.title,
-      description: split.description,
-      category: split.category,
-      totalAmount: split.totalAmount,
-      paidById: split.paidBy,
-      paidByName: payer?.name ?? 'Unknown',
+final splitsForGroupProvider =
+    FutureProvider.family<List<SplitCard>, String>((ref, groupId) async {
+  final client = ref.read(apiClientProvider);
+  final resp = await client.get('/groups/$groupId/splits');
+  final list = resp.data as List<dynamic>;
+  return list.map((s) {
+    final m = s as Map<String, dynamic>;
+    final shares = m['shares'] as List<dynamic>;
+    return SplitCard(
+      id: m['id'] as String,
+      title: m['title'] as String,
+      description: m['description'] as String?,
+      category: m['category'] as String,
+      totalAmount: (m['total_amount'] as num).toDouble(),
+      paidById: m['paid_by_id'] as String,
+      paidByName: m['paid_by_name'] as String,
       shareCount: shares.length,
-      createdAt: split.createdAt,
-    ));
-  }
-
-  return result;
-}
+      createdAt: DateTime.parse(m['created_at'] as String),
+    );
+  }).toList();
+});
 
 // ---------------------------------------------------------------------------
 // Full split detail with shares
 // ---------------------------------------------------------------------------
 
-@riverpod
-Future<SplitFull?> splitDetail(Ref ref, int splitId) async {
-  final db = ref.read(appDatabaseProvider);
-  final split = await db.splitsDao.getSplitById(splitId);
-  if (split == null) return null;
-
-  final payer = await db.usersDao.getUserById(split.paidBy);
-  final rawShares = await db.splitSharesDao.getSharesForSplit(split.id);
-
-  final shares = <ShareDetail>[];
-  for (final share in rawShares) {
-    final shareUser = await db.usersDao.getUserById(share.userId);
-    shares.add(ShareDetail(
-      id: share.id,
-      userId: share.userId,
-      userName: shareUser?.name ?? 'Unknown',
-      amount: share.amount,
-      isSettled: share.isSettled,
-    ));
+final splitDetailProvider =
+    FutureProvider.family<SplitFull?, String>((ref, splitId) async {
+  final client = ref.read(apiClientProvider);
+  try {
+    final resp = await client.get('/splits/$splitId');
+    return _parseSplit(resp.data as Map<String, dynamic>);
+  } on DioException catch (e) {
+    if (e.response?.statusCode == 404 || e.response?.statusCode == 403) {
+      return null;
+    }
+    rethrow;
   }
+});
+
+SplitFull _parseSplit(Map<String, dynamic> m) {
+  final shares = (m['shares'] as List<dynamic>).map((s) {
+    final sm = s as Map<String, dynamic>;
+    return ShareDetail(
+      id: sm['id'] as String,
+      userId: sm['user_id'] as String,
+      userName: sm['user_name'] as String,
+      amount: (sm['amount'] as num).toDouble(),
+      isSettled: sm['is_settled'] as bool,
+    );
+  }).toList();
 
   return SplitFull(
-    id: split.id,
-    groupId: split.groupId,
-    title: split.title,
-    description: split.description,
-    category: split.category,
-    totalAmount: split.totalAmount,
-    splitType: split.splitType,
-    paidById: split.paidBy,
-    paidByName: payer?.name ?? 'Unknown',
-    createdAt: split.createdAt,
+    id: m['id'] as String,
+    groupId: m['group_id'] as String,
+    title: m['title'] as String,
+    description: m['description'] as String?,
+    category: m['category'] as String,
+    totalAmount: (m['total_amount'] as num).toDouble(),
+    splitType: m['split_type'] as String,
+    paidById: m['paid_by_id'] as String,
+    paidByName: m['paid_by_name'] as String,
+    createdAt: DateTime.parse(m['created_at'] as String),
     shares: shares,
   );
 }
 
 // ---------------------------------------------------------------------------
-// Group balance — raw debts + simplified via minimum cash flow algorithm
+// Group balance — raw debts + simplified (computed by backend)
 // ---------------------------------------------------------------------------
 
-@riverpod
-Future<GroupBalance> groupBalance(Ref ref, int groupId) async {
-  final db = ref.read(appDatabaseProvider);
-  final groupSplits = await db.splitsDao.getSplitsForGroup(groupId);
+final groupBalanceProvider =
+    FutureProvider.family<GroupBalance, String>((ref, groupId) async {
+  final client = ref.read(apiClientProvider);
+  final resp = await client.get('/groups/$groupId/balance');
+  final data = resp.data as Map<String, dynamic>;
 
-  final rawDebts = <RawDebt>[];
-
-  for (final split in groupSplits) {
-    final payer = await db.usersDao.getUserById(split.paidBy);
-    if (payer == null) continue;
-
-    final shares = await db.splitSharesDao.getSharesForSplit(split.id);
-    for (final share in shares) {
-      if (share.isSettled || share.userId == split.paidBy) continue;
-      final debtor = await db.usersDao.getUserById(share.userId);
-      if (debtor == null) continue;
-      rawDebts.add(RawDebt(
-        debtorId: debtor.id,
-        debtorName: debtor.name,
-        creditorId: payer.id,
-        creditorName: payer.name,
-        amount: share.amount,
-        splitTitle: split.title,
-        splitId: split.id,
-      ));
-    }
+  RawDebt parseRaw(dynamic r) {
+    final m = r as Map<String, dynamic>;
+    return RawDebt(
+      debtorId: m['debtor_id'] as String,
+      debtorName: m['debtor_name'] as String,
+      creditorId: m['creditor_id'] as String,
+      creditorName: m['creditor_name'] as String,
+      amount: (m['amount'] as num).toDouble(),
+      splitTitle: m['split_title'] as String,
+      splitId: m['split_id'] as String,
+    );
   }
 
-  final simplified = DebtSimplifier.simplify(rawDebts);
+  final rawDebts = (data['raw_debts'] as List<dynamic>).map(parseRaw).toList();
+
+  final simplified = (data['simplified'] as List<dynamic>).map((s) {
+    final m = s as Map<String, dynamic>;
+    final chain = (m['chain'] as List<dynamic>).map(parseRaw).toList();
+    return SimplifiedDebt(
+      debtorId: m['debtor_id'] as String,
+      debtorName: m['debtor_name'] as String,
+      creditorId: m['creditor_id'] as String,
+      creditorName: m['creditor_name'] as String,
+      amount: (m['amount'] as num).toDouble(),
+      chain: chain,
+    );
+  }).toList();
+
   return GroupBalance(rawDebts: rawDebts, simplified: simplified);
-}
+});
 
 // ---------------------------------------------------------------------------
-// Mutations — manual Notifier (touches Drift companion types directly)
+// Mutations
 // ---------------------------------------------------------------------------
 
 final splitsEditorProvider = NotifierProvider<SplitsEditor, void>(
@@ -201,83 +188,56 @@ class SplitsEditor extends Notifier<void> {
   @override
   void build() {}
 
-  Future<int> createGroup({
-    required int createdBy,
+  ApiClient get _client => ref.read(apiClientProvider);
+
+  Future<String> createGroup({
     required String name,
     required String emoji,
   }) async {
-    final db = ref.read(appDatabaseProvider);
-    final inviteCode = const Uuid().v4();
-    final groupId = await db.splitGroupsDao.insertGroup(
-      SplitGroupsCompanion(
-        name: Value(name),
-        emoji: Value(emoji),
-        createdBy: Value(createdBy),
-        inviteCode: Value(inviteCode),
-      ),
-    );
-    await db.groupMembersDao.insertMember(
-      GroupMembersCompanion(
-        groupId: Value(groupId),
-        userId: Value(createdBy),
-        isAdmin: const Value(true),
-      ),
-    );
+    final resp = await _client.post('/groups', data: {'name': name, 'emoji': emoji});
+    final group = resp.data as Map<String, dynamic>;
     ref.invalidate(splitGroupsProvider);
-    return groupId;
+    return group['id'] as String;
   }
 
-  Future<int> createSplit({
-    required int groupId,
+  Future<String> createSplit({
+    required String groupId,
     required String title,
     String? description,
     required String category,
     required double totalAmount,
-    required int paidBy,
+    required String paidBy,
     required String splitType,
-    required List<({int userId, double amount})> shares,
+    required List<({String userId, double amount})> shares,
   }) async {
-    final db = ref.read(appDatabaseProvider);
-    final splitId = await db.splitsDao.insertSplit(
-      SplitsCompanion(
-        groupId: Value(groupId),
-        title: Value(title),
-        description: Value(description),
-        category: Value(category),
-        totalAmount: Value(totalAmount),
-        paidBy: Value(paidBy),
-        splitType: Value(splitType),
-      ),
-    );
-    await db.splitSharesDao.insertShares(
-      shares
-          .map(
-            (s) => SplitSharesCompanion(
-              splitId: Value(splitId),
-              userId: Value(s.userId),
-              amount: Value(s.amount),
-            ),
-          )
-          .toList(),
-    );
+    final resp = await _client.post('/groups/$groupId/splits', data: {
+      'title': title,
+      if (description != null) 'description': description,
+      'category': category,
+      'total_amount': totalAmount,
+      'paid_by': paidBy,
+      'split_type': splitType,
+      'shares': shares.map((s) => {'user_id': s.userId, 'amount': s.amount}).toList(),
+    });
+    final split = resp.data as Map<String, dynamic>;
     ref.invalidate(splitsForGroupProvider(groupId));
     ref.invalidate(splitGroupsProvider);
-    return splitId;
+    return split['id'] as String;
   }
 
-  Future<void> settleShare(int shareId, int groupId, int splitId) async {
-    final db = ref.read(appDatabaseProvider);
-    await db.splitSharesDao.settleShare(shareId);
+  Future<void> settleShare(String shareId, String groupId, String splitId) async {
+    await _client.patch('/shares/$shareId/settle');
     ref.invalidate(splitDetailProvider(splitId));
     ref.invalidate(splitsForGroupProvider(groupId));
     ref.invalidate(splitGroupsProvider);
+    ref.invalidate(groupBalanceProvider(groupId));
   }
 
-  Future<void> settleAllShares(int splitId, int groupId) async {
-    final db = ref.read(appDatabaseProvider);
-    await db.splitSharesDao.settleAllSharesForSplit(splitId);
+  Future<void> settleAllShares(String splitId, String groupId) async {
+    await _client.post('/splits/$splitId/settle-all');
     ref.invalidate(splitDetailProvider(splitId));
     ref.invalidate(splitsForGroupProvider(groupId));
     ref.invalidate(splitGroupsProvider);
+    ref.invalidate(groupBalanceProvider(groupId));
   }
 }
