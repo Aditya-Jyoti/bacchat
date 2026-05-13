@@ -29,6 +29,7 @@ app.get('/health', (_req: Request, res: Response) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/v1/auth', authRoutes);
 app.use('/v1/groups', groupRoutes);
 app.use('/v1', inviteRoutes);
 app.use('/v1', splitRoutes);
