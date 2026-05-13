@@ -238,6 +238,13 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
           'Add Split',
           style: GoogleFonts.montserrat(fontWeight: FontWeight.w700),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.document_scanner_outlined),
+            tooltip: 'Scan Bill (OCR)',
+            onPressed: () => context.push('/group/${widget.groupId}/scan'),
+          ),
+        ],
       ),
       body: groupData.when(
         loading: () => const Center(child: CircularProgressIndicator()),

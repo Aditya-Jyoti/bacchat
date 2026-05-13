@@ -321,14 +321,22 @@ class _StatRow extends StatelessWidget {
         Expanded(
           child: _StatChip(
             amount: FormatUtils.formatMoney(overview.totalBudget),
-            label: 'monthly budget',
+            label: 'spend budget',
+          ),
+        ),
+        Container(width: 1, height: 36, color: scheme.outlineVariant),
+        Expanded(
+          child: _StatChip(
+            amount: FormatUtils.formatMoney(overview.monthlySavingsGoal),
+            label: 'savings goal',
+            valueColor: scheme.primary,
           ),
         ),
         Container(width: 1, height: 36, color: scheme.outlineVariant),
         Expanded(
           child: _StatChip(
             amount: FormatUtils.formatMoney(overview.dailyBudget),
-            label: 'daily budget',
+            label: 'daily left',
             valueColor: overview.dailyBudget < 0 ? scheme.error : null,
           ),
         ),

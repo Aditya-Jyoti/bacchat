@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/api/api_constants.dart';
 import '../../../core/utils/format_money.dart';
 import '../../../core/widgets/app_background.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -83,7 +84,8 @@ class _GroupDetailBody extends ConsumerWidget {
   final AsyncValue<List<SplitCard>> splits;
 
   void _shareInvite(BuildContext context) {
-    final link = 'https://bacchat.omrin.in/invite/${group.inviteCode}';
+    final host = kBaseUrl.replaceFirst(RegExp(r'/v1/?$'), '');
+    final link = '$host/invite/${group.inviteCode}';
     SharePlus.instance.share(ShareParams(text: 'Join "${group.name}" on Bacchat: $link'));
   }
 
@@ -113,26 +115,25 @@ class _GroupDetailBody extends ConsumerWidget {
     return CustomScrollView(
       slivers: [
         SliverAppBar(
-          expandedHeight: 130,
           pinned: true,
-          flexibleSpace: FlexibleSpaceBar(
-            title: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  group.emoji,
-                  style: const TextStyle(fontSize: 18),
-                ),
-                const SizedBox(width: 8),
-                Text(
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(group.emoji, style: const TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
                   group.name,
-                  style: GoogleFonts.montserrat(fontWeight: FontWeight.w700),
+                  style: GoogleFonts.montserrat(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
-            ),
-            centerTitle: false,
-            titlePadding: const EdgeInsets.fromLTRB(56, 0, 16, 16),
+              ),
+            ],
           ),
+          titleSpacing: 0,
           actions: [
             IconButton(
               icon: const Icon(Icons.info_outline),

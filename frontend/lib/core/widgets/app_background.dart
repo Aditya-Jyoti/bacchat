@@ -8,10 +8,13 @@ class AppBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Stack(
+      clipBehavior: Clip.hardEdge,
       children: [
         Positioned.fill(
-          child: CustomPaint(
-            painter: _BlobPainter(scheme: scheme),
+          child: RepaintBoundary(
+            child: CustomPaint(
+              painter: _BlobPainter(scheme: scheme),
+            ),
           ),
         ),
         child,
@@ -28,40 +31,39 @@ class _BlobPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
 
-    // top-right blob
-    paint.color = scheme.primary.withValues(alpha: 0.06);
+    // bottom-right blob — stays well off the edges
+    paint.color = scheme.primary.withValues(alpha: 0.07);
     canvas.drawCircle(
-      Offset(size.width * 1.1, -size.height * 0.05),
-      size.width * 0.55,
+      Offset(size.width * 1.05, size.height * 0.85),
+      size.width * 0.52,
       paint,
     );
 
     // bottom-left blob
     paint.color = scheme.secondary.withValues(alpha: 0.06);
     canvas.drawCircle(
-      Offset(-size.width * 0.15, size.height * 1.05),
-      size.width * 0.5,
+      Offset(-size.width * 0.12, size.height * 0.92),
+      size.width * 0.45,
       paint,
     );
 
-    // center small accent
-    paint.color = scheme.tertiary.withValues(alpha: 0.04);
+    // top-right — very far off screen so only a faint edge is visible
+    paint.color = scheme.tertiary.withValues(alpha: 0.05);
     canvas.drawCircle(
-      Offset(size.width * 0.8, size.height * 0.45),
-      size.width * 0.3,
+      Offset(size.width * 1.15, -size.height * 0.25),
+      size.width * 0.45,
       paint,
     );
 
-    // subtle dot grid
-    _drawDotGrid(canvas, size, scheme.onSurface.withValues(alpha: 0.025));
+    _drawDotGrid(canvas, size, scheme.onSurface.withValues(alpha: 0.018));
   }
 
   void _drawDotGrid(Canvas canvas, Size size, Color color) {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
-    const spacing = 28.0;
-    const radius = 1.5;
+    const spacing = 32.0;
+    const radius = 1.4;
     for (double x = spacing; x < size.width; x += spacing) {
       for (double y = spacing; y < size.height; y += spacing) {
         canvas.drawCircle(Offset(x, y), radius, paint);
@@ -71,54 +73,4 @@ class _BlobPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BlobPainter old) => old.scheme != scheme;
-}
-
-// Decorative arc used on screen headers
-class HeaderArc extends StatelessWidget {
-  const HeaderArc({super.key, required this.child, this.height = 180});
-  final Widget child;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      height: height,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _ArcPainter(color: scheme.primaryContainer.withValues(alpha: 0.35)),
-            ),
-          ),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _ArcPainter extends CustomPainter {
-  final Color color;
-  const _ArcPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width, size.height * 0.7)
-      ..quadraticBezierTo(
-        size.width / 2, size.height * 1.1,
-        0, size.height * 0.7,
-      )
-      ..close();
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(_ArcPainter old) => old.color != color;
 }
