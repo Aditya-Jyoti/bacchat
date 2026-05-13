@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class SplashBackground extends StatefulWidget {
@@ -27,13 +28,19 @@ class _SplashBackgroundState extends State<SplashBackground> {
   static const double edgeSpacing = 25;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-
-    if (iconsData.isEmpty) {
+  void initState() {
+    super.initState();
+    // Wait until after the first frame so the layout system has reported a real
+    // screen size. Reading MediaQuery in didChangeDependencies can return
+    // Size.zero on Android before layout completes, placing every icon at a
+    // negative coordinate that the Stack clips away.
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || iconsData.isNotEmpty) return;
       final size = MediaQuery.of(context).size;
-      _generateIcons(size);
-    }
+      if (size.width > 0 && size.height > 0) {
+        setState(() => _generateIcons(size));
+      }
+    });
   }
 
   void _generateIcons(Size screenSize) {
@@ -90,7 +97,7 @@ class _SplashBackgroundState extends State<SplashBackground> {
           child: Transform.rotate(
             angle: icon.rotation,
             child: Opacity(
-              opacity: 0.06,
+              opacity: 0.09,
               child: SvgPicture.asset(
                 icon.asset,
                 width: icon.size,
