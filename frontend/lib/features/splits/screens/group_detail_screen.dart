@@ -58,7 +58,7 @@ class _GroupDetailBody extends ConsumerWidget {
   final AsyncValue<List<SplitCard>> splits;
 
   void _shareInvite(BuildContext context) {
-    final link = 'https://bacchat.app/invite/${group.inviteCode}';
+    final link = 'https://bacchat.omrin.in/invite/${group.inviteCode}';
     SharePlus.instance.share(ShareParams(text: 'Join "${group.name}" on Bacchat: $link'));
   }
 

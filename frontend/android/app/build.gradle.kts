@@ -7,7 +7,6 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// Load signing config from key.properties if it exists (won't exist in CI without secrets)
 val keyPropertiesFile = rootProject.file("key.properties")
 val keyProperties = Properties()
 if (keyPropertiesFile.exists()) {
@@ -54,6 +53,10 @@ android {
             } else {
                 signingConfigs.getByName("debug")
             }
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }
