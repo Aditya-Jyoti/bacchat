@@ -4,9 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/database/database_provider.dart';
 import '../../../core/utils/format_money.dart';
-import '../../auth/providers/auth_provider.dart';
 import '../providers/budget_provider.dart';
 
 class BudgetSetupScreen extends ConsumerStatefulWidget {
@@ -22,8 +20,8 @@ class _BudgetSetupScreenState extends ConsumerState<BudgetSetupScreen> {
   final _savingsCtrl = TextEditingController();
   bool _isLoading = false;
 
-  // Locally managed categories before saving
   List<_CategoryDraft> _categories = [];
+  Set<String> _originalCategoryIds = {};
 
   @override
   void initState() {
@@ -32,33 +30,26 @@ class _BudgetSetupScreenState extends ConsumerState<BudgetSetupScreen> {
   }
 
   Future<void> _loadExisting() async {
-    final user = ref.read(authProvider).when(
-      data: (u) => u, loading: () => null, error: (_, _) => null,
-    );
-    if (user == null) return;
-    final db = ref.read(appDatabaseProvider);
-    final settings = await db.budgetSettingsDao.getSettingsForUser(user.id);
-    final cats = await db.budgetCategoriesDao.getCategoriesForUser(user.id);
-
-    if (mounted) {
-      setState(() {
-        if (settings != null) {
-          _incomeCtrl.text =
-              settings.monthlyIncome > 0 ? settings.monthlyIncome.toStringAsFixed(0) : '';
-          _savingsCtrl.text =
-              settings.monthlySavingsGoal > 0 ? settings.monthlySavingsGoal.toStringAsFixed(0) : '';
-        }
-        _categories = cats
-            .map((c) => _CategoryDraft(
-                  id: c.id,
-                  name: c.name,
-                  icon: c.icon,
-                  limit: c.monthlyLimit,
-                  isFixed: c.isFixed,
-                ))
-            .toList();
-      });
-    }
+    final overview = await ref.read(budgetOverviewProvider.future);
+    if (!mounted || overview == null) return;
+    setState(() {
+      _incomeCtrl.text = overview.monthlyIncome > 0
+          ? overview.monthlyIncome.toStringAsFixed(0)
+          : '';
+      _savingsCtrl.text = overview.monthlySavingsGoal > 0
+          ? overview.monthlySavingsGoal.toStringAsFixed(0)
+          : '';
+      _categories = overview.categories
+          .map((c) => _CategoryDraft(
+                id: c.id,
+                name: c.name,
+                icon: c.icon,
+                limit: c.monthlyLimit,
+                isFixed: c.isFixed,
+              ))
+          .toList();
+      _originalCategoryIds = overview.categories.map((c) => c.id).toSet();
+    });
   }
 
   @override
@@ -84,48 +75,33 @@ class _BudgetSetupScreenState extends ConsumerState<BudgetSetupScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    final user = ref.read(authProvider).when(
-      data: (u) => u, loading: () => null, error: (_, _) => null,
-    );
-    if (user == null) return;
 
     setState(() => _isLoading = true);
     try {
       final editor = ref.read(budgetEditorProvider.notifier);
 
-      // Save income / savings goal
       await editor.saveSettings(
-        userId: user.id,
         monthlyIncome: _income,
         monthlySavingsGoal: _savings,
       );
 
-      // Sync categories — delete removed ones, add/update the rest
-      final db = ref.read(appDatabaseProvider);
-      final existingCats =
-          await db.budgetCategoriesDao.getCategoriesForUser(user.id);
-      final existingIds = existingCats.map((c) => c.id).toSet();
-      final draftIds = _categories.map((c) => c.id).whereType<int>().toSet();
+      final draftIds = _categories.map((c) => c.id).whereType<String>().toSet();
 
-      // Delete removed categories
-      for (final id in existingIds.difference(draftIds)) {
+      for (final id in _originalCategoryIds.difference(draftIds)) {
         await editor.deleteCategory(id);
       }
 
-      // Add new / update existing
       for (final draft in _categories) {
         if (draft.id == null) {
           await editor.addCategory(
-            userId: user.id,
             name: draft.name,
             icon: draft.icon,
             monthlyLimit: draft.limit,
             isFixed: draft.isFixed,
           );
-        } else if (existingIds.contains(draft.id)) {
+        } else if (_originalCategoryIds.contains(draft.id)) {
           await editor.updateCategory(
             id: draft.id!,
-            userId: user.id,
             name: draft.name,
             icon: draft.icon,
             monthlyLimit: draft.limit,
@@ -390,7 +366,7 @@ class _BudgetSetupScreenState extends ConsumerState<BudgetSetupScreen> {
 // ---------------------------------------------------------------------------
 
 class _CategoryDraft {
-  final int? id; // null = new unsaved category
+  final String? id; // null = new unsaved category
   String name;
   String icon;
   double limit;

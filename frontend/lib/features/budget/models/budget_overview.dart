@@ -41,7 +41,7 @@ class BudgetOverview {
 }
 
 class CategoryBudget {
-  final int id;
+  final String id;
   final String name;
   final String icon;
   final double monthlyLimit;

@@ -1,69 +1,53 @@
-import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
-import '../../../core/database/app_database.dart';
-import '../../../core/database/database_provider.dart';
+
+import '../../../core/api/api_client.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/budget_overview.dart';
 
 part 'budget_provider.g.dart';
 
 // ---------------------------------------------------------------------------
-// Read — overview computed from Drift data
+// Read — overview from backend GET /budget (204 if not set up)
 // ---------------------------------------------------------------------------
 
-@riverpod
-Future<BudgetOverview?> budgetOverview(Ref ref) async {
+final budgetOverviewProvider = FutureProvider<BudgetOverview?>((ref) async {
   final user = await ref.watch(authProvider.future);
   if (user == null) return null;
 
-  final db = ref.read(appDatabaseProvider);
-  final settings = await db.budgetSettingsDao.getSettingsForUser(user.id);
-  if (settings == null) return null;
+  final client = ref.read(apiClientProvider);
+  final resp = await client.get('/budget');
 
-  final categories = await db.budgetCategoriesDao.getCategoriesForUser(user.id);
-  final allTransactions = await db.transactionsDao.getTransactionsForUser(user.id);
+  if (resp.statusCode == 204) return null;
 
+  final data = resp.data as Map<String, dynamic>;
+  final settings = data['settings'] as Map<String, dynamic>;
   final now = DateTime.now();
-  final startOfMonth = DateTime(now.year, now.month, 1);
 
-  final thisMonthExpenses = allTransactions
-      .where((t) => t.type == 'expense' && t.date.isAfter(startOfMonth))
-      .fold(0.0, (sum, t) => sum + t.amount);
-
-  final categoryBudgets = categories.map((cat) {
-    final catSpent = allTransactions
-        .where(
-          (t) =>
-              t.categoryId == cat.id &&
-              t.type == 'expense' &&
-              t.date.isAfter(startOfMonth),
-        )
-        .fold(0.0, (sum, t) => sum + t.amount);
+  final categories = (data['categories'] as List<dynamic>).map((c) {
+    final cm = c as Map<String, dynamic>;
     return CategoryBudget(
-      id: cat.id,
-      name: cat.name,
-      icon: cat.icon,
-      monthlyLimit: cat.monthlyLimit,
-      isFixed: cat.isFixed,
-      spent: catSpent,
+      id: cm['id'] as String,
+      name: cm['name'] as String,
+      icon: cm['icon'] as String,
+      monthlyLimit: (cm['monthly_limit'] as num).toDouble(),
+      isFixed: cm['is_fixed'] as bool,
+      spent: (cm['spent_this_month'] as num).toDouble(),
     );
   }).toList();
 
   return BudgetOverview(
-    monthlyIncome: settings.monthlyIncome,
-    monthlySavingsGoal: settings.monthlySavingsGoal,
-    categories: categoryBudgets,
-    moneySpentSoFar: thisMonthExpenses,
+    monthlyIncome: (settings['monthly_income'] as num).toDouble(),
+    monthlySavingsGoal: (settings['monthly_savings_goal'] as num).toDouble(),
+    categories: categories,
+    moneySpentSoFar: (data['total_spent_this_month'] as num).toDouble(),
     now: now,
   );
-}
+});
 
 // ---------------------------------------------------------------------------
-// Write — mutations invalidate the overview so the dashboard auto-refreshes
+// Write
 // ---------------------------------------------------------------------------
 
-// Manual provider — state is void; write ops touch Drift then invalidate.
 final budgetEditorProvider = NotifierProvider<BudgetEditor, void>(
   () => BudgetEditor(),
 );
@@ -72,67 +56,52 @@ class BudgetEditor extends Notifier<void> {
   @override
   void build() {}
 
+  ApiClient get _client => ref.read(apiClientProvider);
+
   Future<void> saveSettings({
-    required int userId,
     required double monthlyIncome,
     required double monthlySavingsGoal,
   }) async {
-    final db = ref.read(appDatabaseProvider);
-    await db.budgetSettingsDao.upsertSettings(
-      BudgetSettingsCompanion(
-        userId: Value(userId),
-        monthlyIncome: Value(monthlyIncome),
-        monthlySavingsGoal: Value(monthlySavingsGoal),
-      ),
-    );
+    await _client.put('/budget/settings', data: {
+      'monthly_income': monthlyIncome,
+      'monthly_savings_goal': monthlySavingsGoal,
+    });
     ref.invalidate(budgetOverviewProvider);
   }
 
   Future<void> addCategory({
-    required int userId,
     required String name,
     required String icon,
     required double monthlyLimit,
     required bool isFixed,
   }) async {
-    final db = ref.read(appDatabaseProvider);
-    await db.budgetCategoriesDao.insertCategory(
-      BudgetCategoriesCompanion(
-        userId: Value(userId),
-        name: Value(name),
-        icon: Value(icon),
-        monthlyLimit: Value(monthlyLimit),
-        isFixed: Value(isFixed),
-      ),
-    );
+    await _client.post('/budget/categories', data: {
+      'name': name,
+      'icon': icon,
+      'monthly_limit': monthlyLimit,
+      'is_fixed': isFixed,
+    });
     ref.invalidate(budgetOverviewProvider);
   }
 
   Future<void> updateCategory({
-    required int id,
-    required int userId,
+    required String id,
     required String name,
     required String icon,
     required double monthlyLimit,
     required bool isFixed,
   }) async {
-    final db = ref.read(appDatabaseProvider);
-    await db.budgetCategoriesDao.updateCategory(
-      BudgetCategoriesCompanion(
-        id: Value(id),
-        userId: Value(userId),
-        name: Value(name),
-        icon: Value(icon),
-        monthlyLimit: Value(monthlyLimit),
-        isFixed: Value(isFixed),
-      ),
-    );
+    await _client.put('/budget/categories/$id', data: {
+      'name': name,
+      'icon': icon,
+      'monthly_limit': monthlyLimit,
+      'is_fixed': isFixed,
+    });
     ref.invalidate(budgetOverviewProvider);
   }
 
-  Future<void> deleteCategory(int id) async {
-    final db = ref.read(appDatabaseProvider);
-    await db.budgetCategoriesDao.deleteCategory(id);
+  Future<void> deleteCategory(String id) async {
+    await _client.delete('/budget/categories/$id');
     ref.invalidate(budgetOverviewProvider);
   }
 }
