@@ -17,7 +17,7 @@ final splitGroupsProvider = FutureProvider<List<GroupCard>>((ref) async {
   if (user == null) return [];
   final client = ref.read(apiClientProvider);
   final resp = await client.get('/groups');
-  final list = resp.data as List<dynamic>;
+  final list = (resp.data as List<dynamic>?) ?? [];
   return list.map((g) {
     final m = g as Map<String, dynamic>;
     return GroupCard(
@@ -41,7 +41,7 @@ final groupDetailProvider =
   try {
     final resp = await client.get('/groups/$groupId');
     final m = resp.data as Map<String, dynamic>;
-    final members = (m['members'] as List<dynamic>).map((mem) {
+    final members = ((m['members'] as List<dynamic>?) ?? []).map((mem) {
       final mm = mem as Map<String, dynamic>;
       return MemberInfo(
         id: mm['id'] as String,
@@ -75,7 +75,7 @@ final splitsForGroupProvider =
   final list = (resp.data as List<dynamic>?) ?? [];
   return list.map((s) {
     final m = s as Map<String, dynamic>;
-    final shares = m['shares'] as List<dynamic>;
+    final shares = (m['shares'] as List<dynamic>?) ?? [];
     return SplitCard(
       id: m['id'] as String,
       title: m['title'] as String,
@@ -109,7 +109,7 @@ final splitDetailProvider =
 });
 
 SplitFull _parseSplit(Map<String, dynamic> m) {
-  final shares = (m['shares'] as List<dynamic>).map((s) {
+  final shares = ((m['shares'] as List<dynamic>?) ?? []).map((s) {
     final sm = s as Map<String, dynamic>;
     return ShareDetail(
       id: sm['id'] as String,
@@ -158,11 +158,11 @@ final groupBalanceProvider =
     );
   }
 
-  final rawDebts = (data['raw_debts'] as List<dynamic>).map(parseRaw).toList();
+  final rawDebts = ((data['raw_debts'] as List<dynamic>?) ?? []).map(parseRaw).toList();
 
-  final simplified = (data['simplified'] as List<dynamic>).map((s) {
+  final simplified = ((data['simplified'] as List<dynamic>?) ?? []).map((s) {
     final m = s as Map<String, dynamic>;
-    final chain = (m['chain'] as List<dynamic>).map(parseRaw).toList();
+    final chain = ((m['chain'] as List<dynamic>?) ?? []).map(parseRaw).toList();
     return SimplifiedDebt(
       debtorId: m['debtor_id'] as String,
       debtorName: m['debtor_name'] as String,
