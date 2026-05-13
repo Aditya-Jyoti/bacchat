@@ -12,17 +12,27 @@ datasource db {
 
 model User {
   id                String    @id @default(uuid())
-  email             String    @unique
-  password          String
+  email             String?   @unique
+  password          String?
+  name              String
+  avatarUrl         String?
+  isGuest           Boolean   @default(false)
   firstName         String?
   lastName          String?
   isEmailVerified   Boolean   @default(false)
   emailVerifiedAt   DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
-  
-  verificationTokens VerificationToken[]
+
+  verificationTokens  VerificationToken[]
   passwordResetTokens PasswordResetToken[]
+  groupsCreated       SplitGroup[]
+  groupMemberships    GroupMember[]
+  splitsPaid          Split[]
+  splitShares         SplitShare[]
+  budgetSetting       BudgetSetting?
+  budgetCategories    BudgetCategory[]
+  transactions        Transaction[]
 
   @@map("users")
 }
@@ -48,4 +58,112 @@ model PasswordResetToken {
   createdAt DateTime @default(now())
 
   @@map("password_reset_tokens")
+}
+
+model SplitGroup {
+  id         String   @id @default(uuid())
+  name       String
+  emoji      String   @default("💸")
+  createdBy  String
+  creator    User     @relation(fields: [createdBy], references: [id])
+  inviteCode String   @unique
+  createdAt  DateTime @default(now())
+
+  members GroupMember[]
+  splits  Split[]
+
+  @@map("split_groups")
+}
+
+model GroupMember {
+  id       String     @id @default(uuid())
+  groupId  String
+  group    SplitGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isAdmin  Boolean    @default(false)
+  joinedAt DateTime   @default(now())
+
+  @@map("group_members")
+}
+
+model Split {
+  id          String     @id @default(uuid())
+  groupId     String
+  group       SplitGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  category    String
+  totalAmount Decimal
+  paidBy      String
+  payer       User       @relation(fields: [paidBy], references: [id])
+  splitType   String
+  createdAt   DateTime   @default(now())
+
+  shares       SplitShare[]
+  transactions Transaction[]
+
+  @@map("splits")
+}
+
+model SplitShare {
+  id         String  @id @default(uuid())
+  splitId    String
+  split      Split   @relation(fields: [splitId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount     Decimal
+  isSettled  Boolean @default(false)
+
+  @@map("split_shares")
+}
+
+model BudgetSetting {
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  monthlyIncome      Decimal  @default(0)
+  monthlySavingsGoal Decimal  @default(0)
+  updatedAt          DateTime @updatedAt
+
+  @@map("budget_settings")
+}
+
+model BudgetCategory {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  icon         String
+  monthlyLimit Decimal
+  isFixed      Boolean  @default(true)
+
+  transactions Transaction[]
+
+  @@map("budget_categories")
+}
+
+model Transaction {
+  id         String          @id @default(uuid())
+  userId     String
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String
+  amount     Decimal
+  type       String
+  categoryId String?
+  category   BudgetCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  splitId    String?
+  split      Split?          @relation(fields: [splitId], references: [id], onDelete: SetNull)
+  date       DateTime        @default(now())
+
+  @@map("transactions")
+}
+
+model RevokedToken {
+  id        String   @id @default(uuid())
+  jti       String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("revoked_tokens")
 }
