@@ -54,13 +54,12 @@ class _GuestJoinScreenState extends ConsumerState<GuestJoinScreen> {
       final resp = await client.get('/invite/${widget.inviteCode}');
       if (!mounted) return;
       final m = resp.data as Map<String, dynamic>;
-      final members = m['members'] as List<dynamic>;
       setState(() {
         _group = _GroupPreview(
-          id: m['id'] as String,
+          id: m['group_id'] as String,
           name: m['name'] as String,
           emoji: m['emoji'] as String,
-          memberCount: members.length,
+          memberCount: m['member_count'] as int,
         );
         _loadingGroup = false;
       });

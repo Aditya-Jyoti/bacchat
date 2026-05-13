@@ -37,10 +37,23 @@ router.get('/invite/:inviteCode', async (req: Request, res: Response): Promise<v
     });
 
     if (!group) {
-      res.status(404).json({ error: 'Invite code not found' });
+      // Browser: show 404 page; API: return JSON
+      if (req.accepts('html')) {
+        res.status(404).send(_html404());
+      } else {
+        res.status(404).json({ error: 'Invite code not found' });
+      }
       return;
     }
 
+    // Browser request → HTML landing page
+    if (req.accepts('html')) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(_htmlLanding({ inviteCode, name: group.name, emoji: group.emoji, memberCount: group._count.members }));
+      return;
+    }
+
+    // API request → JSON
     res.json({
       group_id: group.id,
       name: group.name,
@@ -52,6 +65,80 @@ router.get('/invite/:inviteCode', async (req: Request, res: Response): Promise<v
     res.status(500).json({ error: 'Failed to fetch invite' });
   }
 });
+
+function _esc(s: string) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function _htmlLanding({ inviteCode, name, emoji, memberCount }: {
+  inviteCode: string; name: string; emoji: string; memberCount: number;
+}) {
+  const enc = encodeURIComponent;
+  const fallback = enc(`https://bacchat.omrin.in/invite/${inviteCode}`);
+  const intentUrl = `intent://bacchat.omrin.in/invite/${inviteCode}#Intent;scheme=https;package=com.bacchat.app;S.browser_fallback_url=${fallback};end`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Join ${_esc(name)} · Bacchat</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#111;color:#e8e8e8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{background:#1e1e1e;border-radius:24px;padding:40px 28px;max-width:380px;width:100%;text-align:center;box-shadow:0 12px 48px rgba(0,0,0,.5);border:1.5px solid #2a2a2a}
+    .emoji{font-size:72px;margin-bottom:16px;display:block}
+    .label{color:#777;font-size:13px;margin-bottom:6px}
+    h1{font-size:26px;font-weight:800;color:#fff;margin-bottom:6px}
+    .members{color:#666;font-size:13px;margin-bottom:32px}
+    .btn{display:block;width:100%;padding:15px;border-radius:14px;font-size:15px;font-weight:700;text-decoration:none;cursor:pointer;border:none;font-family:inherit;transition:opacity .15s}
+    .btn:active{opacity:.8}
+    .btn-green{background:#4caf50;color:#fff;margin-bottom:14px}
+    .divider{color:#444;font-size:12px;margin:18px 0;position:relative}
+    .divider::before,.divider::after{content:'';position:absolute;top:50%;width:40%;height:1px;background:#2e2e2e}
+    .divider::before{left:0}.divider::after{right:0}
+    input{width:100%;padding:14px 16px;background:#2a2a2a;border:1.5px solid #333;border-radius:12px;color:#e8e8e8;font-size:15px;outline:none;font-family:inherit;margin-bottom:12px}
+    input:focus{border-color:#4caf50}
+    .btn-outline{background:transparent;color:#4caf50;border:2px solid #4caf50}
+    .msg{font-size:13px;margin-top:10px;min-height:18px}
+    .err{color:#f44336}.ok{color:#4caf50;font-weight:600}
+  </style>
+</head>
+<body>
+<div class="card">
+  <span class="emoji">${emoji}</span>
+  <p class="label">You're invited to</p>
+  <h1>${_esc(name)}</h1>
+  <p class="members">${memberCount} member${memberCount === 1 ? '' : 's'} already inside</p>
+
+  <a href="${intentUrl}" class="btn btn-green">📱 Open in Bacchat</a>
+
+  <p class="divider">or join as guest</p>
+
+  <input id="nm" type="text" placeholder="Your name" autocomplete="off" />
+  <button class="btn btn-outline" onclick="join()">Join as Guest</button>
+  <p id="msg" class="msg"></p>
+</div>
+<script>
+async function join(){
+  const nm=document.getElementById('nm').value.trim();
+  const msg=document.getElementById('msg');
+  if(!nm){msg.className='msg err';msg.textContent='Please enter your name';return;}
+  msg.className='msg';msg.textContent='Joining…';
+  try{
+    const r=await fetch('/invite/${inviteCode}/join',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:nm})});
+    if(r.ok){msg.className='msg ok';msg.textContent='✓ Joined! Open Bacchat on your phone to see the group.';}
+    else{const d=await r.json();msg.className='msg err';msg.textContent=d.error||'Failed to join';}
+  }catch(e){msg.className='msg err';msg.textContent='Network error, try again.';}
+}
+</script>
+</body>
+</html>`;
+}
+
+function _html404() {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invite not found · Bacchat</title><style>body{font-family:system-ui;background:#111;color:#e8e8e8;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:32px}.card{max-width:360px}</style></head><body><div class="card"><p style="font-size:64px">🔗</p><h1 style="margin:16px 0 8px">Invite not found</h1><p style="color:#666">This link may be invalid or expired.<br>Ask the group admin for a new one.</p></div></body></html>`;
+}
 
 /**
  * @openapi

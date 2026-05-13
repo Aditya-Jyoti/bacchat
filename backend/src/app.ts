@@ -28,6 +28,16 @@ app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Android App Links verification — populate APP_FINGERPRINT in .env to enable auto-open
+app.get('/.well-known/assetlinks.json', (_req: Request, res: Response) => {
+  const fingerprint = process.env.APP_FINGERPRINT;
+  const links = fingerprint
+    ? [{ relation: ['delegate_permission/common.handle_all_urls'], target: { namespace: 'android_app', package_name: 'com.bacchat.app', sha256_cert_fingerprints: [fingerprint] } }]
+    : [];
+  res.setHeader('Content-Type', 'application/json');
+  res.json(links);
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/v1/auth', authRoutes);
 app.use('/v1/groups', groupRoutes);
