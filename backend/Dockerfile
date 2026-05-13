@@ -1,30 +1,34 @@
-FROM node:22-alpine
+# ── Stage 1: build ────────────────────────────────────────────────────────────
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Copy package files
-COPY package*.json ./
-COPY pnpm-lock.yaml ./
-COPY tsconfig.json ./
+COPY package.json pnpm-lock.yaml tsconfig.json ./
 COPY prisma ./prisma/
 
-# Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# Generate Prisma Client
 RUN pnpm prisma:generate
 
-# Copy application files
-COPY . .
+COPY src ./src
 
-# Build TypeScript
 RUN pnpm run build
 
-# Expose port
+# ── Stage 2: run ──────────────────────────────────────────────────────────────
+FROM node:22-alpine AS runner
+
+WORKDIR /app
+
+# Carry over all node_modules from builder so prisma CLI is available for migrations
+COPY package.json ./
+COPY prisma ./prisma/
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/src/generated ./src/generated
+COPY --from=builder /app/dist ./dist
+
 EXPOSE 3000
 
-# Run migrations and start
-CMD ["sh", "-c", "pnpm prisma migrate deploy && pnpm start"]
+# Migrations run first (idempotent), then start the compiled server
+CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && node dist/server.js"]
