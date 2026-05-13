@@ -4,7 +4,7 @@ class BillItem {
   double price;
 
   // null = split equally among all group members
-  int? assignedToUserId;
+  String? assignedToUserId;
 
   BillItem({required this.name, required this.qty, required this.price});
 

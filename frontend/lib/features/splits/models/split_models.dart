@@ -1,5 +1,5 @@
 class GroupCard {
-  final int id;
+  final String id;
   final String name;
   final String emoji;
   final int memberCount;
@@ -21,7 +21,7 @@ class GroupCard {
 }
 
 class MemberInfo {
-  final int id;
+  final String id;
   final String name;
   final bool isGuest;
 
@@ -35,7 +35,7 @@ class MemberInfo {
 }
 
 class GroupDetail {
-  final int id;
+  final String id;
   final String name;
   final String emoji;
   final String inviteCode;
@@ -51,12 +51,12 @@ class GroupDetail {
 }
 
 class SplitCard {
-  final int id;
+  final String id;
   final String title;
   final String? description;
   final String category;
   final double totalAmount;
-  final int paidById;
+  final String paidById;
   final String paidByName;
   final int shareCount;
   final DateTime createdAt;
@@ -75,8 +75,8 @@ class SplitCard {
 }
 
 class ShareDetail {
-  final int id;
-  final int userId;
+  final String id;
+  final String userId;
   final String userName;
   final double amount;
   final bool isSettled;
@@ -91,14 +91,14 @@ class ShareDetail {
 }
 
 class SplitFull {
-  final int id;
-  final int groupId;
+  final String id;
+  final String groupId;
   final String title;
   final String? description;
   final String category;
   final double totalAmount;
   final String splitType;
-  final int paidById;
+  final String paidById;
   final String paidByName;
   final DateTime createdAt;
   final List<ShareDetail> shares;

@@ -1,11 +1,11 @@
 class RawDebt {
-  final int debtorId;
+  final String debtorId;
   final String debtorName;
-  final int creditorId;
+  final String creditorId;
   final String creditorName;
   final double amount;
   final String splitTitle;
-  final int splitId;
+  final String splitId;
 
   const RawDebt({
     required this.debtorId,
@@ -19,13 +19,11 @@ class RawDebt {
 }
 
 class SimplifiedDebt {
-  final int debtorId;
+  final String debtorId;
   final String debtorName;
-  final int creditorId;
+  final String creditorId;
   final String creditorName;
   final double amount;
-
-  // Raw debts that explain this simplified payment
   final List<RawDebt> chain;
 
   const SimplifiedDebt({
