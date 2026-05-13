@@ -21,20 +21,50 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   }
 
   void _navigate(AsyncValue<dynamic> auth) {
-    auth.whenData((user) {
-      if (mounted) {
-        context.go(user != null ? '/home/dashboard' : '/login');
-      }
-    });
+    auth.when(
+      data: (user) {
+        if (mounted) {
+          context.go(user != null ? '/home/dashboard' : '/login');
+        }
+      },
+      loading: () {},
+      error: (e, _) {
+        if (mounted) {
+          // DB or prefs failed — treat as logged out so user can retry.
+          debugPrint('[AuthGate] auth error: $e');
+          context.go('/login');
+        }
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Also handle auth changes that happen while this widget is alive.
     ref.listen(authProvider, (_, next) => _navigate(next));
 
-    return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
+    return Scaffold(
+      body: Center(
+        child: ref.watch(authProvider).maybeWhen(
+          error: (e, _) => Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                const SizedBox(height: 16),
+                Text('Failed to initialise: $e',
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => context.go('/login'),
+                  child: const Text('Continue anyway'),
+                ),
+              ],
+            ),
+          ),
+          orElse: () => const CircularProgressIndicator(),
+        ),
+      ),
     );
   }
 }

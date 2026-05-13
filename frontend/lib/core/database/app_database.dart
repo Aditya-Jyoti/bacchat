@@ -57,7 +57,7 @@ class AppDatabase extends _$AppDatabase {
     return LazyDatabase(() async {
       final dbFolder = await getApplicationDocumentsDirectory();
       final file = File(p.join(dbFolder.path, 'bacchat.sqlite'));
-      return NativeDatabase.createInBackground(file);
+      return NativeDatabase(file);
     });
   }
 }
