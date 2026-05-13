@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/utils/format_money.dart';
+import '../../../core/widgets/app_background.dart';
 import '../models/split_models.dart';
 import '../providers/splits_provider.dart';
 
@@ -13,42 +14,28 @@ class GroupsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final groups = ref.watch(splitGroupsProvider);
-    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
-              child: Row(
-                children: [
-                  Text(
-                    'Your Groups',
-                    style: GoogleFonts.montserrat(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: scheme.onSurface,
-                    ),
-                  ),
-                ],
+      body: AppBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              _NetSummaryHeader(groups: groups),
+              Expanded(
+                child: groups.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('Error: $e')),
+                  data: (list) => list.isEmpty
+                      ? _EmptyGroupsState()
+                      : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+                          itemCount: list.length,
+                          itemBuilder: (_, i) => _GroupCard(card: list[i]),
+                        ),
+                ),
               ),
-            ),
-            Expanded(
-              child: groups.when(
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('Error: $e')),
-                data: (list) => list.isEmpty
-                    ? _EmptyGroupsState()
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-                        itemCount: list.length,
-                        itemBuilder: (_, i) => _GroupCard(card: list[i]),
-                      ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -67,6 +54,198 @@ class GroupsScreen extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       builder: (_) => _CreateGroupSheet(ref: ref),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Net balance summary header
+// ---------------------------------------------------------------------------
+
+class _NetSummaryHeader extends StatelessWidget {
+  const _NetSummaryHeader({required this.groups});
+  final AsyncValue<List<GroupCard>> groups;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return groups.when(
+      loading: () => _HeaderShell(
+        scheme: scheme,
+        child: const SizedBox(height: 80, child: Center(child: CircularProgressIndicator())),
+      ),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (list) {
+        double totalReceive = 0;
+        double totalOwe = 0;
+        for (final g in list) {
+          if (g.youAreOwed) totalReceive += g.netBalance;
+          if (g.youOwe) totalOwe += g.netBalance.abs();
+        }
+        final isAllSettled = totalReceive < 0.01 && totalOwe < 0.01;
+
+        return _HeaderShell(
+          scheme: scheme,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Your Groups',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (list.isNotEmpty)
+                      Text(
+                        '${list.length} group${list.length == 1 ? '' : 's'}',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
+                ),
+                if (list.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  if (isAllSettled)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.green.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.check_circle_outline,
+                              color: Colors.green.shade600, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            'All settled up!',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Row(
+                      children: [
+                        if (totalReceive > 0.01)
+                          Expanded(
+                            child: _BalancePill(
+                              label: 'You get',
+                              amount: totalReceive,
+                              positive: true,
+                              scheme: scheme,
+                            ),
+                          ),
+                        if (totalReceive > 0.01 && totalOwe > 0.01)
+                          const SizedBox(width: 10),
+                        if (totalOwe > 0.01)
+                          Expanded(
+                            child: _BalancePill(
+                              label: 'You owe',
+                              amount: totalOwe,
+                              positive: false,
+                              scheme: scheme,
+                            ),
+                          ),
+                      ],
+                    ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _HeaderShell extends StatelessWidget {
+  const _HeaderShell({required this.scheme, required this.child});
+  final ColorScheme scheme;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        border: Border(
+          bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _BalancePill extends StatelessWidget {
+  const _BalancePill({
+    required this.label,
+    required this.amount,
+    required this.positive,
+    required this.scheme,
+  });
+  final String label;
+  final double amount;
+  final bool positive;
+  final ColorScheme scheme;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = positive ? Colors.green.shade600 : scheme.error;
+    final bg = positive
+        ? Colors.green.withValues(alpha: 0.1)
+        : scheme.error.withValues(alpha: 0.1);
+    final border = positive
+        ? Colors.green.withValues(alpha: 0.25)
+        : scheme.error.withValues(alpha: 0.25);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.montserrat(
+              fontSize: 11,
+              color: color,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            FormatUtils.formatMoney(amount),
+            style: GoogleFonts.montserrat(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -123,73 +302,107 @@ class _GroupCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    Color balanceColor;
+    Color accentColor;
     String balanceLabel;
+    Color cardBg;
+    Color cardBorder;
+
     if (card.isSettled) {
-      balanceColor = scheme.onSurfaceVariant;
+      accentColor = scheme.onSurfaceVariant;
       balanceLabel = 'Settled up';
+      cardBg = scheme.surfaceContainerLow;
+      cardBorder = scheme.outlineVariant.withValues(alpha: 0.4);
     } else if (card.youAreOwed) {
-      balanceColor = Colors.green.shade600;
+      accentColor = Colors.green.shade600;
       balanceLabel = 'You get ${FormatUtils.formatMoney(card.netBalance)}';
+      cardBg = Colors.green.withValues(alpha: 0.06);
+      cardBorder = Colors.green.withValues(alpha: 0.25);
     } else {
-      balanceColor = scheme.error;
-      balanceLabel = 'You owe ${FormatUtils.formatMoney(card.netBalance.abs())}';
+      accentColor = scheme.error;
+      balanceLabel = 'You pay ${FormatUtils.formatMoney(card.netBalance.abs())}';
+      cardBg = scheme.error.withValues(alpha: 0.05);
+      cardBorder = scheme.error.withValues(alpha: 0.2);
     }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => context.push('/group/${card.id}'),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: scheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(12),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cardBorder, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: scheme.shadow.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => context.push('/group/${card.id}'),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Emoji container
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: scheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Center(
+                    child: Text(card.emoji, style: const TextStyle(fontSize: 26)),
+                  ),
                 ),
-                child: Center(
-                  child: Text(card.emoji,
-                      style: const TextStyle(fontSize: 24)),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      card.name,
-                      style: GoogleFonts.montserrat(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                        color: scheme.onSurface,
+                const SizedBox(width: 14),
+                // Group info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        card.name,
+                        style: GoogleFonts.montserrat(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          color: scheme.onSurface,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${card.memberCount} member${card.memberCount == 1 ? '' : 's'}',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 12,
-                        color: scheme.onSurfaceVariant,
+                      const SizedBox(height: 3),
+                      Text(
+                        '${card.memberCount} member${card.memberCount == 1 ? '' : 's'}',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          color: scheme.onSurfaceVariant,
+                        ),
                       ),
+                    ],
+                  ),
+                ),
+                // Balance pill
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    balanceLabel,
+                    style: GoogleFonts.montserrat(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: accentColor,
                     ),
-                  ],
+                  ),
                 ),
-              ),
-              Text(
-                balanceLabel,
-                style: GoogleFonts.montserrat(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: balanceColor,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -5,9 +5,32 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/utils/format_money.dart';
+import '../../../core/widgets/app_background.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/split_models.dart';
 import '../providers/splits_provider.dart';
+
+// ---------------------------------------------------------------------------
+// Category icon / color helpers — exported for split_detail_screen
+// ---------------------------------------------------------------------------
+
+String categoryIcon(String cat) {
+  return switch (cat.toLowerCase()) {
+    'food' => '🍔',
+    'transport' || 'travel' => '✈️',
+    'entertainment' => '🎬',
+    'rent' => '🏠',
+    'utilities' => '⚡',
+    'healthcare' => '🏥',
+    'shopping' => '🛍️',
+    'education' => '🎓',
+    _ => '📦',
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Main screen
+// ---------------------------------------------------------------------------
 
 class GroupDetailScreen extends ConsumerWidget {
   final String groupId;
@@ -27,10 +50,12 @@ class GroupDetailScreen extends ConsumerWidget {
           if (group == null) {
             return const Center(child: Text('Group not found'));
           }
-          return _GroupDetailBody(
-            groupId: groupId,
-            group: group,
-            splits: splits,
+          return AppBackground(
+            child: _GroupDetailBody(
+              groupId: groupId,
+              group: group,
+              splits: splits,
+            ),
           );
         },
       ),
@@ -62,6 +87,20 @@ class _GroupDetailBody extends ConsumerWidget {
     SharePlus.instance.share(ShareParams(text: 'Join "${group.name}" on Bacchat: $link'));
   }
 
+  void _showInfoModal(BuildContext context, WidgetRef ref, String? currentUserId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _GroupInfoModal(
+        group: group,
+        groupId: groupId,
+        splits: splits,
+        currentUserId: currentUserId,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
@@ -74,17 +113,32 @@ class _GroupDetailBody extends ConsumerWidget {
     return CustomScrollView(
       slivers: [
         SliverAppBar(
-          expandedHeight: 140,
+          expandedHeight: 130,
           pinned: true,
           flexibleSpace: FlexibleSpaceBar(
-            title: Text(
-              group.name,
-              style: GoogleFonts.montserrat(fontWeight: FontWeight.w700),
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  group.emoji,
+                  style: const TextStyle(fontSize: 18),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  group.name,
+                  style: GoogleFonts.montserrat(fontWeight: FontWeight.w700),
+                ),
+              ],
             ),
             centerTitle: false,
             titlePadding: const EdgeInsets.fromLTRB(56, 0, 16, 16),
           ),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.info_outline),
+              tooltip: 'Group info',
+              onPressed: () => _showInfoModal(context, ref, currentUser?.id),
+            ),
             IconButton(
               icon: const Icon(Icons.share_outlined),
               tooltip: 'Invite',
@@ -101,71 +155,31 @@ class _GroupDetailBody extends ConsumerWidget {
           ],
         ),
 
-        // Members row — compact strip
+        // Section header
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Text(
-                      'Members · ${group.members.length}',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    ...group.members.take(8).map((m) {
-                      final isMe = m.id == currentUser?.id;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: Tooltip(
-                          message: isMe ? 'You' : m.name,
-                          child: CircleAvatar(
-                            radius: 13,
-                            backgroundColor: isMe
-                                ? scheme.primary
-                                : scheme.secondaryContainer,
-                            child: Text(
-                              m.initial,
-                              style: GoogleFonts.montserrat(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: isMe
-                                    ? scheme.onPrimary
-                                    : scheme.onSecondaryContainer,
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                    if (group.members.length > 8)
-                      Text(
-                        '+${group.members.length - 8}',
-                        style: GoogleFonts.montserrat(
-                          fontSize: 11,
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                  ],
+                Text(
+                  'Splits',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
+                  ),
                 ),
-                const SizedBox(height: 10),
-                const Divider(height: 1),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: Text(
-                    'Splits',
+                const Spacer(),
+                splits.when(
+                  data: (list) => Text(
+                    '${list.length} item${list.length == 1 ? '' : 's'}',
                     style: GoogleFonts.montserrat(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: scheme.onSurface,
+                      fontSize: 12,
+                      color: scheme.onSurfaceVariant,
                     ),
                   ),
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, _) => const SizedBox.shrink(),
                 ),
               ],
             ),
@@ -185,7 +199,7 @@ class _GroupDetailBody extends ConsumerWidget {
               : SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (_, i) => Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                       child: _SplitCard(
                         split: list[i],
                         groupId: groupId,
@@ -199,6 +213,371 @@ class _GroupDetailBody extends ConsumerWidget {
 
         const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Group info modal
+// ---------------------------------------------------------------------------
+
+class _GroupInfoModal extends StatelessWidget {
+  const _GroupInfoModal({
+    required this.group,
+    required this.groupId,
+    required this.splits,
+    required this.currentUserId,
+  });
+
+  final GroupDetail group;
+  final String groupId;
+  final AsyncValue<List<SplitCard>> splits;
+  final String? currentUserId;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    // Compute stats from splits
+    double totalSpend = 0;
+    final Map<String, double> categoryTotals = {};
+    splits.whenData((list) {
+      for (final s in list) {
+        totalSpend += s.totalAmount;
+        categoryTotals[s.category] =
+            (categoryTotals[s.category] ?? 0) + s.totalAmount;
+      }
+    });
+
+    final sortedCategories = categoryTotals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.75,
+      ),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: scheme.outlineVariant,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Flexible(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+              children: [
+                // Title row
+                Row(
+                  children: [
+                    Text(
+                      group.emoji,
+                      style: const TextStyle(fontSize: 28),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        group.name,
+                        style: GoogleFonts.montserrat(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: scheme.onSurface,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Total spend
+                _InfoCard(
+                  scheme: scheme,
+                  children: [
+                    _StatTile(
+                      icon: Icons.receipt_long_outlined,
+                      label: 'Total group spend',
+                      value: FormatUtils.formatMoney(totalSpend),
+                      scheme: scheme,
+                    ),
+                    if (splits.value != null)
+                      _StatTile(
+                        icon: Icons.splitscreen_outlined,
+                        label: 'Total splits',
+                        value: '${splits.value!.length}',
+                        scheme: scheme,
+                      ),
+                  ],
+                ),
+
+                // Category breakdown
+                if (sortedCategories.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Category Breakdown',
+                    style: GoogleFonts.montserrat(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _InfoCard(
+                    scheme: scheme,
+                    children: sortedCategories.map((e) {
+                      final pct = totalSpend > 0 ? e.value / totalSpend : 0.0;
+                      return _CategoryBreakdownRow(
+                        icon: categoryIcon(e.key),
+                        label: _capitalise(e.key),
+                        amount: e.value,
+                        percent: pct,
+                        scheme: scheme,
+                      );
+                    }).toList(),
+                  ),
+                ],
+
+                // Members
+                const SizedBox(height: 16),
+                Text(
+                  'Members · ${group.members.length}',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _InfoCard(
+                  scheme: scheme,
+                  children: group.members.map((m) {
+                    final isMe = m.id == currentUserId;
+                    return _MemberRow(
+                      member: m,
+                      isMe: isMe,
+                      scheme: scheme,
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _capitalise(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+}
+
+class _InfoCard extends StatelessWidget {
+  const _InfoCard({required this.scheme, required this.children});
+  final ColorScheme scheme;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        children: children.indexed.map((entry) {
+          final (i, child) = entry;
+          return Column(
+            children: [
+              child,
+              if (i < children.length - 1)
+                Divider(
+                  height: 1,
+                  indent: 16,
+                  endIndent: 16,
+                  color: scheme.outlineVariant.withValues(alpha: 0.5),
+                ),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _StatTile extends StatelessWidget {
+  const _StatTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.scheme,
+  });
+  final IconData icon;
+  final String label;
+  final String value;
+  final ColorScheme scheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: scheme.onSurfaceVariant),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              label,
+              style: GoogleFonts.montserrat(
+                fontSize: 13,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: GoogleFonts.montserrat(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: scheme.onSurface,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryBreakdownRow extends StatelessWidget {
+  const _CategoryBreakdownRow({
+    required this.icon,
+    required this.label,
+    required this.amount,
+    required this.percent,
+    required this.scheme,
+  });
+  final String icon;
+  final String label;
+  final double amount;
+  final double percent;
+  final ColorScheme scheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      child: Row(
+        children: [
+          Text(icon, style: const TextStyle(fontSize: 16)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      label,
+                      style: GoogleFonts.montserrat(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                    Text(
+                      '${FormatUtils.formatMoney(amount)}  ${(percent * 100).toStringAsFixed(0)}%',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 11,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: percent,
+                    minHeight: 5,
+                    backgroundColor: scheme.outline.withValues(alpha: 0.15),
+                    valueColor: AlwaysStoppedAnimation(scheme.primary),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MemberRow extends StatelessWidget {
+  const _MemberRow({
+    required this.member,
+    required this.isMe,
+    required this.scheme,
+  });
+  final MemberInfo member;
+  final bool isMe;
+  final ColorScheme scheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: isMe ? scheme.primary : scheme.secondaryContainer,
+            child: Text(
+              member.initial,
+              style: GoogleFonts.montserrat(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: isMe ? scheme.onPrimary : scheme.onSecondaryContainer,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              isMe ? '${member.name} (you)' : member.name,
+              style: GoogleFonts.montserrat(
+                fontSize: 13,
+                fontWeight: isMe ? FontWeight.w700 : FontWeight.w500,
+                color: scheme.onSurface,
+              ),
+            ),
+          ),
+          if (member.isGuest)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: scheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Guest',
+                style: GoogleFonts.montserrat(
+                  fontSize: 10,
+                  color: scheme.onSecondaryContainer,
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -241,22 +620,7 @@ class _EmptySplitsState extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Category icon helper
-// ---------------------------------------------------------------------------
-
-String categoryIcon(String cat) {
-  return switch (cat) {
-    'food' => '🍔',
-    'transport' => '🚌',
-    'entertainment' => '🎬',
-    'rent' => '🏠',
-    'utilities' => '⚡',
-    _ => '📦',
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Split list card
+// Split list card — visually distinct with border + left accent
 // ---------------------------------------------------------------------------
 
 class _SplitCard extends StatelessWidget {
@@ -274,66 +638,127 @@ class _SplitCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final isMyExpense = split.paidById == currentUserId;
 
-    return Card(
-      margin: EdgeInsets.zero,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => context.push('/group/$groupId/split/${split.id}'),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Text(categoryIcon(split.category),
-                  style: const TextStyle(fontSize: 26)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      split.title,
-                      style: GoogleFonts.montserrat(
-                        fontWeight: FontWeight.w600,
-                        color: scheme.onSurface,
-                      ),
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.5),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: scheme.shadow.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Left accent
+            Container(
+              width: 4,
+              color: isMyExpense ? scheme.primary : scheme.secondary,
+            ),
+            Expanded(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => context.push('/group/$groupId/split/${split.id}'),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                    child: Row(
+                      children: [
+                        // Category emoji + date column
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              categoryIcon(split.category),
+                              style: const TextStyle(fontSize: 24),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _shortDate(split.createdAt),
+                              style: GoogleFonts.montserrat(
+                                fontSize: 9,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(width: 12),
+                        // Title + paid by
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                split.title,
+                                style: GoogleFonts.montserrat(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: scheme.onSurface,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                isMyExpense
+                                    ? 'Paid by you'
+                                    : 'Paid by ${split.paidByName}',
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 11,
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Amount + share count
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              FormatUtils.formatMoney(split.totalAmount),
+                              style: GoogleFonts.montserrat(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                                color: scheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${split.shareCount} people',
+                              style: GoogleFonts.montserrat(
+                                fontSize: 10,
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      isMyExpense
-                          ? 'Paid by you'
-                          : 'Paid by ${split.paidByName}',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 12,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    FormatUtils.formatMoney(split.totalAmount),
-                    style: GoogleFonts.montserrat(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                      color: scheme.onSurface,
-                    ),
-                  ),
-                  Text(
-                    '${split.shareCount} people',
-                    style: GoogleFonts.montserrat(
-                      fontSize: 11,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  String _shortDate(DateTime dt) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${dt.day} ${months[dt.month - 1]}';
   }
 }

@@ -9,14 +9,23 @@ import '../../auth/providers/auth_provider.dart';
 import '../models/split_models.dart';
 import '../providers/splits_provider.dart';
 
-// Category data
-const _categories = [
+// Built-in categories
+const _builtInCategories = [
   (id: 'food', label: 'Food', icon: '🍔'),
-  (id: 'transport', label: 'Transport', icon: '🚌'),
+  (id: 'travel', label: 'Travel', icon: '✈️'),
   (id: 'entertainment', label: 'Entertainment', icon: '🎬'),
+  (id: 'healthcare', label: 'Healthcare', icon: '🏥'),
+  (id: 'shopping', label: 'Shopping', icon: '🛍️'),
   (id: 'rent', label: 'Rent', icon: '🏠'),
   (id: 'utilities', label: 'Utilities', icon: '⚡'),
+  (id: 'education', label: 'Education', icon: '🎓'),
   (id: 'other', label: 'Other', icon: '📦'),
+];
+
+// Emoji picker for custom categories
+const _categoryEmojis = [
+  '📦', '🎯', '🎪', '🍿', '🎮', '🏋️', '🧴',
+  '💊', '🔧', '🚀', '🎸', '🏆', '🌿', '🐶',
 ];
 
 class AddSplitScreen extends ConsumerStatefulWidget {
@@ -38,7 +47,6 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
   bool _isEqualSplit = true;
   bool _loading = false;
 
-  // Custom split amounts per member (key = userId)
   final Map<String, TextEditingController> _customCtrls = {};
 
   @override
@@ -53,7 +61,6 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
   }
 
   double get _totalAmount => double.tryParse(_amountCtrl.text) ?? 0;
-
   double get _customTotal => _customCtrls.values
       .fold(0.0, (sum, c) => sum + (double.tryParse(c.text) ?? 0));
 
@@ -94,15 +101,16 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
     setState(() => _loading = true);
     try {
       await ref.read(splitsEditorProvider.notifier).createSplit(
-        groupId: widget.groupId,
-        title: _titleCtrl.text.trim(),
-        description: _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
-        category: _category,
-        totalAmount: _totalAmount,
-        paidBy: _paidById!,
-        splitType: _isEqualSplit ? 'equal' : 'custom',
-        shares: shares,
-      );
+            groupId: widget.groupId,
+            title: _titleCtrl.text.trim(),
+            description:
+                _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+            category: _category,
+            totalAmount: _totalAmount,
+            paidBy: _paidById!,
+            splitType: _isEqualSplit ? 'equal' : 'custom',
+            shares: shares,
+          );
       if (mounted) context.pop();
     } catch (e) {
       if (mounted) {
@@ -115,10 +123,114 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
     }
   }
 
+  Future<void> _showAddCategoryDialog() async {
+    final scheme = Theme.of(context).colorScheme;
+    final nameCtrl = TextEditingController();
+    String selectedEmoji = '📦';
+
+    final result = await showDialog<GroupCategoryItem>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => AlertDialog(
+          title: Text(
+            'New Category',
+            style: GoogleFonts.montserrat(fontWeight: FontWeight.w700),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Pick an icon',
+                style: GoogleFonts.montserrat(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: _categoryEmojis.map((e) {
+                  final sel = e == selectedEmoji;
+                  return GestureDetector(
+                    onTap: () => setModalState(() => selectedEmoji = e),
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: sel
+                            ? scheme.primaryContainer
+                            : scheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(8),
+                        border: sel
+                            ? Border.all(color: scheme.primary, width: 2)
+                            : null,
+                      ),
+                      child: Center(
+                        child: Text(e, style: const TextStyle(fontSize: 18)),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: nameCtrl,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'Category name',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final name = nameCtrl.text.trim();
+                if (name.isEmpty) return;
+                final messenger = ScaffoldMessenger.of(context);
+                try {
+                  final cat = await ref
+                      .read(splitsEditorProvider.notifier)
+                      .createGroupCategory(
+                        groupId: widget.groupId,
+                        name: name,
+                        icon: selectedEmoji,
+                      );
+                  if (ctx.mounted) Navigator.pop(ctx, cat);
+                } catch (e) {
+                  if (ctx.mounted) {
+                    Navigator.pop(ctx);
+                    messenger.showSnackBar(
+                      SnackBar(content: Text(e.toString())),
+                    );
+                  }
+                }
+              },
+              child: const Text('Create'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result != null && mounted) {
+      setState(() => _category = result.name.toLowerCase());
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final groupData = ref.watch(groupDetailProvider(widget.groupId));
+    final customCategories = ref.watch(groupCategoriesProvider(widget.groupId));
 
     return Scaffold(
       appBar: AppBar(
@@ -134,25 +246,34 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
           if (group == null) return const Center(child: Text('Group not found'));
           final members = group.members;
 
-          // Init custom controllers for all members if not already done
           for (final m in members) {
             _customCtrls.putIfAbsent(m.id, () => TextEditingController());
           }
 
-          // Set paidById to current user if not set
           if (_paidById == null) {
             final currentUser = ref.read(authProvider).when(
               data: (u) => u,
               loading: () => null,
               error: (_, _) => null,
             );
-            if (currentUser != null &&
-                members.any((m) => m.id == currentUser.id)) {
+            if (currentUser != null && members.any((m) => m.id == currentUser.id)) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted) setState(() => _paidById = currentUser.id);
               });
             }
           }
+
+          // Merge built-in + custom categories
+          final allCategories = [
+            ..._builtInCategories
+                .map((c) => (id: c.id, label: c.label, icon: c.icon)),
+            ...customCategories.when(
+              data: (list) => list
+                  .map((c) => (id: c.name.toLowerCase(), label: c.name, icon: c.icon)),
+              loading: () => <({String id, String label, String icon})>[],
+              error: (_, _) => <({String id, String label, String icon})>[],
+            ),
+          ];
 
           return Form(
             key: _formKey,
@@ -160,7 +281,6 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                // Title
                 TextFormField(
                   controller: _titleCtrl,
                   textCapitalization: TextCapitalization.sentences,
@@ -174,7 +294,6 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
                 ),
                 const SizedBox(height: 14),
 
-                // Description
                 TextFormField(
                   controller: _descCtrl,
                   textCapitalization: TextCapitalization.sentences,
@@ -186,19 +305,35 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
                 const SizedBox(height: 20),
 
                 // Category picker
-                Text(
-                  'Category',
-                  style: GoogleFonts.montserrat(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: scheme.onSurfaceVariant,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      'Category',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: _showAddCategoryDialog,
+                      icon: const Icon(Icons.add, size: 16),
+                      label: Text(
+                        'New',
+                        style: GoogleFonts.montserrat(fontSize: 12),
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: _categories.map((cat) {
+                  children: allCategories.map((cat) {
                     final selected = _category == cat.id;
                     return ChoiceChip(
                       avatar: Text(cat.icon),
@@ -213,7 +348,6 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Total amount
                 TextFormField(
                   controller: _amountCtrl,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -233,7 +367,6 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Paid by
                 Text(
                   'Paid by',
                   style: GoogleFonts.montserrat(
@@ -245,30 +378,19 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: _paidById,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                  ),
-                  hint: Text(
-                    'Select member',
-                    style: GoogleFonts.montserrat(),
-                  ),
+                  decoration: const InputDecoration(border: OutlineInputBorder()),
+                  hint: Text('Select member', style: GoogleFonts.montserrat()),
                   items: members
-                      .map(
-                        (m) => DropdownMenuItem(
-                          value: m.id,
-                          child: Text(
-                            m.name,
-                            style: GoogleFonts.montserrat(),
-                          ),
-                        ),
-                      )
+                      .map((m) => DropdownMenuItem(
+                            value: m.id,
+                            child: Text(m.name, style: GoogleFonts.montserrat()),
+                          ))
                       .toList(),
                   onChanged: (v) => setState(() => _paidById = v),
                   validator: (v) => v == null ? 'Select who paid' : null,
                 ),
                 const SizedBox(height: 20),
 
-                // Split type toggle
                 Text(
                   'Split type',
                   style: GoogleFonts.montserrat(
@@ -289,7 +411,6 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Equal split preview
                 if (_isEqualSplit && _totalAmount > 0 && members.isNotEmpty)
                   Container(
                     padding: const EdgeInsets.all(14),
@@ -305,10 +426,7 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                m.name,
-                                style: GoogleFonts.montserrat(fontSize: 13),
-                              ),
+                              Text(m.name, style: GoogleFonts.montserrat(fontSize: 13)),
                               Text(
                                 FormatUtils.formatMoney(perPerson),
                                 style: GoogleFonts.montserrat(
@@ -323,17 +441,14 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
                     ),
                   ),
 
-                // Custom split fields
                 if (!_isEqualSplit) ...[
                   ...members.map((m) => Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: TextField(
                           controller: _customCtrls[m.id],
-                          keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                                RegExp(r'^\d+\.?\d{0,2}')),
+                            FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
                           ],
                           onChanged: (_) => setState(() {}),
                           decoration: InputDecoration(
@@ -354,10 +469,8 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Running total',
-                          style: GoogleFonts.montserrat(fontSize: 13),
-                        ),
+                        Text('Running total',
+                            style: GoogleFonts.montserrat(fontSize: 13)),
                         Text(
                           '${FormatUtils.formatMoney(_customTotal)} / ${FormatUtils.formatMoney(_totalAmount)}',
                           style: GoogleFonts.montserrat(
@@ -387,8 +500,7 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
                         )
                       : Text(
                           'Save Split',
-                          style: GoogleFonts.montserrat(
-                              fontWeight: FontWeight.w700),
+                          style: GoogleFonts.montserrat(fontWeight: FontWeight.w700),
                         ),
                 ),
               ],

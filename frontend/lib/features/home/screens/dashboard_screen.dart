@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/utils/format_money.dart';
+import '../../../core/widgets/app_background.dart';
 import '../../../core/widgets/material3_loader.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../budget/models/budget_overview.dart';
@@ -18,31 +19,32 @@ class DashboardScreen extends ConsumerWidget {
     final budget = ref.watch(budgetOverviewProvider);
 
     return Scaffold(
-      body: SafeArea(
-        child: auth.when(
-          loading: () =>
-              const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Error: $e')),
-          data: (user) {
-            if (user == null) return const SizedBox.shrink();
-            return budget.when(
-              loading: () => _buildShell(
-                context,
-                user.name,
-                user.isGuest,
-                child: const Center(child: CircularProgressIndicator()),
-              ),
-              error: (e, _) => Center(child: Text('Error: $e')),
-              data: (overview) => _buildShell(
-                context,
-                user.name,
-                user.isGuest,
-                child: overview == null
-                    ? _EmptyBudgetState()
-                    : _BudgetContent(overview: overview),
-              ),
-            );
-          },
+      body: AppBackground(
+        child: SafeArea(
+          child: auth.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error: $e')),
+            data: (user) {
+              if (user == null) return const SizedBox.shrink();
+              return budget.when(
+                loading: () => _buildShell(
+                  context,
+                  user.name,
+                  user.isGuest,
+                  child: const Center(child: CircularProgressIndicator()),
+                ),
+                error: (e, _) => Center(child: Text('Error: $e')),
+                data: (overview) => _buildShell(
+                  context,
+                  user.name,
+                  user.isGuest,
+                  child: overview == null
+                      ? _EmptyBudgetState()
+                      : _BudgetContent(overview: overview),
+                ),
+              );
+            },
+          ),
         ),
       ),
       floatingActionButton: _BudgetFab(budget: budget),

@@ -177,6 +177,33 @@ final groupBalanceProvider =
 });
 
 // ---------------------------------------------------------------------------
+// Group-level custom categories
+// ---------------------------------------------------------------------------
+
+class GroupCategoryItem {
+  final String id;
+  final String name;
+  final String icon;
+
+  const GroupCategoryItem({required this.id, required this.name, required this.icon});
+}
+
+final groupCategoriesProvider =
+    FutureProvider.family<List<GroupCategoryItem>, String>((ref, groupId) async {
+  final client = ref.read(apiClientProvider);
+  final resp = await client.get('/groups/$groupId/categories');
+  final list = (resp.data as List<dynamic>?) ?? [];
+  return list.map((c) {
+    final m = c as Map<String, dynamic>;
+    return GroupCategoryItem(
+      id: m['id'] as String,
+      name: m['name'] as String,
+      icon: m['icon'] as String,
+    );
+  }).toList();
+});
+
+// ---------------------------------------------------------------------------
 // Mutations
 // ---------------------------------------------------------------------------
 
@@ -212,7 +239,7 @@ class SplitsEditor extends Notifier<void> {
   }) async {
     final resp = await _client.post('/groups/$groupId/splits', data: {
       'title': title,
-      if (description != null) 'description': description,
+      'description': ?description,
       'category': category,
       'total_amount': totalAmount,
       'paid_by': paidBy,
@@ -239,5 +266,23 @@ class SplitsEditor extends Notifier<void> {
     ref.invalidate(splitsForGroupProvider(groupId));
     ref.invalidate(splitGroupsProvider);
     ref.invalidate(groupBalanceProvider(groupId));
+  }
+
+  Future<GroupCategoryItem> createGroupCategory({
+    required String groupId,
+    required String name,
+    required String icon,
+  }) async {
+    final resp = await _client.post(
+      '/groups/$groupId/categories',
+      data: {'name': name, 'icon': icon},
+    );
+    final m = resp.data as Map<String, dynamic>;
+    ref.invalidate(groupCategoriesProvider(groupId));
+    return GroupCategoryItem(
+      id: m['id'] as String,
+      name: m['name'] as String,
+      icon: m['icon'] as String,
+    );
   }
 }

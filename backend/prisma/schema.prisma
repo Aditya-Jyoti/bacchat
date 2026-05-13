@@ -34,6 +34,7 @@ model User {
   budgetSetting       BudgetSetting?
   budgetCategories    BudgetCategory[]
   transactions        Transaction[]
+  groupCategoriesCreated GroupCategory[]
 
   @@map("users")
 }
@@ -70,10 +71,25 @@ model SplitGroup {
   inviteCode String   @unique
   createdAt  DateTime @default(now())
 
-  members GroupMember[]
-  splits  Split[]
+  members         GroupMember[]
+  splits          Split[]
+  groupCategories GroupCategory[]
 
   @@map("split_groups")
+}
+
+model GroupCategory {
+  id        String     @id @default(uuid())
+  groupId   String
+  group     SplitGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name      String
+  icon      String     @default("📦")
+  createdBy String
+  creator   User       @relation(fields: [createdBy], references: [id])
+  createdAt DateTime   @default(now())
+
+  @@unique([groupId, name])
+  @@map("group_categories")
 }
 
 model GroupMember {
