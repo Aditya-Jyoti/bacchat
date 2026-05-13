@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/utils/format_money.dart';
-import '../../auth/providers/auth_provider.dart';
 import '../models/split_models.dart';
 import '../providers/splits_provider.dart';
 
@@ -230,17 +229,9 @@ class _CreateGroupSheetState extends ConsumerState<_CreateGroupSheet> {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) return;
 
-    final user = ref.read(authProvider).when(
-      data: (u) => u,
-      loading: () => null,
-      error: (_, _) => null,
-    );
-    if (user == null) return;
-
     setState(() => _loading = true);
     try {
       final groupId = await ref.read(splitsEditorProvider.notifier).createGroup(
-        createdBy: user.id,
         name: name,
         emoji: _selectedEmoji,
       );

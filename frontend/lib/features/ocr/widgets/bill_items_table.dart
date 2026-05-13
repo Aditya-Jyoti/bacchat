@@ -195,7 +195,7 @@ class _ItemRow extends StatelessWidget {
   final ValueChanged<String> onNameChanged;
   final ValueChanged<String> onQtyChanged;
   final ValueChanged<String> onPriceChanged;
-  final ValueChanged<int?> onAssignedChanged;
+  final ValueChanged<String?> onAssignedChanged;
   final VoidCallback onDelete;
 
   @override
@@ -272,7 +272,7 @@ class _ItemRow extends StatelessWidget {
           // Assigned-to dropdown
           SizedBox(
             width: 100,
-            child: DropdownButton<int?>(
+            child: DropdownButton<String?>(
               value: item.assignedToUserId,
               isDense: true,
               isExpanded: true,
@@ -282,13 +282,13 @@ class _ItemRow extends StatelessWidget {
                   style: GoogleFonts.montserrat(
                       fontSize: 12, color: scheme.primary)),
               items: [
-                DropdownMenuItem<int?>(
+                DropdownMenuItem<String?>(
                   value: null,
                   child: Text('Split equally',
                       style: GoogleFonts.montserrat(fontSize: 12)),
                 ),
                 ...members.map(
-                  (m) => DropdownMenuItem<int?>(
+                  (m) => DropdownMenuItem<String?>(
                     value: m.id,
                     child: Text(m.name.split(' ').first,
                         style: GoogleFonts.montserrat(fontSize: 12)),

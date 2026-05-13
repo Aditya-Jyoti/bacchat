@@ -9,8 +9,8 @@ import '../providers/splits_provider.dart';
 import 'group_detail_screen.dart' show categoryIcon;
 
 class SplitDetailScreen extends ConsumerWidget {
-  final int groupId;
-  final int splitId;
+  final String groupId;
+  final String splitId;
   const SplitDetailScreen({
     super.key,
     required this.groupId,
@@ -48,7 +48,7 @@ class _SplitDetailBody extends StatelessWidget {
   });
 
   final SplitFull split;
-  final int groupId;
+  final String groupId;
   final WidgetRef ref;
 
   Future<void> _settleAll(BuildContext context) async {
@@ -196,7 +196,7 @@ class _SplitDetailBody extends StatelessWidget {
           (share) => _ShareRow(
             share: share,
             paidById: split.paidById,
-            currentUserId: currentUser?.id ?? -1,
+            currentUserId: currentUser?.id ?? '',
             groupId: groupId,
             splitId: split.id,
             ref: ref,
@@ -268,10 +268,10 @@ class _ShareRow extends StatelessWidget {
   });
 
   final ShareDetail share;
-  final int paidById;
-  final int currentUserId;
-  final int groupId;
-  final int splitId;
+  final String paidById;
+  final String currentUserId;
+  final String groupId;
+  final String splitId;
   final WidgetRef ref;
 
   @override

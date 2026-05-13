@@ -10,7 +10,7 @@ import '../models/split_models.dart';
 import '../providers/splits_provider.dart';
 
 class GroupDetailScreen extends ConsumerWidget {
-  final int groupId;
+  final String groupId;
   const GroupDetailScreen({super.key, required this.groupId});
 
   @override
@@ -53,7 +53,7 @@ class _GroupDetailBody extends ConsumerWidget {
     required this.splits,
   });
 
-  final int groupId;
+  final String groupId;
   final GroupDetail group;
   final AsyncValue<List<SplitCard>> splits;
 
@@ -164,7 +164,7 @@ class _GroupDetailBody extends ConsumerWidget {
                       child: _SplitCard(
                         split: list[i],
                         groupId: groupId,
-                        currentUserId: currentUser?.id ?? -1,
+                        currentUserId: currentUser?.id ?? '',
                       ),
                     ),
                     childCount: list.length,
@@ -294,8 +294,8 @@ class _SplitCard extends StatelessWidget {
     required this.currentUserId,
   });
   final SplitCard split;
-  final int groupId;
-  final int currentUserId;
+  final String groupId;
+  final String currentUserId;
 
   @override
   Widget build(BuildContext context) {

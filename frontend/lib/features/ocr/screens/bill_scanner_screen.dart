@@ -15,7 +15,7 @@ import '../widgets/bill_items_table.dart';
 enum _ScanState { idle, processing, review, saving }
 
 class BillScannerScreen extends ConsumerStatefulWidget {
-  final int groupId;
+  final String groupId;
   const BillScannerScreen({super.key, required this.groupId});
 
   @override
@@ -94,7 +94,7 @@ class _BillScannerScreenState extends ConsumerState<BillScannerScreen> {
       final total = _items.fold(0.0, (s, i) => s + i.total);
 
       // Compute per-member share amounts
-      final shareMap = <int, double>{};
+      final shareMap = <String, double>{};
       for (final m in members) {
         shareMap[m.id] = 0;
       }

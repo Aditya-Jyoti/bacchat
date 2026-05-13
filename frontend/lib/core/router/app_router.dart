@@ -64,32 +64,32 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/group/:groupId',
       builder: (context, state) => GroupDetailScreen(
-        groupId: int.parse(state.pathParameters['groupId']!),
+        groupId: state.pathParameters['groupId']!,
       ),
       routes: [
         GoRoute(
           path: 'new-split',
           builder: (context, state) => AddSplitScreen(
-            groupId: int.parse(state.pathParameters['groupId']!),
+            groupId: state.pathParameters['groupId']!,
           ),
         ),
         GoRoute(
           path: 'split/:splitId',
           builder: (context, state) => SplitDetailScreen(
-            groupId: int.parse(state.pathParameters['groupId']!),
-            splitId: int.parse(state.pathParameters['splitId']!),
+            groupId: state.pathParameters['groupId']!,
+            splitId: state.pathParameters['splitId']!,
           ),
         ),
         GoRoute(
           path: 'balance',
           builder: (context, state) => BalanceScreen(
-            groupId: int.parse(state.pathParameters['groupId']!),
+            groupId: state.pathParameters['groupId']!,
           ),
         ),
         GoRoute(
           path: 'scan',
           builder: (context, state) => BillScannerScreen(
-            groupId: int.parse(state.pathParameters['groupId']!),
+            groupId: state.pathParameters['groupId']!,
           ),
         ),
       ],

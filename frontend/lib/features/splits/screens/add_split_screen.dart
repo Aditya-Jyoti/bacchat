@@ -20,7 +20,7 @@ const _categories = [
 ];
 
 class AddSplitScreen extends ConsumerStatefulWidget {
-  final int groupId;
+  final String groupId;
   const AddSplitScreen({super.key, required this.groupId});
 
   @override
@@ -34,12 +34,12 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
   final _formKey = GlobalKey<FormState>();
 
   String _category = 'other';
-  int? _paidById;
+  String? _paidById;
   bool _isEqualSplit = true;
   bool _loading = false;
 
   // Custom split amounts per member (key = userId)
-  final Map<int, TextEditingController> _customCtrls = {};
+  final Map<String, TextEditingController> _customCtrls = {};
 
   @override
   void dispose() {
@@ -66,7 +66,7 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
       return;
     }
 
-    final List<({int userId, double amount})> shares;
+    final List<({String userId, double amount})> shares;
     if (_isEqualSplit) {
       final perPerson = _totalAmount / members.length;
       shares = members.map((m) => (userId: m.id, amount: perPerson)).toList();
@@ -243,8 +243,8 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                DropdownButtonFormField<int>(
-                  value: _paidById, // ignore: deprecated_member_use
+                DropdownButtonFormField<String>(
+                  value: _paidById,
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
                   ),

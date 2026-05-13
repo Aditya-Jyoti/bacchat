@@ -9,7 +9,7 @@ import '../models/debt_models.dart';
 import '../providers/splits_provider.dart';
 
 class BalanceScreen extends ConsumerWidget {
-  final int groupId;
+  final String groupId;
   const BalanceScreen({super.key, required this.groupId});
 
   @override
@@ -59,7 +59,7 @@ class _SimplifiedTab extends StatelessWidget {
   });
 
   final GroupBalance balance;
-  final int groupId;
+  final String groupId;
   final WidgetRef ref;
 
   @override
@@ -79,7 +79,7 @@ class _SimplifiedTab extends StatelessWidget {
       itemCount: balance.simplified.length,
       itemBuilder: (_, i) => _SimplifiedDebtCard(
         debt: balance.simplified[i],
-        currentUserId: currentUser?.id ?? -1,
+        currentUserId: currentUser?.id ?? '',
       ).animate().fadeIn(delay: Duration(milliseconds: i * 80), duration: 300.ms).slideY(begin: 0.1, end: 0),
     );
   }
@@ -96,7 +96,7 @@ class _SimplifiedDebtCard extends StatefulWidget {
   });
 
   final SimplifiedDebt debt;
-  final int currentUserId;
+  final String currentUserId;
 
   @override
   State<_SimplifiedDebtCard> createState() => _SimplifiedDebtCardState();
@@ -451,7 +451,7 @@ class _RawTab extends StatelessWidget {
       loading: () => null,
       error: (_, _) => null,
     );
-    final myId = currentUser?.id ?? -1;
+    final myId = currentUser?.id ?? '';
 
     // Group raw debts by split title
     final bySplit = <String, List<RawDebt>>{};
