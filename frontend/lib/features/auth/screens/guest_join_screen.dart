@@ -1,11 +1,26 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../core/database/database_provider.dart';
+import '../../../core/api/api_client.dart';
 import '../providers/auth_provider.dart';
+
+// Lightweight model for the group preview from GET /invite/:code
+class _GroupPreview {
+  final String id;
+  final String name;
+  final String emoji;
+  final int memberCount;
+
+  const _GroupPreview({
+    required this.id,
+    required this.name,
+    required this.emoji,
+    required this.memberCount,
+  });
+}
 
 class GuestJoinScreen extends ConsumerStatefulWidget {
   final String inviteCode;
@@ -17,8 +32,7 @@ class GuestJoinScreen extends ConsumerStatefulWidget {
 
 class _GuestJoinScreenState extends ConsumerState<GuestJoinScreen> {
   final _nameCtrl = TextEditingController();
-  SplitGroup? _group;
-  int _memberCount = 0;
+  _GroupPreview? _group;
   bool _loadingGroup = true;
   bool _joining = false;
 
@@ -35,21 +49,31 @@ class _GuestJoinScreenState extends ConsumerState<GuestJoinScreen> {
   }
 
   Future<void> _loadGroup() async {
-    final db = ref.read(appDatabaseProvider);
-    final group =
-        await db.splitGroupsDao.getGroupByInviteCode(widget.inviteCode);
-    if (!mounted) return;
-    if (group == null) {
-      setState(() => _loadingGroup = false);
-      return;
+    final client = ref.read(apiClientProvider);
+    try {
+      final resp = await client.get('/invite/${widget.inviteCode}');
+      if (!mounted) return;
+      final m = resp.data as Map<String, dynamic>;
+      final members = m['members'] as List<dynamic>;
+      setState(() {
+        _group = _GroupPreview(
+          id: m['id'] as String,
+          name: m['name'] as String,
+          emoji: m['emoji'] as String,
+          memberCount: members.length,
+        );
+        _loadingGroup = false;
+      });
+    } on DioException catch (e) {
+      if (!mounted) return;
+      if (e.response?.statusCode == 404) {
+        setState(() => _loadingGroup = false);
+      } else {
+        setState(() => _loadingGroup = false);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingGroup = false);
     }
-    final members = await db.groupMembersDao.getMembersOfGroup(group.id);
-    if (!mounted) return;
-    setState(() {
-      _group = group;
-      _memberCount = members.length;
-      _loadingGroup = false;
-    });
   }
 
   Future<void> _join() async {
@@ -60,14 +84,14 @@ class _GuestJoinScreenState extends ConsumerState<GuestJoinScreen> {
 
     setState(() => _joining = true);
     try {
-      await ref
+      final groupId = await ref
           .read(authProvider.notifier)
-          .joinAsGuest(name: name, groupId: group.id);
-      if (mounted) context.go('/group/${group.id}');
+          .joinAsGuest(name: name, inviteCode: widget.inviteCode);
+      if (mounted) context.go('/group/$groupId');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
         );
       }
     } finally {
@@ -78,7 +102,6 @@ class _GuestJoinScreenState extends ConsumerState<GuestJoinScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-
     return Scaffold(
       body: SafeArea(
         child: _loadingGroup
@@ -87,7 +110,6 @@ class _GuestJoinScreenState extends ConsumerState<GuestJoinScreen> {
                 ? _InvalidInvite()
                 : _JoinBody(
                     group: _group!,
-                    memberCount: _memberCount,
                     nameCtrl: _nameCtrl,
                     joining: _joining,
                     onJoin: _join,
@@ -97,10 +119,6 @@ class _GuestJoinScreenState extends ConsumerState<GuestJoinScreen> {
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Invalid / expired invite code
-// ---------------------------------------------------------------------------
 
 class _InvalidInvite extends StatelessWidget {
   @override
@@ -112,8 +130,7 @@ class _InvalidInvite extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.link_off_outlined,
-                size: 72, color: scheme.onSurfaceVariant),
+            Icon(Icons.link_off_outlined, size: 72, color: scheme.onSurfaceVariant),
             const SizedBox(height: 16),
             Text(
               'Invite not found',
@@ -139,22 +156,16 @@ class _InvalidInvite extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Main join body
-// ---------------------------------------------------------------------------
-
 class _JoinBody extends StatelessWidget {
   const _JoinBody({
     required this.group,
-    required this.memberCount,
     required this.nameCtrl,
     required this.joining,
     required this.onJoin,
     required this.scheme,
   });
 
-  final SplitGroup group;
-  final int memberCount;
+  final _GroupPreview group;
   final TextEditingController nameCtrl;
   final bool joining;
   final VoidCallback onJoin;
@@ -168,7 +179,6 @@ class _JoinBody extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Group emoji badge
             Container(
               width: 88,
               height: 88,
@@ -177,12 +187,10 @@ class _JoinBody extends StatelessWidget {
                 borderRadius: BorderRadius.circular(22),
               ),
               child: Center(
-                child:
-                    Text(group.emoji, style: const TextStyle(fontSize: 44)),
+                child: Text(group.emoji, style: const TextStyle(fontSize: 44)),
               ),
             ),
             const SizedBox(height: 20),
-
             Text(
               "You're invited to",
               style: GoogleFonts.montserrat(
@@ -202,15 +210,13 @@ class _JoinBody extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              '$memberCount member${memberCount == 1 ? '' : 's'} already inside',
+              '${group.memberCount} member${group.memberCount == 1 ? '' : 's'} already inside',
               style: GoogleFonts.montserrat(
                 fontSize: 13,
                 color: scheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 36),
-
-            // Name input
             TextField(
               controller: nameCtrl,
               textCapitalization: TextCapitalization.words,
@@ -223,7 +229,6 @@ class _JoinBody extends StatelessWidget {
               onSubmitted: (_) => onJoin(),
             ),
             const SizedBox(height: 12),
-
             Text(
               "You'll join as a guest. No account needed.",
               style: GoogleFonts.montserrat(
@@ -233,7 +238,6 @@ class _JoinBody extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-
             SizedBox(
               width: double.infinity,
               child: FilledButton(
@@ -250,7 +254,9 @@ class _JoinBody extends StatelessWidget {
                     : Text(
                         'Join as Guest',
                         style: GoogleFonts.montserrat(
-                            fontWeight: FontWeight.w700, fontSize: 15),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
                       ),
               ),
             ),
