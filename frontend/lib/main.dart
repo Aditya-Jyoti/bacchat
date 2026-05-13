@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/router/app_router.dart';
 import 'core/theme/dynamic_theme.dart';
-import 'features/splash/splash_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const BacchatApp());
+  runApp(const ProviderScope(child: BacchatApp()));
 }
 
 class BacchatApp extends StatelessWidget {
@@ -12,6 +13,6 @@ class BacchatApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DynamicApp(home: SplashPage());
+    return DynamicApp(routerConfig: appRouter);
   }
 }

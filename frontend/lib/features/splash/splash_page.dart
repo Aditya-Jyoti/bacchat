@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'widgets/splash_background.dart';
 import 'widgets/splash_center.dart';
-import '../home/home_page.dart';
 
 class SplashTopText extends StatelessWidget {
   const SplashTopText({super.key});
@@ -141,17 +141,7 @@ class _SplashPageState extends State<SplashPage>
   }
 
   void _navigateToMainPage() {
-    Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            const HomePage(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          // Fade transition
-          return FadeTransition(opacity: animation, child: child);
-        },
-        transitionDuration: const Duration(milliseconds: 500),
-      ),
-    );
+    context.go('/auth');
   }
 
   @override
