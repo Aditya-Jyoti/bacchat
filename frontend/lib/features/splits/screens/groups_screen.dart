@@ -315,13 +315,19 @@ class _GroupCard extends StatelessWidget {
     Color cardBorder;
 
     if (card.isEmpty) {
+      // Literally zero splits in the group.
       accentColor = scheme.primary;
       balanceLabel = 'No splits yet';
       cardBg = scheme.surfaceContainerLow;
       cardBorder = scheme.outlineVariant.withValues(alpha: 0.4);
     } else if (card.isSettled) {
+      // Splits exist but the user is square — either everything is paid back
+      // or the user wasn't on the recipient side of any unsettled share. Show
+      // the split count so it doesn't read as "this group is empty".
       accentColor = scheme.onSurfaceVariant;
-      balanceLabel = 'Settled up';
+      balanceLabel = card.splitsCount == 1
+          ? '1 split · You\'re square'
+          : '${card.splitsCount} splits · You\'re square';
       cardBg = scheme.surfaceContainerLow;
       cardBorder = scheme.outlineVariant.withValues(alpha: 0.4);
     } else if (card.youAreOwed) {

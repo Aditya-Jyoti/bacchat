@@ -9,6 +9,7 @@ import '../../../core/widgets/material3_loader.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../budget/models/budget_overview.dart';
 import '../../budget/providers/budget_provider.dart';
+import '../../splits/providers/splits_provider.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -221,7 +222,9 @@ class _BudgetContent extends StatelessWidget {
           _BudgetRing(overview: overview),
           const SizedBox(height: 28),
           _StatRow(overview: overview),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
+          const _SplitsBalanceCard(),
+          const SizedBox(height: 20),
           _DaysBar(overview: overview),
           if (overview.categories.isNotEmpty) ...[
             const SizedBox(height: 28),
@@ -576,6 +579,171 @@ class _CategoryCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Cumulative splits balance across every group — gives the user a one-glance
+// "who owes me / who I owe" total without opening each group.
+// ---------------------------------------------------------------------------
+
+class _SplitsBalanceCard extends ConsumerWidget {
+  const _SplitsBalanceCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final groupsAsync = ref.watch(splitGroupsProvider);
+
+    return groupsAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (groups) {
+        double oweYou = 0;
+        double youOwe = 0;
+        for (final g in groups) {
+          if (g.isEmpty) continue;
+          if (g.youAreOwed) oweYou += g.netBalance;
+          if (g.youOwe) youOwe += g.netBalance.abs();
+        }
+        final allSettled = oweYou < 0.01 && youOwe < 0.01;
+
+        return GestureDetector(
+          onTap: () => context.go('/home/splits'),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainer,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: scheme.outlineVariant),
+              boxShadow: [
+                BoxShadow(
+                  color: scheme.shadow.withValues(alpha: 0.06),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.groups_2_outlined, size: 18, color: scheme.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      groups.isEmpty
+                          ? 'No groups yet'
+                          : 'Across ${groups.length} group${groups.length == 1 ? '' : 's'}',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: scheme.onSurfaceVariant,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    const Spacer(),
+                    Icon(Icons.arrow_forward_ios,
+                        size: 12, color: scheme.onSurfaceVariant),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                if (groups.isEmpty)
+                  Text(
+                    'Tap to create or join a group',
+                    style: GoogleFonts.montserrat(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: scheme.onSurface,
+                    ),
+                  )
+                else if (allSettled)
+                  Row(
+                    children: [
+                      Icon(Icons.check_circle_outline,
+                          color: Colors.green.shade600, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        'All settled up',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.green.shade700,
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      if (oweYou > 0.01)
+                        Expanded(
+                          child: _BalanceFigure(
+                            label: 'You get',
+                            amount: oweYou,
+                            color: Colors.green.shade600,
+                          ),
+                        ),
+                      if (oweYou > 0.01 && youOwe > 0.01)
+                        Container(
+                          width: 1,
+                          height: 32,
+                          margin: const EdgeInsets.symmetric(horizontal: 12),
+                          color: scheme.outlineVariant,
+                        ),
+                      if (youOwe > 0.01)
+                        Expanded(
+                          child: _BalanceFigure(
+                            label: 'You owe',
+                            amount: youOwe,
+                            color: scheme.error,
+                          ),
+                        ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BalanceFigure extends StatelessWidget {
+  const _BalanceFigure({
+    required this.label,
+    required this.amount,
+    required this.color,
+  });
+  final String label;
+  final double amount;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.montserrat(
+            fontSize: 11,
+            color: color,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          FormatUtils.formatMoney(amount),
+          style: GoogleFonts.montserrat(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 }

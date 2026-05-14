@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../core/api/api_constants.dart' show kInviteHost;
@@ -83,11 +85,16 @@ class _GroupDetailBody extends ConsumerWidget {
   final GroupDetail group;
   final AsyncValue<List<SplitCard>> splits;
 
-  void _shareInvite(BuildContext context) {
+  void _showInviteSheet(BuildContext context) {
     // Invite links must point to production so anyone tapping the link reaches
     // the deployed landing page / Android App Link target, not the dev backend.
     final link = '$kInviteHost/invite/${group.inviteCode}';
-    SharePlus.instance.share(ShareParams(text: 'Join "${group.name}" on Bacchat: $link'));
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _InviteShareSheet(group: group, link: link),
+    );
   }
 
   Future<void> _confirmDeleteGroup(BuildContext context, WidgetRef ref) async {
@@ -218,7 +225,7 @@ class _GroupDetailBody extends ConsumerWidget {
             IconButton(
               icon: const Icon(Icons.share_outlined),
               tooltip: 'Invite',
-              onPressed: () => _shareInvite(context),
+              onPressed: () => _showInviteSheet(context),
             ),
             PopupMenuButton<String>(
               tooltip: 'More',
@@ -899,5 +906,179 @@ class _SplitCard extends StatelessWidget {
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     return '${dt.day} ${months[dt.month - 1]}';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Invite share sheet — share link + QR code (scan with another phone's camera)
+// ---------------------------------------------------------------------------
+
+class _InviteShareSheet extends StatelessWidget {
+  const _InviteShareSheet({required this.group, required this.link});
+  final GroupDetail group;
+  final String link;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 14),
+              decoration: BoxDecoration(
+                color: scheme.outlineVariant,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Row(
+              children: [
+                Text(group.emoji, style: const TextStyle(fontSize: 26)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Invite to ${group.name}',
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.montserrat(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: scheme.onSurface,
+                        ),
+                      ),
+                      Text(
+                        'Scan the QR or share the link',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 12,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // QR — always rendered on a white card so any camera can read it
+            // regardless of the user's app theme.
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: scheme.outlineVariant),
+              ),
+              child: QrImageView(
+                data: link,
+                version: QrVersions.auto,
+                size: 220,
+                gapless: false,
+                eyeStyle: const QrEyeStyle(
+                  eyeShape: QrEyeShape.square,
+                  color: Colors.black,
+                ),
+                dataModuleStyle: const QrDataModuleStyle(
+                  dataModuleShape: QrDataModuleShape.square,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Link box with tap-to-copy
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: scheme.outlineVariant),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SelectableText(
+                      link,
+                      maxLines: 2,
+                      style: GoogleFonts.robotoMono(
+                        fontSize: 11,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.copy_outlined, size: 18),
+                    tooltip: 'Copy',
+                    onPressed: () async {
+                      await Clipboard.setData(ClipboardData(text: link));
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Invite link copied')),
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      await Clipboard.setData(ClipboardData(text: link));
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Copied')),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.copy_outlined, size: 16),
+                    label: Text(
+                      'Copy',
+                      style: GoogleFonts.montserrat(fontWeight: FontWeight.w700),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      SharePlus.instance.share(
+                        ShareParams(
+                          text: 'Join "${group.name}" on Bacchat: $link',
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.share_outlined, size: 16),
+                    label: Text(
+                      'Share',
+                      style: GoogleFonts.montserrat(fontWeight: FontWeight.w800),
+                    ),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

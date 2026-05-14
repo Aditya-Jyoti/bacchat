@@ -9,7 +9,6 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/utils/format_money.dart';
 import '../../../core/widgets/app_background.dart';
-import '../../budget/models/budget_overview.dart';
 import '../../budget/providers/budget_provider.dart';
 import '../providers/transaction_provider.dart';
 import '../services/sms_service.dart';
@@ -202,7 +201,6 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
   // ----------------------------------------------------- Add transaction flow
 
   Future<void> _showAddSheet() async {
-    final categories = ref.read(budgetOverviewProvider).value?.categories ?? const [];
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -210,7 +208,6 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
       builder: (_) => _AddOrEditSheet(
         title: 'Add Transaction',
         initial: null,
-        categories: categories,
         onSave: (data) async {
           await ref.read(transactionEditorProvider.notifier).createTransaction(
                 title: data.title,
@@ -496,7 +493,6 @@ class _TxCard extends ConsumerWidget {
       );
       return;
     }
-    final categories = ref.read(budgetOverviewProvider).value?.categories ?? const [];
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -504,7 +500,6 @@ class _TxCard extends ConsumerWidget {
       builder: (_) => _AddOrEditSheet(
         title: 'Edit Transaction',
         initial: tx,
-        categories: categories,
         onSave: (data) async {
           await ref.read(transactionEditorProvider.notifier).updateTransaction(
                 id: tx.id,
@@ -717,25 +712,23 @@ class _SheetData {
   });
 }
 
-class _AddOrEditSheet extends StatefulWidget {
+class _AddOrEditSheet extends ConsumerStatefulWidget {
   const _AddOrEditSheet({
     required this.title,
     required this.initial,
-    required this.categories,
     required this.onSave,
     this.onDelete,
   });
   final String title;
   final PersonalTransaction? initial;
-  final List<CategoryBudget> categories;
   final Future<void> Function(_SheetData data) onSave;
   final Future<void> Function()? onDelete;
 
   @override
-  State<_AddOrEditSheet> createState() => _AddOrEditSheetState();
+  ConsumerState<_AddOrEditSheet> createState() => _AddOrEditSheetState();
 }
 
-class _AddOrEditSheetState extends State<_AddOrEditSheet> {
+class _AddOrEditSheetState extends ConsumerState<_AddOrEditSheet> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _amountCtrl;
   late String _type;
@@ -807,6 +800,11 @@ class _AddOrEditSheetState extends State<_AddOrEditSheet> {
     final scheme = Theme.of(context).colorScheme;
     final media = MediaQuery.of(context);
     final merchant = widget.initial?.merchantKey;
+    // Watch budget reactively — categories appear as soon as the budget loads,
+    // even if the sheet opened before the FutureProvider had its first value.
+    final budgetAsync = ref.watch(budgetOverviewProvider);
+    final categories = budgetAsync.value?.categories ?? const [];
+    final budgetLoading = budgetAsync.isLoading;
 
     return Padding(
       padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
@@ -901,22 +899,76 @@ class _AddOrEditSheetState extends State<_AddOrEditSheet> {
             ),
             const SizedBox(height: 16),
 
-            // ---------------- Category picker ----------------
-            Text(
-              'Category',
-              style: GoogleFonts.montserrat(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: scheme.onSurfaceVariant,
-              ),
+            // ---------------- Category picker (live from budgetOverviewProvider) ----
+            Row(
+              children: [
+                Text(
+                  'Category',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                if (budgetLoading)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 6),
-            if (widget.categories.isEmpty)
-              Text(
-                'No budget categories yet — set up a budget first to organise transactions.',
-                style: GoogleFonts.montserrat(
-                  fontSize: 11,
-                  color: scheme.onSurfaceVariant,
+            if (categories.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: scheme.outlineVariant),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline,
+                        size: 16, color: scheme.onSurfaceVariant),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        budgetLoading
+                            ? 'Loading your budget categories…'
+                            : 'No budget categories yet. Set up your budget to tag spends like Movies, Food, etc.',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 11,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    if (!budgetLoading)
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          // Defer router navigation until after the sheet closes.
+                          Future.microtask(() {
+                            if (mounted) {
+                              Navigator.of(context, rootNavigator: true).maybePop();
+                            }
+                          });
+                        },
+                        child: Text(
+                          'Set up',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               )
             else
@@ -930,7 +982,7 @@ class _AddOrEditSheetState extends State<_AddOrEditSheet> {
                     selected: _categoryId == null,
                     onSelected: (_) => setState(() => _categoryId = null),
                   ),
-                  ...widget.categories.map((c) => ChoiceChip(
+                  ...categories.map((c) => ChoiceChip(
                         avatar: Text(c.icon, style: const TextStyle(fontSize: 12)),
                         label: Text(c.name, style: GoogleFonts.montserrat(fontSize: 11)),
                         selected: _categoryId == c.id,
