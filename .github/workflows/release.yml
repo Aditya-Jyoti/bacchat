@@ -64,9 +64,12 @@ jobs:
           ANDROID_KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
         run: |
           if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEY_PROPERTIES" ]; then
-            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > frontend/android/app/release.keystore
+            # Keystore lives at frontend/android/bacchat-release.jks because
+            # key.properties references it as `../bacchat-release.jks`
+            # (resolved relative to frontend/android/app/).
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > frontend/android/bacchat-release.jks
             echo "$ANDROID_KEY_PROPERTIES" > frontend/android/key.properties
-            echo "✓ Release-key signing enabled ($(wc -c < frontend/android/app/release.keystore) bytes keystore)"
+            echo "✓ Release-key signing enabled ($(wc -c < frontend/android/bacchat-release.jks) bytes keystore)"
           else
             echo "⚠ Signing secrets not present — APK will be debug-signed (not distributable)"
           fi
