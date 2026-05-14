@@ -1,0 +1,14 @@
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Claude Code session data
+.claude/
+claude.log
+**/claude.log
+
+# Build artefacts (also covered by subdir gitignores)
+node_modules/
+build/
+dist/

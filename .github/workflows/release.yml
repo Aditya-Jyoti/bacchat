@@ -1,0 +1,103 @@
+name: Release APK
+
+# Builds and (when signing secrets are available) signs the release APK
+# whenever a `v*` tag is pushed, and attaches it to the corresponding
+# GitHub Release. Also runs on demand from the Actions tab.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build signed APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # needed by softprops/action-gh-release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Cache Pub
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            frontend/.dart_tool
+          key: pub-${{ runner.os }}-${{ hashFiles('frontend/pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
+
+      - name: Install Dart deps
+        working-directory: frontend
+        run: flutter pub get
+
+      - name: Code generation
+        working-directory: frontend
+        run: dart run build_runner build
+
+      - name: Static analysis
+        working-directory: frontend
+        run: flutter analyze
+
+      # ---- Signing setup ---------------------------------------------------
+      # If ANDROID_KEYSTORE_BASE64 + ANDROID_KEY_PROPERTIES secrets are set,
+      # the APK is signed with the release key. Otherwise the existing
+      # build.gradle.kts falls back to the Android debug key (fine for
+      # testing, not for distribution).
+      - name: Decode keystore (if provided)
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEY_PROPERTIES" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > frontend/android/app/release.keystore
+            echo "$ANDROID_KEY_PROPERTIES" > frontend/android/key.properties
+            echo "✓ Release-key signing enabled ($(wc -c < frontend/android/app/release.keystore) bytes keystore)"
+          else
+            echo "⚠ Signing secrets not present — APK will be debug-signed (not distributable)"
+          fi
+
+      # ---- Build -----------------------------------------------------------
+      - name: Build release APK
+        working-directory: frontend
+        run: |
+          flutter build apk --release --target-platform android-arm64
+          ls -lh build/app/outputs/flutter-apk/
+
+      - name: Rename APK to include tag
+        id: rename
+        run: |
+          TAG="${GITHUB_REF_NAME:-manual-${GITHUB_RUN_NUMBER}}"
+          SRC=frontend/build/app/outputs/flutter-apk/app-release.apk
+          DEST="bacchat-${TAG}.apk"
+          cp "$SRC" "$DEST"
+          echo "apk_path=$DEST" >> "$GITHUB_OUTPUT"
+
+      - name: Upload as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bacchat-apk
+          path: ${{ steps.rename.outputs.apk_path }}
+          if-no-files-found: error
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.rename.outputs.apk_path }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
