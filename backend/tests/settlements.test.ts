@@ -35,7 +35,31 @@ describe('PATCH /v1/shares/:shareId/settle', () => {
     expect(res.body.amount).toBeGreaterThan(0);
   });
 
-  it('allows a group admin (non-payer) to settle a share', async () => {
+  it('allows the debtor to settle their own share', async () => {
+    // Settle authorisation rule: either side of the debt can confirm payment.
+    // The debtor saying "I paid them back" is just as valid as the payer
+    // saying "I received their payment".
+    const { user: payer } = await makeUser();
+    const { user: debtor, token: debtorToken } = await makeUser();
+    const group = await makeGroup(payer.id);
+    await addMember(group.id, debtor.id);
+    const split = await makeSplit({ groupId: group.id, paidById: payer.id, memberIds: [payer.id, debtor.id] });
+    const share = await getFirstShare(split.id, payer.id); // debtor's share
+
+    const res = await request(app)
+      .patch(`/v1/shares/${share!.id}/settle`)
+      .set(authHeader(debtorToken))
+      .send({});
+
+    expect(res.status).toBe(200);
+    expect(res.body.is_settled).toBe(true);
+    expect(res.body.user_id).toBe(debtor.id);
+  });
+
+  it('rejects an admin who is neither the debtor nor the payer', async () => {
+    // Admin-bystanders previously could settle. We tightened that — only the
+    // two participants of the share can. This protects against an
+    // overreaching admin marking someone else's debt as paid.
     const { user: admin, token: adminToken } = await makeUser();
     const { user: payer } = await makeUser();
     const { user: debtor } = await makeUser();
@@ -50,13 +74,12 @@ describe('PATCH /v1/shares/:shareId/settle', () => {
       .set(authHeader(adminToken))
       .send({});
 
-    expect(res.status).toBe(200);
-    expect(res.body.is_settled).toBe(true);
+    expect(res.status).toBe(403);
   });
 
-  it('returns 403 when caller is neither payer nor admin', async () => {
+  it('rejects an outsider group member who is not in the share', async () => {
     const { user: payer } = await makeUser();
-    const { user: debtor, token: debtorToken } = await makeUser();
+    const { user: debtor } = await makeUser();
     const { user: outsider, token: outsiderToken } = await makeUser();
     const group = await makeGroup(payer.id);
     await addMember(group.id, debtor.id);
@@ -64,13 +87,12 @@ describe('PATCH /v1/shares/:shareId/settle', () => {
     const split = await makeSplit({ groupId: group.id, paidById: payer.id, memberIds: [payer.id, debtor.id] });
     const share = await getFirstShare(split.id, payer.id);
 
-    // debtor cannot settle their own share (not the payer, not admin)
-    const r1 = await request(app).patch(`/v1/shares/${share!.id}/settle`).set(authHeader(debtorToken)).send({});
-    expect(r1.status).toBe(403);
+    const res = await request(app)
+      .patch(`/v1/shares/${share!.id}/settle`)
+      .set(authHeader(outsiderToken))
+      .send({});
 
-    // outsider member (not admin) also cannot settle
-    const r2 = await request(app).patch(`/v1/shares/${share!.id}/settle`).set(authHeader(outsiderToken)).send({});
-    expect(r2.status).toBe(403);
+    expect(res.status).toBe(403);
   });
 
   it('returns 409 when share is already settled', async () => {
@@ -135,7 +157,10 @@ describe('POST /v1/splits/:splitId/settle-all', () => {
     expect(res.status).toBe(200);
   });
 
-  it('returns 403 when caller is not payer or admin', async () => {
+  it('returns 403 when caller is not the payer (payer-only — not even admins)', async () => {
+    // settle-all is the bulk action equivalent of marking every debt as
+    // received. Only the payer can claim "all my money came back" — admins
+    // who happen to oversee the group can't speak for the payer.
     const { user: payer } = await makeUser();
     const { user: m2, token: m2Token } = await makeUser();
     const group = await makeGroup(payer.id);
