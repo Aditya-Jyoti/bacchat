@@ -154,6 +154,9 @@ class SmsListener {
         'amount': parsed.amount,
         'type': parsed.type,
         'date': parsed.date.toIso8601String(),
+        // Sending merchant_key lets the backend auto-assign a category from
+        // any "always categorise X as Y" mapping the user has set up.
+        if (parsed.merchantKey != null) 'merchant_key': parsed.merchantKey,
       });
 
       // Only record the hash on success — failed POSTs retry on next inbox scan.

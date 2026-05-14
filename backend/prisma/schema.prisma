@@ -34,6 +34,7 @@ model User {
   budgetSetting       BudgetSetting?
   budgetCategories    BudgetCategory[]
   transactions        Transaction[]
+  merchantCategories  MerchantCategory[]
   groupCategoriesCreated GroupCategory[]
 
   @@map("users")
@@ -155,25 +156,49 @@ model BudgetCategory {
   monthlyLimit Decimal
   isFixed      Boolean  @default(true)
 
-  transactions Transaction[]
+  transactions       Transaction[]
+  merchantCategories MerchantCategory[]
 
   @@map("budget_categories")
 }
 
 model Transaction {
-  id         String          @id @default(uuid())
-  userId     String
-  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title      String
-  amount     Decimal
-  type       String
-  categoryId String?
-  category   BudgetCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  splitId    String?
-  split      Split?          @relation(fields: [splitId], references: [id], onDelete: SetNull)
-  date       DateTime        @default(now())
+  id          String          @id @default(uuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  amount      Decimal
+  type        String
+  categoryId  String?
+  category    BudgetCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  splitId     String?
+  split       Split?          @relation(fields: [splitId], references: [id], onDelete: SetNull)
+  // merchantKey is a normalised merchant identifier (e.g. "nikhil sharma",
+  // "swiggy") that lets us auto-categorise future transactions to the same
+  // payee. Stored lowercase, trimmed. Null when no merchant is known.
+  merchantKey String?
+  date        DateTime        @default(now())
 
+  @@index([userId, merchantKey])
   @@map("transactions")
+}
+
+/// Per-user mapping of normalised merchant name → budget category. Populated
+/// when the user explicitly assigns a category to a transaction with a
+/// merchantKey; consulted on every new auto-imported transaction so future
+/// SMS from the same payee land in the same category automatically.
+model MerchantCategory {
+  id          String         @id @default(uuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  merchantKey String
+  categoryId  String
+  category    BudgetCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([userId, merchantKey])
+  @@map("merchant_categories")
 }
 
 model RevokedToken {

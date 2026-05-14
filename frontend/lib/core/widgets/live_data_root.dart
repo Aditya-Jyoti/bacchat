@@ -78,6 +78,7 @@ class _LiveDataRootState extends ConsumerState<LiveDataRoot>
     ref.invalidate(groupBalanceProvider);
     ref.invalidate(groupCategoriesProvider);
     ref.invalidate(transactionsProvider);
+    ref.invalidate(allTransactionsProvider);
     ref.invalidate(budgetOverviewProvider);
   }
 
