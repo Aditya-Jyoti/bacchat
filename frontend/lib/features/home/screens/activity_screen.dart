@@ -5,10 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:permission_handler/permission_handler.dart';
-
 import '../../../core/utils/format_money.dart';
 import '../../../core/widgets/app_background.dart';
+import '../../../core/widgets/restricted_settings_help.dart';
 import '../../budget/providers/budget_provider.dart';
 import '../providers/transaction_provider.dart';
 import '../services/sms_service.dart';
@@ -127,29 +126,11 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
         );
         return;
       case SmsScanStatus.permissionDenied:
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('SMS permission denied')),
-        );
-        return;
       case SmsScanStatus.permissionPermanentlyDenied:
-        await showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('SMS access blocked'),
-            content: const Text(
-                'Enable SMS access from Settings → Apps → Bacchat → Permissions → SMS.'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-              FilledButton(
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  await openAppSettings();
-                },
-                child: const Text('Open settings'),
-              ),
-            ],
-          ),
-        );
+        // On Android 13+ sideloaded apps can't get SMS permission via the
+        // normal request flow — the toggle is greyed out under "Restricted
+        // setting". The help dialog walks the user through enabling it.
+        await RestrictedSettingsHelp.show(context);
         return;
       case SmsScanStatus.failed:
         ScaffoldMessenger.of(context).showSnackBar(

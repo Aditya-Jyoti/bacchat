@@ -3,13 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'dart:io';
+
 import '../../../core/utils/format_money.dart';
 import '../../../core/widgets/app_background.dart';
 import '../../../core/widgets/material3_loader.dart';
+import '../../../core/widgets/restricted_settings_help.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../budget/models/budget_overview.dart';
 import '../../budget/providers/budget_provider.dart';
 import '../../splits/providers/splits_provider.dart';
+import '../services/sms_listener.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -61,8 +65,113 @@ class DashboardScreen extends ConsumerWidget {
     return Column(
       children: [
         _UserHeader(userName: userName, isGuest: isGuest),
+        const _SmsPermissionBanner(),
         Expanded(child: child),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// One-time banner explaining the Android 13+ restricted-settings step.
+// Hides itself once SMS permission is granted or the user dismisses it.
+// ---------------------------------------------------------------------------
+
+class _SmsPermissionBanner extends StatefulWidget {
+  const _SmsPermissionBanner();
+
+  @override
+  State<_SmsPermissionBanner> createState() => _SmsPermissionBannerState();
+}
+
+class _SmsPermissionBannerState extends State<_SmsPermissionBanner>
+    with WidgetsBindingObserver {
+  bool _granted = true; // assume granted until first check completes
+  bool _dismissed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _refresh();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // After the user returns from Settings, re-check so the banner vanishes
+    // automatically once they've granted permission.
+    if (state == AppLifecycleState.resumed) _refresh();
+  }
+
+  Future<void> _refresh() async {
+    if (!Platform.isAndroid) {
+      if (mounted) setState(() => _granted = true);
+      return;
+    }
+    final ok = await SmsListener.hasPermission();
+    if (mounted) setState(() => _granted = ok);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_granted || _dismissed || !Platform.isAndroid) {
+      return const SizedBox.shrink();
+    }
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      child: Material(
+        color: scheme.tertiaryContainer,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => RestrictedSettingsHelp.show(context),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+            child: Row(
+              children: [
+                Icon(Icons.sms_outlined,
+                    size: 20, color: scheme.onTertiaryContainer),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Auto-import is off',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: scheme.onTertiaryContainer,
+                        ),
+                      ),
+                      Text(
+                        'Tap to enable SMS permission (Android needs a one-time setup).',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 11,
+                          color: scheme.onTertiaryContainer.withValues(alpha: 0.85),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.close,
+                      size: 18, color: scheme.onTertiaryContainer),
+                  tooltip: 'Dismiss',
+                  onPressed: () => setState(() => _dismissed = true),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

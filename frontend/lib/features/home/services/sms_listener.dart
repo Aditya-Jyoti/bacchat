@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/api/api_constants.dart';
@@ -48,6 +49,19 @@ class SmsListener {
     if (!Platform.isAndroid) return false;
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_kAutoImportEnabledKey) ?? true; // default ON
+  }
+
+  /// Whether the runtime SMS permission is currently granted. False on iOS,
+  /// false when the user is blocked by Android 13+ "restricted setting", and
+  /// false on any underlying plugin failure.
+  static Future<bool> hasPermission() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      final status = await Permission.sms.status;
+      return status.isGranted;
+    } catch (_) {
+      return false;
+    }
   }
 
   static Future<void> setEnabled(bool enabled) async {
