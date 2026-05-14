@@ -7,6 +7,7 @@ import '../../../core/utils/format_money.dart';
 import '../../../core/widgets/app_background.dart';
 import '../models/split_models.dart';
 import '../providers/splits_provider.dart';
+import '../widgets/mobile_scanner_view.dart';
 
 class GroupsScreen extends ConsumerWidget {
   const GroupsScreen({super.key});
@@ -45,21 +46,28 @@ class GroupsScreen extends ConsumerWidget {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCreateGroupSheet(context, ref),
-        icon: const Icon(Icons.group_add_outlined),
+        onPressed: () => _showStartSheet(context, ref),
+        icon: const Icon(Icons.add),
         label: Text(
-          'New Group',
+          'Split with…',
           style: GoogleFonts.montserrat(fontWeight: FontWeight.w600),
         ),
       ),
     );
   }
 
-  void _showCreateGroupSheet(BuildContext context, WidgetRef ref) {
+  /// Action sheet offering the three ways to start a split:
+  ///   1. "Someone on Bacchat" — scan a QR or paste their ID. Creates a
+  ///      1-on-1 group automatically.
+  ///   2. "A new group" — the classic multi-member group flow.
+  ///   3. (handled inside the group flow) Add by name for friends who aren't
+  ///      on Bacchat yet, with a claim link.
+  void _showStartSheet(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _CreateGroupSheet(ref: ref),
+      useSafeArea: true,
+      builder: (_) => _StartSplitSheet(ref: ref),
     );
   }
 }
@@ -111,13 +119,23 @@ class _NetSummaryHeader extends StatelessWidget {
                     ),
                     const Spacer(),
                     if (list.isNotEmpty)
-                      Text(
-                        '${list.length} group${list.length == 1 ? '' : 's'}',
-                        style: GoogleFonts.montserrat(
-                          fontSize: 12,
-                          color: scheme.onSurfaceVariant,
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: Text(
+                          '${list.length} group${list.length == 1 ? '' : 's'}',
+                          style: GoogleFonts.montserrat(
+                            fontSize: 12,
+                            color: scheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
+                    IconButton(
+                      tooltip: 'How Bacchat works',
+                      icon: const Icon(Icons.help_outline),
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => context.push('/help'),
+                    ),
                   ],
                 ),
                 if (list.isNotEmpty) ...[
@@ -566,5 +584,415 @@ class _CreateGroupSheetState extends ConsumerState<_CreateGroupSheet> {
         ],
       ),
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// "Split with…" action sheet — three paths to a new split:
+//
+//   • Someone on Bacchat (scan or paste their ID) → solo 1-on-1 group, made
+//     automatically. Backend dedupes if you've already got a 1-on-1 with them.
+//   • A new group — the classic multi-member flow.
+//   • (Group flow itself offers) Add a friend who's not on Bacchat yet —
+//     creates a placeholder member + claim link. See group detail screen.
+// ---------------------------------------------------------------------------
+
+class _StartSplitSheet extends ConsumerWidget {
+  const _StartSplitSheet({required this.ref});
+  // ignore: unused_field
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 14),
+              decoration: BoxDecoration(
+                color: scheme.outlineVariant,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Text(
+              'Start a new split',
+              style: GoogleFonts.montserrat(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: scheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Pick one — group splits and 1-on-1 splits are kept separate.',
+              style: GoogleFonts.montserrat(
+                fontSize: 11,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _StartOption(
+              icon: Icons.qr_code_scanner,
+              title: 'Someone already on Bacchat',
+              subtitle: 'Scan their Bacchat QR or paste their ID',
+              onTap: () async {
+                Navigator.pop(context);
+                await _showSoloFlow(context, ref);
+              },
+            ),
+            const SizedBox(height: 10),
+            _StartOption(
+              icon: Icons.group_add_outlined,
+              title: 'A new group',
+              subtitle: 'Trip, flatmates, shared expenses across several people',
+              onTap: () {
+                Navigator.pop(context);
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (_) => _CreateGroupSheet(ref: ref),
+                );
+              },
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: scheme.outlineVariant),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline,
+                      size: 16, color: scheme.onSurfaceVariant),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "Splitting with someone who hasn't installed Bacchat yet? "
+                      "Create a group, then tap 'Add by name' inside it — "
+                      "you'll get a link they can use to claim the splits later.",
+                      style: GoogleFonts.montserrat(
+                        fontSize: 11,
+                        color: scheme.onSurfaceVariant,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showSoloFlow(BuildContext context, WidgetRef ref) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => const _SoloByIdSheet(),
+    );
+  }
+}
+
+class _StartOption extends StatelessWidget {
+  const _StartOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainer,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: scheme.outlineVariant),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: scheme.primaryContainer,
+                child: Icon(icon, color: scheme.onPrimaryContainer),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.montserrat(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.montserrat(
+                        fontSize: 11,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.arrow_forward_ios,
+                  size: 14, color: scheme.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SoloByIdSheet extends ConsumerStatefulWidget {
+  const _SoloByIdSheet();
+
+  @override
+  ConsumerState<_SoloByIdSheet> createState() => _SoloByIdSheetState();
+}
+
+class _SoloByIdSheetState extends ConsumerState<_SoloByIdSheet> {
+  final _idCtrl = TextEditingController();
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _idCtrl.dispose();
+    super.dispose();
+  }
+
+  /// Pull the UUID out of whatever the user gave us — supports plain UUID,
+  /// the QR payload format `bacchat:user:<uuid>`, or a sloppy paste.
+  String? _parseId(String raw) {
+    final trimmed = raw.trim();
+    final rx = RegExp(
+      r'([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})',
+      caseSensitive: false,
+    );
+    final m = rx.firstMatch(trimmed);
+    return m?.group(1)?.toLowerCase();
+  }
+
+  Future<void> _open(String fromInput) async {
+    final id = _parseId(fromInput);
+    if (id == null) {
+      setState(() => _error = 'That doesn\'t look like a Bacchat ID');
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final groupId = await ref
+          .read(splitsEditorProvider.notifier)
+          .createOrFetchSoloGroup(id);
+      if (mounted) {
+        Navigator.of(context).pop();
+        context.push('/group/$groupId');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = e.toString().replaceFirst('Exception: ', '');
+        });
+      }
+    }
+  }
+
+  Future<void> _scan() async {
+    final scanned = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const _QrScannerPage()),
+    );
+    if (scanned != null) {
+      _idCtrl.text = scanned;
+      await _open(scanned);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final media = MediaQuery.of(context);
+    return Padding(
+      padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: scheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Text(
+              'Split with someone on Bacchat',
+              style: GoogleFonts.montserrat(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: scheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Scan their QR (Profile → Your Bacchat ID) or paste their ID below.',
+              style: GoogleFonts.montserrat(
+                fontSize: 11,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: _saving ? null : _scan,
+              icon: const Icon(Icons.qr_code_scanner),
+              label: Text(
+                'Scan QR',
+                style: GoogleFonts.montserrat(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                const Expanded(child: Divider()),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Text(
+                    'or paste an ID',
+                    style: GoogleFonts.montserrat(
+                      fontSize: 11,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                const Expanded(child: Divider()),
+              ],
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _idCtrl,
+              autocorrect: false,
+              enableSuggestions: false,
+              style: GoogleFonts.robotoMono(fontSize: 13),
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: 'e.g. 7f3a…-…-1234',
+                prefixIcon: Icon(Icons.badge_outlined),
+              ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(_error!,
+                  style: GoogleFonts.montserrat(
+                      fontSize: 12, color: scheme.error)),
+            ],
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: _saving ? null : () => _open(_idCtrl.text),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : Text(
+                        'Start split',
+                        style: GoogleFonts.montserrat(
+                            fontWeight: FontWeight.w800)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Fullscreen camera scanner. Pops with the scanned string on a successful
+// barcode read, or null on back-press.
+// ---------------------------------------------------------------------------
+
+class _QrScannerPage extends StatefulWidget {
+  const _QrScannerPage();
+
+  @override
+  State<_QrScannerPage> createState() => _QrScannerPageState();
+}
+
+class _QrScannerPageState extends State<_QrScannerPage> {
+  bool _returned = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Scan Bacchat QR',
+            style: GoogleFonts.montserrat(fontWeight: FontWeight.w700)),
+      ),
+      body: _Scanner(
+        onCode: (code) {
+          if (_returned) return;
+          _returned = true;
+          Navigator.of(context).pop(code);
+        },
+      ),
+    );
+  }
+}
+
+class _Scanner extends StatelessWidget {
+  const _Scanner({required this.onCode});
+  final ValueChanged<String> onCode;
+
+  @override
+  Widget build(BuildContext context) {
+    return MobileScannerView(onCode: onCode);
   }
 }

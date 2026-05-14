@@ -230,6 +230,35 @@ class SplitsEditor extends Notifier<void> {
     return group['id'] as String;
   }
 
+  /// Creates (or fetches if it already exists) a 1-on-1 group with another
+  /// Bacchat user by their user ID. Used by the "scan QR / paste ID" flow.
+  /// Returns the group id so the caller can navigate straight in.
+  Future<String> createOrFetchSoloGroup(String withUserId) async {
+    final resp =
+        await _client.post('/groups/solo', data: {'with_user_id': withUserId});
+    final group = resp.data as Map<String, dynamic>;
+    ref.invalidate(splitGroupsProvider);
+    return group['id'] as String;
+  }
+
+  /// Admin-only. Adds a placeholder member by name to [groupId] and returns
+  /// the one-time claim URL the admin can share with the real person.
+  Future<({String claimUrl, String memberId})> addPlaceholderMember({
+    required String groupId,
+    required String name,
+  }) async {
+    final resp = await _client.post(
+      '/groups/$groupId/placeholder-members',
+      data: {'name': name},
+    );
+    final m = resp.data as Map<String, dynamic>;
+    ref.invalidate(groupDetailProvider(groupId));
+    return (
+      claimUrl: m['claim_url'] as String,
+      memberId: m['placeholder_user_id'] as String,
+    );
+  }
+
   Future<String> createSplit({
     required String groupId,
     required String title,

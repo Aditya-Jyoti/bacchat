@@ -101,38 +101,93 @@ class SmsService {
   ];
 
   // --------- Merchant extraction --------------------------------------------
-  // Order matters: more specific patterns first.
+  //
+  // The captured name extends until ANY of:
+  //   • a known terminator keyword (ref / refno / int / if not / on / via /
+  //     by / imps / neft / upi ref / avbl / bal / dated)
+  //   • a run of 4+ digits (typical reference numbers)
+  //   • sentence punctuation (.,;)
+  //   • end of body
+  //
+  // Earlier versions limited captured chars to `[A-Za-z0-9 ]` which dropped
+  // names containing dots, hyphens, ampersands, or apostrophes ("Mr. Sharma",
+  // "M&S", "Joe's Cafe", "Lyft-NYC"). The new patterns allow those.
+
+  // Stop condition shared by the "to NAME" / "from NAME" patterns. NO \b
+  // after the keywords — \b between two digits silently fails, so e.g.
+  // `on\s+\d\b` won't match "On 14/05/26" because the next char after the
+  // first '1' is '4' (also a word char).
+  static const _merchantStop =
+      r'(?=\s+ref|\s+int|\s+if\s|\s+on\s|\s+via|\s+by\s|\s+imps|\s+neft|\s+upi|\s+avbl|\s+bal|\s+\d{4,}|\s*[.,;]|\s*$)';
+
   static final _merchantDebitPatterns = [
-    // "trf to Nikhil Sharma Refno..."
-    RegExp(r'\btrf\s+to\s+([A-Za-z][A-Za-z0-9 ]{1,30}?)(?=\s+(?:ref|refno|int|on|via|$))',
-        caseSensitive: false),
-    // "transferred to Nikhil"
-    RegExp(r'transferred\s+to\s+([A-Za-z][A-Za-z0-9 ]{1,30}?)(?=\s+(?:ref|on|via|$))',
-        caseSensitive: false),
-    // "paid to NAME"
-    RegExp(r'\bto\s+([A-Z][A-Za-z][A-Za-z ]{1,30}?)(?=\s+(?:ref|on|via|refno))',
-        caseSensitive: false),
-    // VPA "to vpa name@bank"
-    RegExp(r'to\s+vpa\s+([^\s@]+)', caseSensitive: false),
+    // SBI / generic: "trf to NAME ..." / "transferred to NAME" / "paid Rs.X to NAME"
+    RegExp(
+      r'\b(?:trf|transferred|paid|sent\s+(?:rs\.?\s*)?\d[\d,.]*)\s+to\s+(.+?)'
+          '$_merchantStop',
+      caseSensitive: false,
+      dotAll: true,
+    ),
+    // YES BANK / UPI inline VPA: "...UPI:NNN/To:foo@bank"
+    RegExp(
+      r'\bto[:.]\s*([a-zA-Z0-9][\w\-]*@[\w.\-]+)',
+      caseSensitive: false,
+    ),
+    // Generic "to NAME" — catches HDFC's "To NAME\nOn DD/MM/YY\nRef ..."
+    // structured format where another phrase sits between "Sent" and "To".
+    // dotAll lets \s+ in the stop condition cross newlines.
+    RegExp(
+      r'\bto\s+([A-Za-z][A-Za-z][\w\s.&\-]{1,40}?)$_merchantStop',
+      caseSensitive: false,
+      dotAll: true,
+    ),
+    // UPI VPA via "to vpa name@bank"
+    RegExp(r'\bto\s+vpa\s+(\S+?)(?=\s|\.|,|$)', caseSensitive: false),
     // POS "at MERCHANT"
-    RegExp(r'\bat\s+([A-Z][A-Za-z ]{2,25}?)(?=\s+(?:on|via|dated|$))',
-        caseSensitive: false),
+    RegExp(
+      r'\bat\s+([A-Za-z][\w\s.&\-]{1,30}?)$_merchantStop',
+      caseSensitive: false,
+    ),
+    // Axio-style "spent ₹X at/to NAME"
+    RegExp(
+      r'(?:spent|paid)\s+(?:₹|rs\.?\s*|inr\s*)?\d[\d,.]*\s+(?:at|to)\s+(.+?)$_merchantStop',
+      caseSensitive: false,
+    ),
+    // CUBANK-style "...credited to a/c no. XXXXXXXX6804" — internal A2A
+    // transfer, no merchant name in the SMS at all. We capture the last
+    // few digits of the destination account so the user can at least
+    // distinguish "money sent to ...6804" from "money sent to ...0000",
+    // and tag a category to it like any other vendor.
+    RegExp(
+      r'credited\s+to\s+a/c\s+(?:no\.?\s+)?[Xx]*(\d{2,6})',
+      caseSensitive: false,
+    ),
   ];
 
+  // Index of the CUBANK acct-suffix pattern in _merchantDebitPatterns —
+  // _extractMerchant prepends "Acct …" when this one matches.
+  static const int _cubankAcctSuffixIndex = 6;
+
   static final _merchantCreditPatterns = [
-    // "transfer from Nikhil Sharma Ref No..."
+    // SBI / generic: "transfer/received/credited from NAME ..."
     RegExp(
-        r'transfer\s+from\s+([A-Za-z][A-Za-z0-9 ]{1,30}?)(?=\s+(?:ref|refno|on|via|$))',
-        caseSensitive: false),
-    // "received from NAME"
-    RegExp(r'received\s+from\s+([A-Za-z][A-Za-z0-9 ]{1,30}?)(?=\s+(?:ref|on|via|$))',
-        caseSensitive: false),
-    // "from VPA"
-    RegExp(r'from\s+vpa\s+([^\s@]+)', caseSensitive: false),
-    // Lenient: "from NAME"
+      r'(?:transfer|received|rcvd|credit)\s+(?:rs\.?\s*\d[\d,.]*\s+)?from\s+(.+?)$_merchantStop',
+      caseSensitive: false,
+      dotAll: true,
+    ),
+    // YES BANK inline VPA: "From:foo@bank"
     RegExp(
-        r'\bfrom\s+([A-Z][A-Za-z][A-Za-z ]{1,30}?)(?=\s+(?:ref|on|via|refno))',
-        caseSensitive: false),
+      r'\bfrom[:.]\s*([a-zA-Z0-9][\w\-]*@[\w.\-]+)',
+      caseSensitive: false,
+    ),
+    // Generic "from NAME"
+    RegExp(
+      r'\bfrom\s+([A-Za-z][A-Za-z][\w\s.&\-]{1,40}?)$_merchantStop',
+      caseSensitive: false,
+      dotAll: true,
+    ),
+    // UPI VPA via "from vpa name@bank"
+    RegExp(r'\bfrom\s+vpa\s+(\S+?)(?=\s|\.|,|$)', caseSensitive: false),
   ];
 
   /// Public: parse a body into a structured ParsedBankSms or null.
@@ -182,23 +237,46 @@ class SmsService {
     return null;
   }
 
+  // Generic noise that the lenient "to NAME" / "from NAME" patterns can pick
+  // up if there's no specific keyword before/after. We reject these so they
+  // don't end up as the displayed merchant.
+  static const _noiseNames = {
+    'a/c', 'account', 'savings account', 'current account', 'sb account',
+    'your account', 'your a/c', 'your card', 'upi', 'neft', 'imps', 'rtgs',
+    'self', 'wallet', 'paytm wallet', 'amazon pay', 'beneficiary',
+  };
+
   static String? _extractMerchant(String body, {required bool isDebit}) {
     final patterns = isDebit ? _merchantDebitPatterns : _merchantCreditPatterns;
-    for (final rx in patterns) {
+    for (int i = 0; i < patterns.length; i++) {
       try {
-        final m = rx.firstMatch(body);
-        if (m != null) {
-          final name = m.group(1)?.trim();
-          if (name != null && name.length > 1) {
-            // Title-case "nikhil sharma" → "Nikhil Sharma"
-            return name
-                .split(RegExp(r'\s+'))
-                .map((w) => w.isEmpty
-                    ? w
-                    : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
-                .join(' ');
-          }
+        final m = patterns[i].firstMatch(body);
+        if (m == null) continue;
+        var name = m.group(1)?.trim();
+        if (name == null || name.length < 2) continue;
+
+        // Special case: CUBANK acct-to-acct SMS has no merchant name in
+        // the body, just "credited to a/c XXXXXX6804". Surface the account
+        // suffix as a stable identifier the user can categorise.
+        if (isDebit && i == _cubankAcctSuffixIndex) {
+          return 'Acct …$name';
         }
+
+        // Trim trailing punctuation/connectors that the lazy match might keep.
+        name = name.replaceAll(RegExp(r'[\s.,;\-]+$'), '');
+        if (name.length < 2) continue;
+        // VPAs stay as-is, lowercased — they're already a stable identifier.
+        if (name.contains('@')) return name.toLowerCase();
+        // Skip generic noise.
+        if (_noiseNames.contains(name.toLowerCase())) continue;
+        // Title-case ("nikhil sharma" → "Nikhil Sharma"). Preserves
+        // already-uppercase initials (M.M., A&B) by upper-casing the first
+        // char of each whitespace-separated token.
+        return name
+            .toLowerCase()
+            .split(RegExp(r'\s+'))
+            .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+            .join(' ');
       } catch (_) {}
     }
     return null;

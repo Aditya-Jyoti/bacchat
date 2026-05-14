@@ -419,6 +419,237 @@ router.delete('/:groupId/categories/:categoryId', authenticate, async (req: Auth
 
 /**
  * @openapi
+ * /groups/{groupId}/placeholder-members:
+ *   post:
+ *     tags:
+ *       - Groups
+ *     summary: Add a placeholder member (admin only) — for someone not on Bacchat yet
+ *     description: |
+ *       Creates a guest user with the given name, adds them as a group member,
+ *       and returns a one-time claim code. Share the resulting `claim_url`
+ *       with the real person — when they open it and sign in/up, every
+ *       reference to the placeholder (GroupMember + SplitShare rows) is
+ *       atomically rewritten to their real userId and the placeholder is
+ *       deleted, so they inherit all the splits/shares that were added in
+ *       their absence.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: groupId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name]
+ *             properties:
+ *               name:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: "{ claim_code, claim_url, member: {...} }"
+ *       403:
+ *         description: Only an admin can add placeholder members
+ */
+router.post(
+  '/:groupId/placeholder-members',
+  authenticate,
+  [body('name').notEmpty().trim().withMessage('Name is required').isLength({ max: 80 })],
+  validate,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.userId!;
+      const { groupId } = req.params;
+      const { name } = req.body as { name: string };
+
+      const me = await prisma.groupMember.findFirst({
+        where: { groupId, userId },
+      });
+      if (!me) {
+        res.status(404).json({ error: 'Group not found' });
+        return;
+      }
+      if (!me.isAdmin) {
+        res.status(403).json({ error: 'Only a group admin can add placeholder members' });
+        return;
+      }
+
+      const claimCode = randomUUID();
+      const { claim, member } = await prisma.$transaction(async (tx) => {
+        const placeholder = await tx.user.create({
+          data: { name: name.trim(), isGuest: true },
+        });
+        const newMember = await tx.groupMember.create({
+          data: { groupId, userId: placeholder.id, isAdmin: false },
+        });
+        const created = await tx.placeholderClaim.create({
+          data: {
+            groupId,
+            placeholderUserId: placeholder.id,
+            code: claimCode,
+          },
+        });
+        return { claim: created, member: newMember };
+      });
+
+      // Public-facing URL hosted at the same root the invite landing pages
+      // use, so Android App Links auto-open the app on the recipient's phone.
+      const host = process.env.FRONTEND_URL ?? '';
+      const claimUrl = `${host}/claim/${claim.code}`;
+
+      console.log(`[groups] placeholder member ${claim.placeholderUserId} added to ${groupId} (claim ${claim.code})`);
+
+      res.status(201).json({
+        claim_code: claim.code,
+        claim_url: claimUrl,
+        placeholder_user_id: claim.placeholderUserId,
+        member: {
+          id: member.userId,
+          group_id: groupId,
+          is_admin: false,
+          name: name.trim(),
+          is_guest: true,
+          is_placeholder: true,
+        },
+      });
+    } catch (error) {
+      console.error('Create placeholder member error:', error);
+      res.status(500).json({ error: 'Failed to add placeholder member' });
+    }
+  },
+);
+
+/**
+ * @openapi
+ * /groups/solo:
+ *   post:
+ *     tags:
+ *       - Groups
+ *     summary: Create-or-fetch a 1-on-1 split group with another Bacchat user
+ *     description: |
+ *       Idempotent. If a 2-member group already exists between the caller and
+ *       `with_user_id` (and nobody else), returns that. Otherwise creates a
+ *       new group named "You & <name>".
+ *
+ *       Designed for the "scan a QR / paste a Bacchat ID and start splitting"
+ *       flow — no group naming, no member invites.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [with_user_id]
+ *             properties:
+ *               with_user_id:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Existing solo group returned
+ *       201:
+ *         description: New solo group created
+ *       400:
+ *         description: Bad request
+ *       404:
+ *         description: with_user_id is not a Bacchat user
+ */
+router.post(
+  '/solo',
+  authenticate,
+  [body('with_user_id').isUUID().withMessage('with_user_id must be a UUID')],
+  validate,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.userId!;
+      const otherId = String(req.body.with_user_id);
+
+      if (otherId === userId) {
+        res.status(400).json({ error: "Can't create a solo group with yourself" });
+        return;
+      }
+
+      const other = await prisma.user.findUnique({ where: { id: otherId } });
+      if (!other) {
+        res.status(404).json({ error: 'That Bacchat ID does not exist' });
+        return;
+      }
+
+      // Find an existing group containing exactly these two members and
+      // nobody else.  A correlated query keeps the round-trip count to 1.
+      //
+      // Read: groups where I'm a member AND the other person is also a
+      // member, then filter to those with exactly 2 members on the JS side.
+      const candidate = await prisma.splitGroup.findFirst({
+        where: {
+          AND: [
+            { members: { some: { userId } } },
+            { members: { some: { userId: otherId } } },
+          ],
+        },
+        include: { _count: { select: { members: true } } },
+      });
+      if (candidate && candidate._count.members === 2) {
+        res.status(200).json({
+          id: candidate.id,
+          name: candidate.name,
+          emoji: candidate.emoji,
+          member_count: 2,
+          splits_count: 0,
+          unsettled_shares: 0,
+          net_balance: 0,
+          invite_code: candidate.inviteCode,
+          created_at: candidate.createdAt,
+        });
+        return;
+      }
+
+      const me = await prisma.user.findUnique({ where: { id: userId } });
+      const groupName = `You & ${other.name.split(' ')[0]}`;
+      const group = await prisma.splitGroup.create({
+        data: {
+          name: groupName,
+          emoji: '🤝',
+          createdBy: userId,
+          inviteCode: randomUUID(),
+          members: {
+            create: [
+              { userId, isAdmin: true },
+              { userId: otherId, isAdmin: false },
+            ],
+          },
+        },
+        include: { _count: { select: { members: true } } },
+      });
+
+      console.log(`[groups] solo-group created ${group.id} for ${me?.name} ↔ ${other.name}`);
+
+      res.status(201).json({
+        id: group.id,
+        name: group.name,
+        emoji: group.emoji,
+        member_count: group._count.members,
+        splits_count: 0,
+        unsettled_shares: 0,
+        net_balance: 0,
+        invite_code: group.inviteCode,
+        created_at: group.createdAt,
+      });
+    } catch (error) {
+      console.error('Create solo group error:', error);
+      res.status(500).json({ error: 'Failed to create solo group' });
+    }
+  },
+);
+
+/**
+ * @openapi
  * /groups/{groupId}:
  *   delete:
  *     tags:

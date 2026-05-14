@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../../core/utils/format_money.dart';
@@ -222,13 +223,32 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
         title: 'Add Transaction',
         initial: null,
         onSave: (data) async {
-          await ref.read(transactionEditorProvider.notifier).createTransaction(
+          // Manual entry: if the user typed a vendor name and (optionally)
+          // picked a category, also persist the vendor→category mapping so
+          // future SMS/manual entries with the same vendor auto-tag.
+          final vendor = data.merchantKey;
+          final vendorKey = (vendor == null || vendor.isEmpty)
+              ? null
+              : vendor.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+          final newId = await ref
+              .read(transactionEditorProvider.notifier)
+              .createTransaction(
                 title: data.title,
                 amount: data.amount,
                 type: data.type,
                 categoryId: data.categoryId,
+                merchantKey: vendorKey,
                 date: data.date,
               );
+          if (data.rememberMerchantCategory &&
+              vendorKey != null &&
+              data.categoryId != null) {
+            // Reuse the editor to persist the mapping in a single round-trip.
+            await ref.read(transactionEditorProvider.notifier).updateTransaction(
+                  id: newId,
+                  rememberCategory: true,
+                );
+          }
         },
       ),
     );
@@ -266,6 +286,11 @@ class _Header extends StatelessWidget {
               tooltip: 'Import from SMS',
               onPressed: onSmsImport,
             ),
+          IconButton(
+            tooltip: 'How Bacchat works',
+            icon: const Icon(Icons.help_outline),
+            onPressed: () => context.push('/help'),
+          ),
         ],
       ),
     );
@@ -522,6 +547,7 @@ class _TxCard extends ConsumerWidget {
                 type: data.type,
                 categoryId: data.categoryId,
                 clearCategory: data.categoryId == null,
+                merchantKey: data.merchantKey,
                 date: data.date,
                 rememberCategory: data.rememberMerchantCategory,
               );
@@ -714,6 +740,9 @@ class _SheetData {
   final double amount;
   final String type;
   final String? categoryId;
+  /// Vendor / payee identifier the user wants to remember-categorise by.
+  /// Null = no change. Empty string = clear any existing memory key.
+  final String? merchantKey;
   final DateTime date;
   final bool rememberMerchantCategory;
   const _SheetData({
@@ -721,6 +750,7 @@ class _SheetData {
     required this.amount,
     required this.type,
     required this.categoryId,
+    required this.merchantKey,
     required this.date,
     required this.rememberMerchantCategory,
   });
@@ -745,6 +775,7 @@ class _AddOrEditSheet extends ConsumerStatefulWidget {
 class _AddOrEditSheetState extends ConsumerState<_AddOrEditSheet> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _amountCtrl;
+  late final TextEditingController _vendorCtrl;
   late String _type;
   late DateTime _date;
   String? _categoryId;
@@ -757,7 +788,13 @@ class _AddOrEditSheetState extends ConsumerState<_AddOrEditSheet> {
     super.initState();
     final t = widget.initial;
     _titleCtrl = TextEditingController(text: t?.title ?? '');
-    _amountCtrl = TextEditingController(text: t != null ? t.amount.toStringAsFixed(2) : '');
+    _amountCtrl =
+        TextEditingController(text: t != null ? t.amount.toStringAsFixed(2) : '');
+    // Pre-fill vendor with the existing merchantKey (title-cased so it's
+    // friendlier in the field) — null/blank for transactions without one.
+    _vendorCtrl = TextEditingController(
+      text: t?.merchantKey == null ? '' : _toTitleCase(t!.merchantKey!),
+    );
     _type = t?.type ?? 'expense';
     _date = t?.date ?? DateTime.now();
     _categoryId = t?.categoryId;
@@ -766,10 +803,18 @@ class _AddOrEditSheetState extends ConsumerState<_AddOrEditSheet> {
     _rememberCategory = (t?.hasMerchantMemory ?? false) && t?.categoryId == null;
   }
 
+  static String _toTitleCase(String s) => s
+      .split(RegExp(r'\s+'))
+      .map((w) => w.isEmpty
+          ? w
+          : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+      .join(' ');
+
   @override
   void dispose() {
     _titleCtrl.dispose();
     _amountCtrl.dispose();
+    _vendorCtrl.dispose();
     super.dispose();
   }
 
@@ -801,14 +846,21 @@ class _AddOrEditSheetState extends ConsumerState<_AddOrEditSheet> {
       _error = null;
     });
     try {
+      final vendor = _vendorCtrl.text.trim();
       await widget.onSave(_SheetData(
         title: title,
         amount: amount,
         type: _type,
         categoryId: _categoryId,
+        // Empty string when cleared, vendor text otherwise. Null means
+        // "don't touch the existing value" — the provider distinguishes.
+        merchantKey: vendor,
         date: _date,
+        // Remember is meaningful any time both a vendor and a category are
+        // present — works for fresh manual entries, edits of legacy "UPI
+        // Payment" rows, and SMS-imported rows alike.
         rememberMerchantCategory:
-            _rememberCategory && widget.initial?.merchantKey != null,
+            _rememberCategory && vendor.isNotEmpty && _categoryId != null,
       ));
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
@@ -825,7 +877,6 @@ class _AddOrEditSheetState extends ConsumerState<_AddOrEditSheet> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final media = MediaQuery.of(context);
-    final merchant = widget.initial?.merchantKey;
     // Watch budget reactively — categories appear as soon as the budget loads,
     // even if the sheet opened before the FutureProvider had its first value.
     final budgetAsync = ref.watch(budgetOverviewProvider);
@@ -896,6 +947,24 @@ class _AddOrEditSheetState extends ConsumerState<_AddOrEditSheet> {
                 labelText: 'Amount (₹)',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.currency_rupee),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Vendor / payee — the identity used for "always categorise"
+            // memory. Auto-filled from SMS-extracted merchant when available;
+            // can be typed in for legacy rows that came in as "UPI Payment".
+            TextField(
+              controller: _vendorCtrl,
+              textCapitalization: TextCapitalization.words,
+              onChanged: (_) => setState(() {}), // refresh remember-toggle gating
+              decoration: const InputDecoration(
+                labelText: 'Vendor / payee (optional)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.storefront_outlined),
+                hintText: 'e.g. Swiggy, Nikhil Sharma',
+                helperText: 'Used to remember a category for future payments to this vendor',
+                helperMaxLines: 2,
               ),
             ),
             const SizedBox(height: 12),
@@ -1030,8 +1099,11 @@ class _AddOrEditSheetState extends ConsumerState<_AddOrEditSheet> {
                 ],
               ),
 
-            // ---------------- "Remember for this merchant" toggle ---------
-            if (merchant != null && merchant.isNotEmpty && _categoryId != null) ...[
+            // ---------------- "Remember for this vendor" toggle ----------
+            // Available whenever both a vendor (typed or pre-filled) and a
+            // category are set. Same memory the SMS auto-import consults on
+            // every new import.
+            if (_vendorCtrl.text.trim().isNotEmpty && _categoryId != null) ...[
               const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
@@ -1047,7 +1119,7 @@ class _AddOrEditSheetState extends ConsumerState<_AddOrEditSheet> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Always categorise "$merchant"',
+                            'Always categorise "${_vendorCtrl.text.trim()}"',
                             style: GoogleFonts.montserrat(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
@@ -1055,7 +1127,7 @@ class _AddOrEditSheetState extends ConsumerState<_AddOrEditSheet> {
                             ),
                           ),
                           Text(
-                            'Future SMS to this payee land in this category automatically.',
+                            'Future payments to this vendor land in this category automatically.',
                             style: GoogleFonts.montserrat(
                               fontSize: 11,
                               color: scheme.onSurfaceVariant,

@@ -36,6 +36,9 @@ model User {
   transactions        Transaction[]
   merchantCategories  MerchantCategory[]
   groupCategoriesCreated GroupCategory[]
+  /// Reverse side of PlaceholderClaim.placeholder — guest users that are
+  /// awaiting a real human to come along and claim them.
+  placeholderClaim    PlaceholderClaim? @relation("PlaceholderUser")
 
   @@map("users")
 }
@@ -72,9 +75,10 @@ model SplitGroup {
   inviteCode String   @unique
   createdAt  DateTime @default(now())
 
-  members         GroupMember[]
-  splits          Split[]
-  groupCategories GroupCategory[]
+  members           GroupMember[]
+  splits            Split[]
+  groupCategories   GroupCategory[]
+  placeholderClaims PlaceholderClaim[]
 
   @@map("split_groups")
 }
@@ -199,6 +203,25 @@ model MerchantCategory {
 
   @@unique([userId, merchantKey])
   @@map("merchant_categories")
+}
+
+/// Lets a group admin add someone by name only — creating a placeholder
+/// guest member — and share a one-time claim link.  When the real person
+/// opens the link and signs in/up, [`POST /invite/claim/:code`] rebinds the
+/// placeholder member to the real user (every GroupMember and SplitShare row
+/// gets its userId rewritten in a transaction, then the placeholder user is
+/// deleted).
+model PlaceholderClaim {
+  id                 String     @id @default(uuid())
+  groupId            String
+  group              SplitGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  placeholderUserId  String     @unique
+  placeholder        User       @relation("PlaceholderUser", fields: [placeholderUserId], references: [id], onDelete: Cascade)
+  code               String     @unique
+  claimedAt          DateTime?
+  createdAt          DateTime   @default(now())
+
+  @@map("placeholder_claims")
 }
 
 model RevokedToken {

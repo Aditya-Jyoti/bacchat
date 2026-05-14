@@ -28,7 +28,7 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- Deep links: https://bacchat.omrin.in/invite/:code opens the app -->
+            <!-- Deep links: https://bacchat.omrin.in/{invite,claim}/* opens the app -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -36,6 +36,9 @@
                 <data android:scheme="https"
                       android:host="bacchat.omrin.in"
                       android:pathPrefix="/invite/"/>
+                <data android:scheme="https"
+                      android:host="bacchat.omrin.in"
+                      android:pathPrefix="/claim/"/>
             </intent-filter>
         </activity>
         <meta-data

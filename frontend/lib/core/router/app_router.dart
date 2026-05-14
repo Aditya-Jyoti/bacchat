@@ -1,10 +1,12 @@
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/screens/auth_gate.dart';
+import '../../features/auth/screens/claim_screen.dart';
 import '../../features/auth/screens/guest_join_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/signup_screen.dart';
 import '../../features/budget/screens/budget_setup_screen.dart';
+import '../../features/help/help_screen.dart';
 import '../../features/home/screens/activity_screen.dart';
 import '../../features/home/screens/dashboard_screen.dart';
 import '../../features/ocr/screens/bill_scanner_screen.dart';
@@ -108,6 +110,13 @@ final appRouter = GoRouter(
         inviteCode: state.pathParameters['inviteCode']!,
       ),
     ),
+    // Placeholder-claim deep link — counterpart to /v1/claim/:code. Reached
+    // from the admin-shared claim URL via Android App Links.
+    GoRoute(
+      path: '/claim/:code',
+      builder: (context, state) =>
+          ClaimScreen(code: state.pathParameters['code']!),
+    ),
 
     GoRoute(
       path: '/profile',
@@ -117,6 +126,11 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/budget/setup',
       builder: (context, state) => const BudgetSetupScreen(),
+    ),
+
+    GoRoute(
+      path: '/help',
+      builder: (context, state) => const HelpScreen(),
     ),
   ],
 );

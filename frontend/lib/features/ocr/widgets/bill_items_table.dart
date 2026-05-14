@@ -147,8 +147,8 @@ class _BillItemsTableState extends State<BillItemsTable> {
               item.price = double.tryParse(v) ?? 0;
               widget.onChanged();
             },
-            onAssignedChanged: (uid) {
-              setState(() => item.assignedToUserId = uid);
+            onAssignedChanged: (assignees) {
+              setState(() => item.assignedToUserIds = assignees);
               widget.onChanged();
             },
             onDelete: () => setState(() => _removeRow(i)),
@@ -254,7 +254,7 @@ class _ItemRow extends StatelessWidget {
   final ValueChanged<String> onNameChanged;
   final ValueChanged<String> onQtyChanged;
   final ValueChanged<String> onPriceChanged;
-  final ValueChanged<String?> onAssignedChanged;
+  final ValueChanged<Set<String>?> onAssignedChanged;
   final VoidCallback onDelete;
 
   @override
@@ -345,46 +345,16 @@ class _ItemRow extends StatelessWidget {
           ),
           const SizedBox(width: 6),
 
-          // Assigned-to
+          // Assigned-to — multi-select. Tap opens the picker dialog. Label
+          // shows the count ("All", "Bob", "Bob +1", etc) so the row stays
+          // compact when many members are picked.
           SizedBox(
             width: 96,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                    color: scheme.outlineVariant.withValues(alpha: 0.6)),
-              ),
-              child: DropdownButton<String?>(
-                value: item.assignedToUserId,
-                isDense: true,
-                isExpanded: true,
-                underline: const SizedBox.shrink(),
-                style: GoogleFonts.montserrat(fontSize: 12),
-                items: [
-                  DropdownMenuItem<String?>(
-                    value: null,
-                    child: Text(
-                      'Split all',
-                      style: GoogleFonts.montserrat(
-                        fontSize: 12,
-                        color: scheme.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  ...members.map(
-                    (m) => DropdownMenuItem<String?>(
-                      value: m.id,
-                      child: Text(
-                        m.name.split(' ').first,
-                        style: GoogleFonts.montserrat(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                ],
-                onChanged: onAssignedChanged,
-              ),
+            child: _AssigneeButton(
+              members: members,
+              selected: item.assignedToUserIds,
+              onChanged: onAssignedChanged,
+              scheme: scheme,
             ),
           ),
 
@@ -397,6 +367,192 @@ class _ItemRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Assignee picker — multi-select. Null/empty selection = split equally
+// among every group member; non-empty = split equally among that subset.
+// ---------------------------------------------------------------------------
+
+class _AssigneeButton extends StatelessWidget {
+  const _AssigneeButton({
+    required this.members,
+    required this.selected,
+    required this.onChanged,
+    required this.scheme,
+  });
+
+  final List<MemberInfo> members;
+  final Set<String>? selected;
+  final ValueChanged<Set<String>?> onChanged;
+  final ColorScheme scheme;
+
+  String _label() {
+    final s = selected;
+    if (s == null || s.isEmpty || s.length == members.length) return 'All';
+    final picked = members.where((m) => s.contains(m.id)).toList();
+    if (picked.length == 1) return picked.first.name.split(' ').first;
+    return '${picked.first.name.split(' ').first} +${picked.length - 1}';
+  }
+
+  Future<void> _open(BuildContext context) async {
+    // Start from "everyone" if currently null/empty so a quick tap on one
+    // person says "only this person" rather than appearing pre-checked.
+    final current = (selected == null || selected!.isEmpty)
+        ? <String>{...members.map((m) => m.id)}
+        : <String>{...selected!};
+
+    final result = await showDialog<Set<String>?>(
+      context: context,
+      builder: (ctx) => _AssigneePickerDialog(
+        members: members,
+        initial: current,
+      ),
+    );
+    if (result == null) return; // dismissed without saving
+    // Normalise: "all selected" or empty both mean "split equally". Store
+    // null in either case so the downstream math has one canonical "all"
+    // case to handle.
+    if (result.isEmpty || result.length == members.length) {
+      onChanged(null);
+    } else {
+      onChanged(result);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isAll = selected == null ||
+        selected!.isEmpty ||
+        selected!.length == members.length;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _open(context),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border:
+                Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Expanded(
+                child: Text(
+                  _label(),
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: isAll ? scheme.primary : scheme.onSurface,
+                  ),
+                ),
+              ),
+              Icon(Icons.arrow_drop_down, size: 18, color: scheme.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AssigneePickerDialog extends StatefulWidget {
+  const _AssigneePickerDialog({required this.members, required this.initial});
+  final List<MemberInfo> members;
+  final Set<String> initial;
+
+  @override
+  State<_AssigneePickerDialog> createState() => _AssigneePickerDialogState();
+}
+
+class _AssigneePickerDialogState extends State<_AssigneePickerDialog> {
+  late final Set<String> _picked;
+
+  @override
+  void initState() {
+    super.initState();
+    _picked = {...widget.initial};
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final allSelected = _picked.length == widget.members.length;
+    return AlertDialog(
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Split this item with',
+              style: GoogleFonts.montserrat(fontWeight: FontWeight.w800),
+            ),
+          ),
+          TextButton(
+            onPressed: () => setState(() {
+              if (allSelected) {
+                _picked.clear();
+              } else {
+                _picked
+                  ..clear()
+                  ..addAll(widget.members.map((m) => m.id));
+              }
+            }),
+            child: Text(allSelected ? 'None' : 'All',
+                style: GoogleFonts.montserrat(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+      contentPadding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+      content: SizedBox(
+        width: 320,
+        child: ListView(
+          shrinkWrap: true,
+          children: widget.members.map((m) {
+            final on = _picked.contains(m.id);
+            return CheckboxListTile(
+              dense: true,
+              value: on,
+              onChanged: (v) => setState(() {
+                if (v == true) {
+                  _picked.add(m.id);
+                } else {
+                  _picked.remove(m.id);
+                }
+              }),
+              title: Text(m.name, style: GoogleFonts.montserrat(fontSize: 13)),
+              secondary: CircleAvatar(
+                radius: 14,
+                backgroundColor: scheme.secondaryContainer,
+                child: Text(
+                  m.initial,
+                  style: GoogleFonts.montserrat(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: scheme.onSecondaryContainer,
+                  ),
+                ),
+              ),
+              controlAffinity: ListTileControlAffinity.trailing,
+            );
+          }).toList(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _picked),
+          child: const Text('Done'),
+        ),
+      ],
     );
   }
 }

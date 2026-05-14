@@ -494,13 +494,33 @@ class _GroupInfoModal extends StatelessWidget {
 
                 // Members
                 const SizedBox(height: 16),
-                Text(
-                  'Members · ${group.members.length}',
-                  style: GoogleFonts.montserrat(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: scheme.onSurface,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      'Members · ${group.members.length}',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                    const Spacer(),
+                    // Only admins can issue placeholder invites — non-admin
+                    // members can still share the regular group invite link.
+                    if (group.members.any((m) => m.id == currentUserId && m.isAdmin))
+                      TextButton.icon(
+                        onPressed: () => _showAddPlaceholderDialog(context, groupId),
+                        icon: const Icon(Icons.person_add_alt_1, size: 16),
+                        label: Text(
+                          'Add by name',
+                          style: GoogleFonts.montserrat(fontSize: 12),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: const Size(0, 32),
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 _InfoCard(
@@ -514,11 +534,30 @@ class _GroupInfoModal extends StatelessWidget {
                     );
                   }).toList(),
                 ),
+                const SizedBox(height: 6),
+                Text(
+                  '"Add by name" creates a placeholder member you can keep adding splits for. When they install Bacchat, share the claim link from the modal — every split they were a part of will transfer to their account.',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 10,
+                    color: scheme.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _showAddPlaceholderDialog(
+      BuildContext context, String groupId) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _AddPlaceholderSheet(groupId: groupId),
     );
   }
 
@@ -1076,6 +1115,229 @@ class _InviteShareSheet extends StatelessWidget {
                 ),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Admin-only sheet: "Add a member by name" — for friends who aren't on
+// Bacchat yet. The admin types their name; the server creates a placeholder
+// guest member + a one-time claim URL. The admin can then add splits with
+// this person normally, and share the claim URL whenever they're ready to
+// onboard. When the real human opens the link and signs in, the claim
+// endpoint atomically rewires every GroupMember and SplitShare from the
+// placeholder's userId to the real userId.
+// ---------------------------------------------------------------------------
+
+class _AddPlaceholderSheet extends ConsumerStatefulWidget {
+  const _AddPlaceholderSheet({required this.groupId});
+  final String groupId;
+
+  @override
+  ConsumerState<_AddPlaceholderSheet> createState() =>
+      _AddPlaceholderSheetState();
+}
+
+class _AddPlaceholderSheetState extends ConsumerState<_AddPlaceholderSheet> {
+  final _nameCtrl = TextEditingController();
+  bool _saving = false;
+  String? _error;
+  String? _claimUrl;
+  String? _claimedName;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _create() async {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      setState(() => _error = 'Pick a name');
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final result = await ref
+          .read(splitsEditorProvider.notifier)
+          .addPlaceholderMember(groupId: widget.groupId, name: name);
+      if (mounted) {
+        setState(() {
+          _claimUrl = result.claimUrl;
+          _claimedName = name;
+          _saving = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = e.toString().replaceFirst('Exception: ', '');
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final media = MediaQuery.of(context);
+    return Padding(
+      padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: scheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Text(
+              _claimUrl == null
+                  ? 'Add someone by name'
+                  : 'Share their claim link',
+              style: GoogleFonts.montserrat(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: scheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _claimUrl == null
+                  ? 'Creates a placeholder member. Add splits for them normally; '
+                      'when they install Bacchat, share the claim link to merge '
+                      'every split they were a part of into their real account.'
+                  : 'Share this with $_claimedName. Opening it on their phone with '
+                      'Bacchat installed signs them in and transfers every split '
+                      'in this group that they were a part of to their account.',
+              style: GoogleFonts.montserrat(
+                fontSize: 11,
+                color: scheme.onSurfaceVariant,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_claimUrl == null) ...[
+              TextField(
+                controller: _nameCtrl,
+                autofocus: true,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  border: OutlineInputBorder(),
+                  hintText: 'e.g. Riya',
+                ),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 8),
+                Text(_error!,
+                    style: GoogleFonts.montserrat(
+                        fontSize: 12, color: scheme.error)),
+              ],
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _saving ? null : _create,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: _saving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : Text('Add member',
+                          style: GoogleFonts.montserrat(
+                              fontWeight: FontWeight.w800)),
+                ),
+              ),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: scheme.outlineVariant),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: SelectableText(
+                        _claimUrl!,
+                        style: GoogleFonts.robotoMono(
+                          fontSize: 11,
+                          color: scheme.onSurface,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy_outlined, size: 18),
+                      tooltip: 'Copy claim link',
+                      onPressed: () async {
+                        await Clipboard.setData(ClipboardData(text: _claimUrl!));
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Claim link copied')),
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    SharePlus.instance.share(
+                      ShareParams(
+                        text:
+                            'Hey! I\'ve been adding our splits in Bacchat under your name. '
+                            'Open this link to claim them: $_claimUrl',
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.share_outlined, size: 16),
+                  label: Text('Share',
+                      style: GoogleFonts.montserrat(
+                          fontWeight: FontWeight.w800)),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('Done',
+                      style: GoogleFonts.montserrat(
+                          fontWeight: FontWeight.w700,
+                          color: scheme.primary)),
+                ),
+              ),
+            ],
           ],
         ),
       ),

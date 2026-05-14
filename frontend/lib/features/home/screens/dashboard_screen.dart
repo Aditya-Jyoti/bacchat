@@ -239,6 +239,11 @@ class _UserHeader extends StatelessWidget {
               ],
             ),
           ),
+          IconButton(
+            tooltip: 'How Bacchat works',
+            icon: const Icon(Icons.help_outline),
+            onPressed: () => context.push('/help'),
+          ),
         ],
       ),
     );

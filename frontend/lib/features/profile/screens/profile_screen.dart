@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../auth/providers/auth_provider.dart';
 
@@ -88,7 +90,15 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
+
+              // ---------------- Bacchat ID + QR ----------------------------
+              // Anyone with your ID (paste) or your QR (scan) can open a
+              // 1-on-1 split group with you without going through the full
+              // group-creation + invite flow.
+              if (!user.isGuest) _IdentityCard(userId: user.id),
+
+              const SizedBox(height: 16),
 
               // Guest upgrade prompt
               if (user.isGuest) ...[
@@ -163,6 +173,114 @@ class ProfileScreen extends ConsumerWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bacchat ID card — your UUID + a QR encoding it. Anyone scanning the QR or
+// pasting the ID can open a 1-on-1 split group with you without going
+// through the full "create group + invite member" flow.
+// ---------------------------------------------------------------------------
+
+class _IdentityCard extends StatelessWidget {
+  const _IdentityCard({required this.userId});
+  final String userId;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.qr_code_2, size: 18, color: scheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Your Bacchat ID',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: scheme.onSurface,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Share this with friends — they can scan or paste it to start splitting with you instantly.',
+              style: GoogleFonts.montserrat(
+                fontSize: 11,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 14),
+            // White background ensures contrast for any camera.
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: scheme.outlineVariant),
+                ),
+                child: QrImageView(
+                  data: 'bacchat:user:$userId',
+                  version: QrVersions.auto,
+                  size: 160,
+                  eyeStyle: const QrEyeStyle(
+                    eyeShape: QrEyeShape.square,
+                    color: Colors.black,
+                  ),
+                  dataModuleStyle: const QrDataModuleStyle(
+                    dataModuleShape: QrDataModuleShape.square,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: scheme.outlineVariant),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SelectableText(
+                      userId,
+                      style: GoogleFonts.robotoMono(
+                        fontSize: 11,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.copy_outlined, size: 18),
+                    tooltip: 'Copy ID',
+                    onPressed: () async {
+                      await Clipboard.setData(ClipboardData(text: userId));
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Bacchat ID copied')),
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

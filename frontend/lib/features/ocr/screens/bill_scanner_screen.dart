@@ -93,23 +93,31 @@ class _BillScannerScreenState extends ConsumerState<BillScannerScreen> {
     try {
       final total = _items.fold(0.0, (s, i) => s + i.total);
 
-      // Compute per-member share amounts
+      // Compute per-member share amounts.
+      //
+      // Each bill item's total is divided equally among the people it's
+      // assigned to:
+      //   • `assignedToUserIds` is null or empty → split among ALL group
+      //     members ("split equally", legacy behaviour)
+      //   • exactly one user picked → that user pays for the whole line
+      //   • subset of users picked → split equally within that subset
       final shareMap = <String, double>{};
       for (final m in members) {
         shareMap[m.id] = 0;
       }
 
       for (final item in _items) {
-        if (item.assignedToUserId != null) {
-          // Assigned to a specific member
-          shareMap[item.assignedToUserId!] =
-              (shareMap[item.assignedToUserId!] ?? 0) + item.total;
-        } else {
-          // Split equally among all members
-          final perPerson = item.total / members.length;
-          for (final m in members) {
-            shareMap[m.id] = (shareMap[m.id] ?? 0) + perPerson;
-          }
+        final assignees = item.assignedToUserIds;
+        final payers = (assignees == null || assignees.isEmpty)
+            ? members.map((m) => m.id).toList()
+            : members
+                .where((m) => assignees.contains(m.id))
+                .map((m) => m.id)
+                .toList();
+        if (payers.isEmpty) continue; // defensive — shouldn't happen
+        final perPerson = item.total / payers.length;
+        for (final uid in payers) {
+          shareMap[uid] = (shareMap[uid] ?? 0) + perPerson;
         }
       }
 

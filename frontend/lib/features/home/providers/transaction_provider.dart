@@ -169,9 +169,17 @@ class TransactionEditor extends Notifier<void> {
     String? type,
     String? categoryId,
     bool? clearCategory,
+    /// User-supplied vendor / payee identifier. Stored as lowercased
+    /// merchantKey so the same vendor across capitalisations maps to one
+    /// memory entry. Pass an empty string to clear.
+    String? merchantKey,
     DateTime? date,
     bool rememberCategory = false,
   }) async {
+    final normalisedMerchant = merchantKey == null
+        ? null
+        : merchantKey.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+
     final patch = TransactionsCompanion(
       title: title != null ? drift.Value(title) : const drift.Value.absent(),
       amount: amount != null ? drift.Value(amount) : const drift.Value.absent(),
@@ -181,12 +189,16 @@ class TransactionEditor extends Notifier<void> {
           : categoryId != null
               ? drift.Value(categoryId)
               : const drift.Value.absent(),
+      merchantKey: normalisedMerchant == null
+          ? const drift.Value.absent()
+          : drift.Value(normalisedMerchant.isEmpty ? null : normalisedMerchant),
       date: date != null ? drift.Value(date) : const drift.Value.absent(),
     );
     await _db.transactionsDao.updateTx(id, patch);
 
     // Persist the "always categorise X as Y" decision so the next SMS from
-    // the same payee auto-tags.
+    // the same payee auto-tags. Reads the row back so a freshly-set
+    // merchantKey in this same call counts.
     if (rememberCategory) {
       final tx = await _db.transactionsDao.findById(id);
       if (tx != null &&

@@ -34,6 +34,17 @@ An open-source split-tracking and personal-budget app for Android.
 - **Groups** with member roster, invite codes, admin/member roles. Delete a
   group (admin), leave a group (self), kick a member (admin, if their
   shares are all settled).
+- **Solo (1-on-1) groups via QR / Bacchat ID.** Every user has a stable
+  Bacchat ID and a QR code in their profile. Tap "Split with…" → "Someone
+  already on Bacchat" → scan their QR or paste their ID → a 1-on-1 group
+  named "You & <name>" is created automatically (idempotent — same pair
+  always returns the same group).
+- **Placeholder members for friends not yet on Bacchat.** Admin → Group
+  info → "Add by name". Creates a placeholder member you can keep adding
+  splits for. Share the resulting one-time claim link any time later —
+  when the real person installs Bacchat and opens the link, every split
+  they were a part of is atomically rewired to their real account, totals
+  intact.
 - **Splits** within a group: title, total, category, paid-by, split-type
   (equal or custom), member-subset support (untick anyone who isn't in the
   split). Edit or delete a split (payer or admin).
@@ -47,6 +58,10 @@ An open-source split-tracking and personal-budget app for Android.
   app via App Links; in the browser it lands on a server-rendered
   full-feature web mirror so the invitee can use the group without
   installing.
+- **OCR bill scanner with subset splits.** Scan a restaurant bill → each
+  line item can be paid by everyone, by one person, or by **any subset**
+  (e.g. 3 of 5 — exactly the people who ordered that dish). The "Who"
+  column on each row opens a multi-select picker.
 
 ### Personal money (device-only, never leaves you)
 
@@ -73,6 +88,11 @@ An open-source split-tracking and personal-budget app for Android.
   so it can be re-generated).
 - **Restricted-settings walkthrough** that handles Android 13+'s
   sideload-installed-app SMS permission flow.
+- **Smart splash** — tap-to-start with a clear hint, and skipped entirely
+  if there's already a valid session.
+- **In-app help** at `/help`, reachable from a `?` icon on every main
+  screen. Covers what each feature does and how the states on a group
+  card mean what they mean.
 
 ---
 

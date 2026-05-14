@@ -3,6 +3,69 @@
 All notable changes to **Bacchat** (frontend + backend) — newest first. Dates
 are when the work was committed.
 
+## 2026-05-15
+
+### SMS — wider bank coverage + multi-bank acct-to-acct
+
+- New patterns cover SBI / HDFC / ICICI / YES BANK formats end-to-end:
+  - SBI: `trf to <NAME> Refno …` and `transfer from <NAME> Ref No …`
+  - HDFC structured newline-separated `To <NAME>\nOn DD/MM/YY\nRef <N>`
+  - YES BANK `UPI:<N>/To:<vpa>@bank` (and the credit equivalent)
+  - CUBANK acct-to-acct (`credited to a/c no. XXXXXXXX6804`) — captured
+    as "Acct …6804" so the user can still tag a category to it
+  - Axio-style `spent ₹X at <NAME>`
+- Stop-condition rewritten so a regex like `on\s+\d\b` doesn't silently
+  fail between two digits.
+
+### 1-on-1 splits via QR / Bacchat ID
+
+- New backend `POST /v1/groups/solo { with_user_id }` — idempotent: returns
+  the existing 1-on-1 group between the caller and the target user, or
+  creates one named "You & <name>".
+- Profile screen shows a QR encoding the user's Bacchat ID and the raw
+  UUID (selectable + copyable).
+- Splits FAB → "Split with…" sheet now offers:
+  - Someone already on Bacchat → scan QR or paste their ID → 1-on-1 group
+  - A new group → the classic multi-member flow
+
+### Placeholder members + claim-by-invite
+
+- New `placeholder_claims` table + Prisma migration.
+- `POST /v1/groups/:id/placeholder-members` (admin only) creates a guest
+  member by name and returns a one-time `claim_url`.
+- `GET /claim/:code` landing page + JSON variant, `POST /v1/claim/:code`
+  atomically rewires every `GroupMember`, `SplitShare`, and `Split.paidBy`
+  row from the placeholder to the claimer's userId, then deletes the
+  placeholder.
+- Android App Links extended to `/claim/*`.
+- New in-app ClaimScreen + Flutter route.
+- Group info modal exposes "Add by name" (admin only) → claim sheet
+  with copy / share buttons.
+
+### OCR partial-split (3-of-5 members)
+
+- `BillItem.assignedToUserId: String?` → `assignedToUserIds: Set<String>?`.
+- The "Who" column on each bill row now opens a multi-select dialog;
+  the picker label compacts to "All", "Bob", or "Bob +1" depending on
+  what's selected.
+- Empty/null selection still means "split equally among everyone";
+  a non-empty subset splits the item equally among that subset only.
+
+### Splash
+
+- Tap-to-start hint with a pulsing touch icon — first-time users no longer
+  wait wondering if the app is stuck.
+- If a valid session exists, splash navigates straight to the dashboard
+  without waiting for a tap.
+
+### In-app help
+
+- New `/help` route accessible via a `?` icon on every main screen
+  (dashboard, splits, activity). Walks the user through groups, splits,
+  settlement rules, OCR partial splits, personal transactions, the
+  per-merchant category memory, and the Android-13 restricted-settings
+  permission step for SMS auto-import.
+
 ## 2026-05-14
 
 ### Privacy: personal data moves to on-device SQLite

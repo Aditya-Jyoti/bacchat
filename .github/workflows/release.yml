@@ -97,10 +97,79 @@ jobs:
           path: ${{ steps.rename.outputs.apk_path }}
           if-no-files-found: error
 
+      # Build the release body: a description of the app + install
+      # instructions + the Android 13 "restricted settings" walkthrough,
+      # followed by GitHub's auto-generated commit/PR notes.
+      #
+      # The "since:" tag for `generate_release_notes` defaults to the most
+      # recent tag prior to this one, so the auto section becomes
+      # "what changed between the last release and this one".
+      - name: Write release body
+        id: body
+        run: |
+          cat <<'EOF' > release-body.md
+          ## Bacchat — open-source split-tracking & personal budget for Android
+
+          Bacchat is an open-source money tracker that keeps **personal money
+          on your phone** (local SQLite, never sent to a server) and uses the
+          server only for **shared money** — groups, splits, settlements,
+          invites. The split engine handles 1-on-1, multi-member groups,
+          subset-of-members per bill item, OCR bill scanning, and a debt
+          simplifier that minimises payments needed to clear the books.
+
+          Highlights in this release are in **What's changed** below. The
+          full [CHANGELOG](https://github.com/Aditya-Jyoti/bacchat/blob/main/CHANGELOG.md)
+          carries the history.
+
+          ---
+
+          ## Install
+
+          1. Download `bacchat-${{ github.ref_name }}.apk` from the
+             **Assets** section below.
+          2. On your Android device: open the file. If you see "for your
+             security, your phone isn't allowed to install unknown apps from
+             this source" → tap **Settings** → enable for the browser /
+             file-manager you're installing from → come back and tap
+             **Install**.
+          3. Open Bacchat → tap to start → sign up or continue as a guest.
+
+          ## Granting SMS permission (Android 13+)
+
+          Android 13 blocks SMS / notification-listener permissions for
+          sideloaded apps until you explicitly allow "Restricted settings".
+          Bacchat surfaces a banner on the home screen that walks you
+          through this once — here's the manual path if you skipped it:
+
+          1. **Settings → Apps → Bacchat**
+          2. Tap the **⋮ menu** in the top-right corner
+          3. Tap **"Allow restricted settings"** → confirm
+          4. Back in the app info page → **Permissions → SMS → Allow**
+
+          After that, Bacchat will auto-import bank transaction SMS in real
+          time (foreground, background, or even after the app is
+          force-stopped) and turn each one into a personal transaction.
+          No bank data ever leaves your phone.
+
+          ## Privacy in two sentences
+
+          The server stores your auth credentials and any **group split**
+          data (because that's inherently shared with other people). Every
+          other piece of data — personal transactions, budget, categories,
+          merchant→category memory, parsed bank SMS — lives only in the
+          on-device SQLite database under the app's sandboxed documents
+          directory.
+
+          ---
+          EOF
+          echo "body_path=release-body.md" >> "$GITHUB_OUTPUT"
+
       - name: Attach to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ steps.rename.outputs.apk_path }}
+          body_path: ${{ steps.body.outputs.body_path }}
+          # Auto-generated commit/PR list appended to body_path.
           generate_release_notes: true
           fail_on_unmatched_files: true
