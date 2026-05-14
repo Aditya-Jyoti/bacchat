@@ -24,7 +24,8 @@ final splitGroupsProvider = FutureProvider<List<GroupCard>>((ref) async {
       id: m['id'] as String,
       name: m['name'] as String,
       emoji: m['emoji'] as String,
-      memberCount: m['member_count'] as int,
+      memberCount: (m['member_count'] as num).toInt(),
+      splitsCount: (m['splits_count'] as num?)?.toInt() ?? 0,
       netBalance: (m['net_balance'] as num).toDouble(),
       inviteCode: m['invite_code'] as String,
     );

@@ -3,6 +3,7 @@ class GroupCard {
   final String name;
   final String emoji;
   final int memberCount;
+  final int splitsCount;
   final double netBalance;
   final String inviteCode;
 
@@ -11,11 +12,14 @@ class GroupCard {
     required this.name,
     required this.emoji,
     required this.memberCount,
+    required this.splitsCount,
     required this.netBalance,
     required this.inviteCode,
   });
 
-  bool get isSettled => netBalance.abs() < 0.01;
+  /// True if the group has no splits at all — show "No splits yet" not "Settled up".
+  bool get isEmpty => splitsCount == 0;
+  bool get isSettled => !isEmpty && netBalance.abs() < 0.01;
   bool get youAreOwed => netBalance > 0.01;
   bool get youOwe => netBalance < -0.01;
 }

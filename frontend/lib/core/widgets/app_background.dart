@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
-/// Subtle, minimal background:
-///   • Vertical gradient surface → surfaceContainerLow
-///   • A pair of large, soft, radial-gradient orbs in primary / secondary
-///     for depth (low alpha so they read as ambience, not decoration)
-///   • A faint micro-dot grid for tactility
-///   • A single hairline highlight near the top for an "edge of glass" feel
+/// Flat, minimal background. No gradients, no orbs, no blur — just:
+///   • Solid surface fill
+///   • A clean dot grid (uniform spacing)
+///   • A pair of thin guide lines at the rule-of-thirds for asymmetry
+///   • A single accent corner mark (top-right) as visual anchor
 class AppBackground extends StatelessWidget {
   const AppBackground({super.key, required this.child});
   final Widget child;
@@ -17,29 +16,13 @@ class AppBackground extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.hardEdge,
       children: [
-        // Base gradient
         Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  scheme.surface,
-                  Color.alphaBlend(
-                    scheme.primary.withValues(alpha: isDark ? 0.04 : 0.025),
-                    scheme.surfaceContainerLow,
-                  ),
-                ],
-              ),
-            ),
-          ),
+          child: ColoredBox(color: scheme.surface),
         ),
-        // Soft ambient orbs + dot grid
         Positioned.fill(
           child: RepaintBoundary(
             child: CustomPaint(
-              painter: _AmbientPainter(scheme: scheme, isDark: isDark),
+              painter: _GridPainter(scheme: scheme, isDark: isDark),
             ),
           ),
         ),
@@ -49,87 +32,71 @@ class AppBackground extends StatelessWidget {
   }
 }
 
-class _AmbientPainter extends CustomPainter {
+class _GridPainter extends CustomPainter {
   final ColorScheme scheme;
   final bool isDark;
-  const _AmbientPainter({required this.scheme, required this.isDark});
+  const _GridPainter({required this.scheme, required this.isDark});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final orbAlpha = isDark ? 0.18 : 0.10;
+    final dotAlpha = isDark ? 0.05 : 0.04;
+    final lineAlpha = isDark ? 0.025 : 0.018;
+    final accentAlpha = isDark ? 0.10 : 0.08;
 
-    // Top-right orb — primary tinted, slightly off-screen
-    _drawOrb(
-      canvas,
-      Offset(size.width * 0.95, size.height * 0.08),
-      size.width * 0.55,
-      scheme.primary.withValues(alpha: orbAlpha),
-    );
-
-    // Bottom-left orb — secondary, larger and softer
-    _drawOrb(
-      canvas,
-      Offset(-size.width * 0.10, size.height * 0.95),
-      size.width * 0.70,
-      scheme.secondary.withValues(alpha: orbAlpha * 0.85),
-    );
-
-    // Tertiary accent — mid-right, smaller, gives it asymmetry
-    _drawOrb(
-      canvas,
-      Offset(size.width * 1.15, size.height * 0.55),
-      size.width * 0.40,
-      scheme.tertiary.withValues(alpha: orbAlpha * 0.7),
-    );
-
-    // Micro-dot grid — extremely subtle texture
-    _drawDotGrid(
-      canvas,
-      size,
-      scheme.onSurface.withValues(alpha: isDark ? 0.025 : 0.020),
-    );
-
-    // Hairline highlight just under status bar
-    final hairline = Paint()
-      ..shader = LinearGradient(
-        colors: [
-          Colors.transparent,
-          scheme.onSurface.withValues(alpha: isDark ? 0.05 : 0.03),
-          Colors.transparent,
-        ],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, 1));
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, 1), hairline);
-  }
-
-  void _drawOrb(Canvas canvas, Offset center, double radius, Color color) {
-    final rect = Rect.fromCircle(center: center, radius: radius);
-    final paint = Paint()
-      ..shader = RadialGradient(
-        colors: [color, color.withValues(alpha: 0.0)],
-        stops: const [0.0, 1.0],
-      ).createShader(rect);
-    canvas.drawCircle(center, radius, paint);
-  }
-
-  void _drawDotGrid(Canvas canvas, Size size, Color color) {
-    final paint = Paint()
-      ..color = color
+    // 1. Dot grid — uniform, evenly spaced
+    final dotPaint = Paint()
+      ..color = scheme.onSurface.withValues(alpha: dotAlpha)
       ..style = PaintingStyle.fill;
-    const spacing = 28.0;
+    const spacing = 24.0;
     const radius = 1.0;
-    // Stagger every other row for a less mechanical pattern
-    int row = 0;
     for (double y = spacing; y < size.height; y += spacing) {
-      final xOffset = (row.isOdd ? spacing / 2 : 0.0);
-      for (double x = spacing + xOffset; x < size.width; x += spacing) {
-        canvas.drawCircle(Offset(x, y), radius, paint);
+      for (double x = spacing; x < size.width; x += spacing) {
+        canvas.drawCircle(Offset(x, y), radius, dotPaint);
       }
-      row++;
     }
+
+    // 2. Two thin vertical guide lines at rule-of-thirds
+    final linePaint = Paint()
+      ..color = scheme.onSurface.withValues(alpha: lineAlpha)
+      ..strokeWidth = 1;
+    final x1 = size.width / 3;
+    final x2 = size.width * 2 / 3;
+    canvas.drawLine(Offset(x1, 0), Offset(x1, size.height), linePaint);
+    canvas.drawLine(Offset(x2, 0), Offset(x2, size.height), linePaint);
+
+    // 3. Top-right corner accent — small L-mark for visual anchor
+    final accentPaint = Paint()
+      ..color = scheme.primary.withValues(alpha: accentAlpha)
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    const margin = 24.0;
+    const arm = 32.0;
+    canvas.drawLine(
+      Offset(size.width - margin, margin),
+      Offset(size.width - margin - arm, margin),
+      accentPaint,
+    );
+    canvas.drawLine(
+      Offset(size.width - margin, margin),
+      Offset(size.width - margin, margin + arm),
+      accentPaint,
+    );
+
+    // 4. Bottom-left corner accent — mirror for balance
+    canvas.drawLine(
+      Offset(margin, size.height - margin),
+      Offset(margin + arm, size.height - margin),
+      accentPaint,
+    );
+    canvas.drawLine(
+      Offset(margin, size.height - margin),
+      Offset(margin, size.height - margin - arm),
+      accentPaint,
+    );
   }
 
   @override
-  bool shouldRepaint(_AmbientPainter old) =>
+  bool shouldRepaint(_GridPainter old) =>
       old.scheme != scheme || old.isDark != isDark;
 }
-

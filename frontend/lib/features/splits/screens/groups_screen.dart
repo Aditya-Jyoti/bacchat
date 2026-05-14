@@ -86,6 +86,7 @@ class _NetSummaryHeader extends StatelessWidget {
         double totalReceive = 0;
         double totalOwe = 0;
         for (final g in list) {
+          if (g.isEmpty) continue; // empty groups contribute nothing
           if (g.youAreOwed) totalReceive += g.netBalance;
           if (g.youOwe) totalOwe += g.netBalance.abs();
         }
@@ -313,7 +314,12 @@ class _GroupCard extends StatelessWidget {
     Color cardBg;
     Color cardBorder;
 
-    if (card.isSettled) {
+    if (card.isEmpty) {
+      accentColor = scheme.primary;
+      balanceLabel = 'No splits yet';
+      cardBg = scheme.surfaceContainerLow;
+      cardBorder = scheme.outlineVariant.withValues(alpha: 0.4);
+    } else if (card.isSettled) {
       accentColor = scheme.onSurfaceVariant;
       balanceLabel = 'Settled up';
       cardBg = scheme.surfaceContainerLow;

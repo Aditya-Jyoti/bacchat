@@ -71,8 +71,11 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
 
     const groups = memberships.map(({ group }) => {
       let netBalance = 0;
+      let unsettledShareCount = 0;
       for (const split of group.splits) {
         for (const share of split.shares) {
+          // shares here are already filtered to isSettled=false
+          unsettledShareCount += 1;
           if (split.paidBy === userId && share.userId !== userId) {
             netBalance += Number(share.amount);
           } else if (share.userId === userId && split.paidBy !== userId) {
@@ -80,11 +83,24 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
           }
         }
       }
+
+      // Snap noise to zero — defends the UI against floating-point drift
+      // that previously showed "you pay ₹0.00" on groups with no real debt.
+      if (Math.abs(netBalance) < 0.01) netBalance = 0;
+
+      // Log groups that look inconsistent (debt without splits, or shares
+      // without debt) so we can see the offender in docker logs.
+      if (group.splits.length === 0 && netBalance !== 0) {
+        console.warn(`[groups] inconsistent: group=${group.id} has 0 splits but netBalance=${netBalance} for user=${userId}`);
+      }
+
       return {
         id: group.id,
         name: group.name,
         emoji: group.emoji,
         member_count: group._count.members,
+        splits_count: group.splits.length,
+        unsettled_shares: unsettledShareCount,
         net_balance: netBalance,
         invite_code: group.inviteCode,
         created_at: group.createdAt,
