@@ -32,24 +32,24 @@ app.use(cors());
 app.use(express.json({ limit: '512kb' }));
 app.use(express.urlencoded({ extended: true, limit: '512kb' }));
 
-// Auth rate limit — protects login/signup brute force without locking out NAT'd
-// groups of legitimate users.  60 req / 15 min per IP across all auth routes.
+// Auth rate limit — 60 req/min per IP. Stops credential brute force (no human
+// signs up 60×/minute) without false-positiving NAT'd LANs.
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 60 * 1000,
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many authentication attempts. Try again in 15 minutes.' },
+  message: { error: 'Too many authentication attempts. Try again in a minute.' },
 });
 
-// General API limiter — 1200 req / 15 min per IP. Generous enough that active
-// users won't notice, tight enough to slow scrapers.
+// General API limiter — 300 req/min per IP. Active session with parallel
+// requests + pull-to-refresh sits well under this; scrapers/bots do not.
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 1200,
+  windowMs: 60 * 1000,
+  max: 300,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Rate limit exceeded.' },
+  message: { error: 'Rate limit exceeded. Please wait a moment.' },
 });
 
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
