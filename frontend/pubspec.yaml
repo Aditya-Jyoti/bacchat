@@ -46,6 +46,8 @@ dependencies:
   flutter_sms_inbox: ^1.0.4
   permission_handler: ^11.4.0
   flutter_secure_storage: ^10.2.0
+  another_telephony: ^0.4.1
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:

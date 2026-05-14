@@ -77,6 +77,14 @@ class SmsService {
     RegExp(r'to\s+vpa\s+([^\s@]+)', caseSensitive: false),
   ];
 
+  /// Public entry-point used by both the manual scanner (`scanInbox`) and the
+  /// real-time listener (`SmsListener`). Returns null if the body doesn't
+  /// look like a bank transaction.
+  static ParsedBankSms? parse(String body, DateTime date) => _parse(body, date);
+
+  static bool isLikelyBankSms({required String body, required String address}) =>
+      _isBankSms(address) || _looksLikeBankSms(body);
+
   static ParsedBankSms? _parse(String body, DateTime date) {
     try {
       for (final rx in _debitPatterns) {

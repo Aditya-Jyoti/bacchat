@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/budget/providers/budget_provider.dart';
 import '../../features/home/providers/transaction_provider.dart';
+import '../../features/home/services/sms_listener.dart';
 import '../../features/splits/providers/splits_provider.dart';
 
 /// Wraps the app and keeps server-driven state fresh without manual reloads.
@@ -38,6 +39,20 @@ class _LiveDataRootState extends ConsumerState<LiveDataRoot>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _start();
+    _bootstrapSmsListener();
+  }
+
+  /// Fire-and-forget: register the real-time SMS receiver and run a one-shot
+  /// inbox reconciliation to import anything that arrived while the app was
+  /// closed or before permission was granted. Idempotent — repeated calls
+  /// (e.g. on resume) are cheap and safe.
+  Future<void> _bootstrapSmsListener() async {
+    try {
+      await SmsListener.start();
+      await SmsListener.reconcileInbox();
+    } catch (_) {
+      // Never block UI on SMS setup
+    }
   }
 
   @override
@@ -72,6 +87,8 @@ class _LiveDataRootState extends ConsumerState<LiveDataRoot>
       case AppLifecycleState.resumed:
         _poll(); // refresh immediately so the first frame after resume is fresh
         _start();
+        // Catch any SMS that arrived while the listener might have been killed.
+        _bootstrapSmsListener();
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
       case AppLifecycleState.detached:
