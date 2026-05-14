@@ -12,9 +12,31 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/api/api_constants.dart';
 import 'sms_service.dart';
 
-const _kProcessedHashesPrefKey = 'processed_sms_hashes_v1';
+// v2 bumps the cache key because the hash algorithm changed (body-only
+// instead of address+body+dateMs). Stale v1 hashes in user prefs would
+// have caused the FIRST resume after upgrade to re-import everything; this
+// avoids that by starting with an empty set on the new key.
+const _kProcessedHashesPrefKey = 'processed_sms_hashes_v2';
 const _kAutoImportEnabledKey = 'sms_auto_import_enabled_v1';
-const _kRetentionLimit = 1000; // hashes retained for dedupe
+const _kRetentionLimit = 5000; // ~640 KB of hashes — plenty for heavy users
+
+// Secondary "same transaction, different sender" dedupe.
+//
+// Real-world case: one UPI payment generates multiple SMS — the bank itself
+// ("debited by Rs.X trf to Nikhil"), the user's expense-tracker app (Axio,
+// CRED, Walnut), and the receiving UPI app — all within seconds of each
+// other. Body-hash dedupe doesn't catch these because the bodies differ.
+//
+// Strategy: when an SMS is successfully imported, record its (amount, type)
+// with a timestamp. The next SMS arriving within `_kRecentDedupeWindowMs`
+// with the SAME (amount, type) is treated as a duplicate report of the same
+// payment.
+//
+// Window picked at 4 minutes — well above multi-sender propagation delay,
+// well below the "two genuine ₹X payments close together" floor.
+const _kRecentImportsKey = 'sms_recent_imports_v1';
+const _kRecentDedupeWindowMs = 4 * 60 * 1000; // 4 minutes
+const _kRecentRetentionMs = 6 * 60 * 60 * 1000; // prune entries older than 6h
 
 // ---------------------------------------------------------------------------
 // Background handler (top-level — required by the Telephony plugin so Flutter
@@ -125,13 +147,37 @@ class SmsListener {
     final parsed = SmsService.parse(body, date);
     if (parsed == null) return false;
 
-    // Dedupe on a hash of the SMS itself — the dedupe set survives across
-    // foreground listener, background isolate, and manual inbox scans, so
-    // we never double-create a transaction for the same SMS.
-    final hash = _hashSms(address, body, dateMs);
+    // ---------------------------------------------------------------------
+    // PRIMARY DEDUPE: body hash. Catches the same exact SMS being delivered
+    // twice (e.g. inbox-reconcile re-seeing what the live listener already
+    // imported, or Android replaying a broadcast).
+    // ---------------------------------------------------------------------
+    final hash = hashFor(body);
+    if (hash == null) return false;
     final prefs = await SharedPreferences.getInstance();
     final processed = (prefs.getStringList(_kProcessedHashesPrefKey) ?? <String>[]).toList();
-    if (processed.contains(hash)) return false;
+    if (processed.contains(hash)) {
+      debugPrint('[sms] skip — duplicate body (hash=${hash.substring(0, 8)})');
+      return false;
+    }
+
+    // ---------------------------------------------------------------------
+    // SECONDARY DEDUPE: same (amount, type) within the recent window.
+    // Catches multi-sender reports of the same payment (bank + Axio etc.)
+    // where the bodies legitimately differ but it's the same money movement.
+    // ---------------------------------------------------------------------
+    if (await _isRecentDuplicate(amount: parsed.amount, type: parsed.type)) {
+      debugPrint(
+          '[sms] skip — recent (amount=${parsed.amount} type=${parsed.type}) already imported');
+      // Still record the body hash so the next inbox-reconcile doesn't
+      // re-evaluate this same SMS again every resume.
+      processed.add(hash);
+      if (processed.length > _kRetentionLimit) {
+        processed.removeRange(0, processed.length - _kRetentionLimit);
+      }
+      await prefs.setStringList(_kProcessedHashesPrefKey, processed);
+      return false;
+    }
 
     // Read the auth token directly from secure storage (no Riverpod available
     // in the background isolate). If the user isn't logged in, skip silently
@@ -173,12 +219,14 @@ class SmsListener {
         if (parsed.merchantKey != null) 'merchant_key': parsed.merchantKey,
       });
 
-      // Only record the hash on success — failed POSTs retry on next inbox scan.
+      // Only record dedupe state on success — failed POSTs retry on the
+      // next inbox-reconcile.
       processed.add(hash);
       if (processed.length > _kRetentionLimit) {
         processed.removeRange(0, processed.length - _kRetentionLimit);
       }
       await prefs.setStringList(_kProcessedHashesPrefKey, processed);
+      await _recordRecentImport(amount: parsed.amount, type: parsed.type);
       debugPrint('[sms] imported ₹${parsed.amount} ${parsed.type}');
       return true;
     } on DioException catch (e) {
@@ -214,8 +262,76 @@ class SmsListener {
     return imported;
   }
 
-  static String _hashSms(String address, String body, int? dateMs) {
-    final input = '$address|$body|${dateMs ?? 0}';
-    return md5.convert(utf8.encode(input)).toString();
+  /// True if a transaction with the same (amount, type) was just imported
+  /// within `_kRecentDedupeWindowMs`. Used to collapse the bank-+-Axio-style
+  /// multi-sender duplicates into a single transaction.
+  static Future<bool> _isRecentDuplicate({
+    required double amount,
+    required String type,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kRecentImportsKey);
+    if (raw == null || raw.isEmpty) return false;
+    try {
+      final list = jsonDecode(raw) as List<dynamic>;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      for (final entry in list) {
+        final m = entry as Map<String, dynamic>;
+        final ts = (m['ts'] as num).toInt();
+        if (now - ts > _kRecentDedupeWindowMs) continue;
+        final eAmount = (m['a'] as num).toDouble();
+        final eType = m['t'] as String;
+        if ((eAmount - amount).abs() < 0.01 && eType == type) {
+          return true;
+        }
+      }
+    } catch (e) {
+      debugPrint('[sms] recent-imports parse error: $e');
+    }
+    return false;
+  }
+
+  /// Appends a (amount, type, now) entry to the recent-imports ring,
+  /// pruning anything older than the retention window.
+  static Future<void> _recordRecentImport({
+    required double amount,
+    required String type,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kRecentImportsKey) ?? '[]';
+    List<dynamic> list;
+    try {
+      list = jsonDecode(raw) as List<dynamic>;
+    } catch (_) {
+      list = <dynamic>[];
+    }
+    final now = DateTime.now().millisecondsSinceEpoch;
+    list.add({'a': amount, 't': type, 'ts': now});
+    list = list.where((e) {
+      final m = e as Map<String, dynamic>;
+      final ts = (m['ts'] as num?)?.toInt() ?? 0;
+      return now - ts < _kRecentRetentionMs;
+    }).toList();
+    await prefs.setString(_kRecentImportsKey, jsonEncode(list));
+  }
+
+  /// Deterministic dedupe key for a bank SMS body. Public so the manual
+  /// inbox-scan UI can filter already-processed messages before showing
+  /// them to the user.
+  ///
+  /// Normalisation: trim, collapse whitespace, lowercase. This protects
+  /// against trivial encoding differences between the live `SMS_RECEIVED`
+  /// broadcast and the `content://sms/inbox` query.
+  static String? hashFor(String body) {
+    final norm = body.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+    if (norm.isEmpty) return null;
+    return md5.convert(utf8.encode(norm)).toString();
+  }
+
+  /// Set of already-processed SMS body hashes. Used by the manual import UI
+  /// to hide messages that auto-import already grabbed.
+  static Future<Set<String>> processedHashes() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getStringList(_kProcessedHashesPrefKey) ?? const <String>[]).toSet();
   }
 }

@@ -10,6 +10,7 @@ import '../../../core/widgets/app_background.dart';
 import '../../../core/widgets/restricted_settings_help.dart';
 import '../../budget/providers/budget_provider.dart';
 import '../providers/transaction_provider.dart';
+import '../services/sms_listener.dart';
 import '../services/sms_service.dart';
 
 enum _SortMode {
@@ -141,9 +142,25 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
         break;
     }
 
-    if (result.items.isEmpty) {
+    // Hide messages we've already auto-imported. Without this filter the
+    // review sheet would show every bank SMS in the user's inbox even though
+    // most are already accounted for, making it confusing to pick what's new.
+    final alreadyImported = await SmsListener.processedHashes();
+    final fresh = result.items.where((item) {
+      final h = SmsListener.hashFor(item.rawMessage);
+      return h == null || !alreadyImported.contains(h);
+    }).toList();
+    final alreadyCount = result.items.length - fresh.length;
+
+    if (fresh.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No bank transactions found in your recent SMS')),
+        SnackBar(
+          content: Text(
+            alreadyCount == 0
+                ? 'No bank transactions found in your recent SMS'
+                : 'All $alreadyCount recent bank SMS are already imported',
+          ),
+        ),
       );
       return;
     }
@@ -153,25 +170,41 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       builder: (_) => _SmsReviewSheet(
-        items: result.items,
+        items: fresh,
+        alreadyImportedCount: alreadyCount,
         onImport: (selected) async {
           Navigator.of(context).pop();
-          int count = 0;
+          int imported = 0;
+          int skipped = 0;
+          // Route through the same dedupe pipeline as auto-import so a
+          // user who manually picks an SMS that was also auto-imported
+          // (e.g. multi-sender variant) doesn't create a duplicate.
           for (final item in selected) {
-            try {
-              await ref.read(transactionEditorProvider.notifier).createTransaction(
-                    title: item.suggestedTitle,
-                    amount: item.amount,
-                    type: item.type,
-                    merchantKey: item.merchantKey,
-                    date: item.date,
-                  );
-              count++;
-            } catch (_) {}
+            final ok = await SmsListener.processIncoming(
+              body: item.rawMessage,
+              address: '',
+              dateMs: item.date.millisecondsSinceEpoch,
+            );
+            if (ok) {
+              imported++;
+            } else {
+              skipped++;
+            }
           }
+          // The /transactions provider doesn't get auto-invalidated when
+          // processIncoming uses Dio directly (it bypasses the editor
+          // notifier), so nudge it manually.
+          ref.invalidate(transactionsProvider);
+          ref.invalidate(allTransactionsProvider);
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Imported $count transaction${count == 1 ? '' : 's'}')),
+              SnackBar(
+                content: Text(
+                  skipped == 0
+                      ? 'Imported $imported transaction${imported == 1 ? '' : 's'}'
+                      : 'Imported $imported, skipped $skipped duplicate${skipped == 1 ? '' : 's'}',
+                ),
+              ),
             );
           }
         },
@@ -1093,8 +1126,13 @@ class _SmsLoadingDialog extends StatelessWidget {
 }
 
 class _SmsReviewSheet extends StatefulWidget {
-  const _SmsReviewSheet({required this.items, required this.onImport});
+  const _SmsReviewSheet({
+    required this.items,
+    required this.onImport,
+    this.alreadyImportedCount = 0,
+  });
   final List<ParsedBankSms> items;
+  final int alreadyImportedCount;
   final void Function(List<ParsedBankSms> selected) onImport;
 
   @override
@@ -1142,7 +1180,9 @@ class _SmsReviewSheetState extends State<_SmsReviewSheet> {
                         ),
                       ),
                       Text(
-                        '${widget.items.length} transactions found',
+                        widget.alreadyImportedCount > 0
+                            ? '${widget.items.length} new · ${widget.alreadyImportedCount} already imported'
+                            : '${widget.items.length} transactions found',
                         style: GoogleFonts.montserrat(
                             fontSize: 13, color: scheme.onSurfaceVariant),
                       ),
