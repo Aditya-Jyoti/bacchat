@@ -1,6 +1,7 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
@@ -14,6 +15,7 @@ import balanceRoutes from './routes/balance';
 import budgetRoutes from './routes/budget';
 import transactionRoutes from './routes/transactions';
 import profileRoutes from './routes/profile';
+import webRoutes from './routes/web';
 
 const app: Application = express();
 const isProd = process.env.NODE_ENV === 'production';
@@ -29,6 +31,7 @@ app.use(
 );
 
 app.use(cors());
+app.use(cookieParser());
 app.use(express.json({ limit: '512kb' }));
 app.use(express.urlencoded({ extended: true, limit: '512kb' }));
 
@@ -77,6 +80,7 @@ app.use('/v1/auth', authLimiter, authRoutes);
 app.use('/v1/groups', apiLimiter, groupRoutes);
 app.use('/v1', apiLimiter, inviteRoutes);
 app.use('/', inviteRoutes); // invite landing pages — un-prefixed, no API limit
+app.use('/', webRoutes); // /g/:groupId etc — guest web UI (cookie-auth)
 app.use('/v1', apiLimiter, splitRoutes);
 app.use('/v1', apiLimiter, settlementRoutes);
 app.use('/v1', apiLimiter, balanceRoutes);

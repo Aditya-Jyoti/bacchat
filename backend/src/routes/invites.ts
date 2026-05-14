@@ -128,11 +128,12 @@ function _htmlLanding({ inviteCode, name, emoji, memberCount }: {
 
   <a href="${intentUrl}" class="btn btn-green">📱 Open in Bacchat</a>
 
-  <p class="divider">or join as guest</p>
+  <p class="divider">or use the web version</p>
 
   <input id="nm" type="text" placeholder="Your name" autocomplete="off" />
-  <button class="btn btn-outline" onclick="join()">Join as Guest</button>
+  <button class="btn btn-outline" onclick="join()">Join in browser</button>
   <p id="msg" class="msg"></p>
+  <p style="color:#666;font-size:11px;margin-top:14px">No install needed — view splits, add new ones, and settle right here.</p>
 </div>
 <script>
 async function join(){
@@ -141,9 +142,16 @@ async function join(){
   if(!nm){msg.className='msg err';msg.textContent='Please enter your name';return;}
   msg.className='msg';msg.textContent='Joining…';
   try{
-    const r=await fetch('/invite/${inviteCode}/join',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:nm})});
-    if(r.ok){msg.className='msg ok';msg.textContent='✓ Joined! Open Bacchat on your phone to see the group.';}
-    else{const d=await r.json();msg.className='msg err';msg.textContent=d.error||'Failed to join';}
+    const r=await fetch('/invite/${inviteCode}/join?web=1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:nm}),credentials:'same-origin'});
+    if(r.ok){
+      const d=await r.json();
+      // Backend has set the bacchat_jwt cookie when ?web=1 was passed.
+      // Redirect into the server-rendered group view.
+      window.location.href = '/g/' + d.group.id;
+    } else {
+      const d=await r.json();
+      msg.className='msg err';msg.textContent=d.error||'Failed to join';
+    }
   }catch(e){msg.className='msg err';msg.textContent='Network error, try again.';}
 }
 </script>
@@ -273,6 +281,24 @@ router.post(
           },
         },
       });
+
+      // Web-flow: caller appends ?web=1 so we know to drop an HttpOnly cookie.
+      // The web routes (/g/*) read this cookie to authenticate without ever
+      // exposing the JWT to client JS.
+      const wantsCookie = req.query.web === '1' || req.query.web === 'true';
+      if (wantsCookie && responseToken) {
+        // For guests (responseToken is the freshly issued JWT) the lifetime
+        // matches the JWT (7d). HttpOnly so document.cookie can't read it;
+        // SameSite=Lax so a cross-site link click still carries it on the
+        // subsequent same-origin navigations.
+        res.cookie('bacchat_jwt', responseToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 7 * 24 * 60 * 60 * 1000,
+          path: '/',
+        });
+      }
 
       res.json({
         token: responseToken,
