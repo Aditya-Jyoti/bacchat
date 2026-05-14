@@ -152,6 +152,8 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
     }).toList();
     final alreadyCount = result.items.length - fresh.length;
 
+    if (!context.mounted) return;
+
     if (fresh.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -976,13 +978,10 @@ class _AddOrEditSheetState extends ConsumerState<_AddOrEditSheet> {
                     if (!budgetLoading)
                       TextButton(
                         onPressed: () {
+                          // The empty-state hint just nudges the user to set
+                          // up a budget — close the sheet so they can do that
+                          // from the bottom-nav budget tab themselves.
                           Navigator.of(context).pop();
-                          // Defer router navigation until after the sheet closes.
-                          Future.microtask(() {
-                            if (mounted) {
-                              Navigator.of(context, rootNavigator: true).maybePop();
-                            }
-                          });
                         },
                         child: Text(
                           'Set up',

@@ -260,30 +260,32 @@ class _ItemRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final inputDecoration = (String? hint, {String? prefix}) => InputDecoration(
-          isDense: true,
-          hintText: hint,
-          hintStyle: GoogleFonts.montserrat(
-            fontSize: 12,
-            color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
-          ),
-          contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-          prefixText: prefix,
-          prefixStyle: GoogleFonts.montserrat(
-            fontSize: 12,
-            color: scheme.onSurfaceVariant,
-          ),
-          // Visible enabled & focused borders so the user knows it's editable.
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide:
-                BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.6)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: scheme.primary, width: 1.5),
-          ),
-        );
+    InputDecoration inputDecoration(String? hint, {String? prefix}) {
+      return InputDecoration(
+        isDense: true,
+        hintText: hint,
+        hintStyle: GoogleFonts.montserrat(
+          fontSize: 12,
+          color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+        ),
+        contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+        prefixText: prefix,
+        prefixStyle: GoogleFonts.montserrat(
+          fontSize: 12,
+          color: scheme.onSurfaceVariant,
+        ),
+        // Visible enabled & focused borders so the user knows it's editable.
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide:
+              BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: scheme.primary, width: 1.5),
+        ),
+      );
+    }
 
     return Container(
       decoration: BoxDecoration(

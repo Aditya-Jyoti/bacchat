@@ -14,9 +14,10 @@ final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
 /// SharedPreferences and wipe the plaintext copy.
 class ApiClient {
   late final Dio _dio;
-  final FlutterSecureStorage _secure = const FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  );
+  // `encryptedSharedPreferences: true` is deprecated as of v10 — the plugin
+  // now picks the right native cipher automatically and migrates existing
+  // data on first read. Default `AndroidOptions()` is the way forward.
+  final FlutterSecureStorage _secure = const FlutterSecureStorage();
 
   // Memoised token to avoid an async storage hit on every request
   String? _cachedToken;
