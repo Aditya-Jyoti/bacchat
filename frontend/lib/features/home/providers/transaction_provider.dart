@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../budget/providers/budget_provider.dart';
 
 class PersonalTransaction {
   final String id;
@@ -67,11 +68,15 @@ class TransactionEditor extends Notifier<void> {
       'type': type,
       if (date != null) 'date': date.toIso8601String(),
     });
+    // Budget dashboard reads total_spent_this_month — refresh it so the
+    // daily-budget tile updates immediately after a manual add.
     ref.invalidate(transactionsProvider);
+    ref.invalidate(budgetOverviewProvider);
   }
 
   Future<void> deleteTransaction(String id) async {
     await _client.delete('/transactions/$id');
     ref.invalidate(transactionsProvider);
+    ref.invalidate(budgetOverviewProvider);
   }
 }

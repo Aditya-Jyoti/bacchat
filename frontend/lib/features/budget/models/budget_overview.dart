@@ -19,17 +19,20 @@ class BudgetOverview {
       .where((c) => c.isFixed)
       .fold(0.0, (sum, c) => sum + c.monthlyLimit);
 
+  /// Total spendable for the month: income minus savings goal. Fixed expenses
+  /// (rent, utilities…) are part of this allowance, not a separate deduction.
   double get totalBudget => monthlyIncome - monthlySavingsGoal;
 
   int get daysInMonth => DateUtils.getDaysInMonth(now.year, now.month);
 
   int get daysLeft => (daysInMonth - now.day + 1).clamp(1, daysInMonth);
 
+  /// Remaining flexible money per day, computed as
+  /// `(totalBudget − moneySpentSoFar) / daysLeft`.
+  /// Example: ₹50k income − ₹30k savings = ₹20k budget. On day 1 of a 31-day
+  /// month, after spending ₹5k: (20k − 5k) / 30 ≈ ₹500/day.
   double get dailyBudget {
-    final remaining = monthlyIncome -
-        monthlySavingsGoal -
-        totalFixedExpenses -
-        moneySpentSoFar;
+    final remaining = totalBudget - moneySpentSoFar;
     return remaining / daysLeft;
   }
 
