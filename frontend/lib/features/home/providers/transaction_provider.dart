@@ -176,9 +176,8 @@ class TransactionEditor extends Notifier<void> {
     DateTime? date,
     bool rememberCategory = false,
   }) async {
-    final normalisedMerchant = merchantKey == null
-        ? null
-        : merchantKey.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+    final normalisedMerchant =
+        merchantKey?.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
 
     final patch = TransactionsCompanion(
       title: title != null ? drift.Value(title) : const drift.Value.absent(),

@@ -288,8 +288,11 @@ dart run build_runner build      # Drift + riverpod generators
 # Point the app at your backend (defaults to https://bacchat.omrin.in/v1):
 flutter run --dart-define=BASE_URL=http://10.0.2.2:3000/v1
 
-# Release APK:
-flutter build apk --release --target-platform android-arm64
+# Release APK (~42 MB — arm64-v8a only; armeabi-v7a + x86_64 are
+# excluded via packaging.jniLibs in android/app/build.gradle.kts).
+flutter build apk --release \
+  --target-platform android-arm64 \
+  --dart-define=BASE_URL=https://bacchat.omrin.in/v1
 ```
 
 For Android App-Links auto-open (no chooser dialog), set `APP_FINGERPRINT`

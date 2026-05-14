@@ -107,4 +107,8 @@ jobs:
       # Catch build-time regressions early — same target the release workflow uses.
       - name: Dry build (debug, no signing)
         working-directory: frontend
-        run: flutter build apk --debug --target-platform android-arm64
+        run: |
+          flutter build apk \
+            --debug \
+            --target-platform android-arm64 \
+            --dart-define=BASE_URL=https://bacchat.omrin.in/v1

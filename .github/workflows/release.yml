@@ -78,7 +78,14 @@ jobs:
       - name: Build release APK
         working-directory: frontend
         run: |
-          flutter build apk --release --target-platform android-arm64
+          # Same flags you'd use locally. --dart-define=BASE_URL is a belt-
+          # and-braces over the production default already baked into
+          # api_constants.dart, so a future change to the default doesn't
+          # silently affect what we ship.
+          flutter build apk \
+            --release \
+            --target-platform android-arm64 \
+            --dart-define=BASE_URL=https://bacchat.omrin.in/v1
           ls -lh build/app/outputs/flutter-apk/
 
       - name: Rename APK to include tag
