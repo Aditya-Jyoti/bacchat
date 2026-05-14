@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/api/api_client.dart';
+import '../../../core/api/api_constants.dart' show kBaseUrl;
 import '../../../core/models/user_model.dart';
 import '../providers/auth_provider.dart';
 
@@ -36,6 +37,10 @@ class _GuestJoinScreenState extends ConsumerState<GuestJoinScreen> {
   bool _loadingGroup = true;
   bool _joining = false;
   String? _error;
+  // Why the group preview load failed — surfaced on the "Invite not found"
+  // screen so we can distinguish a real 404 from a network/baseUrl issue
+  // (most common: APK pinned at an old LAN baseUrl can't reach prod).
+  String? _loadError;
 
   @override
   void initState() {
@@ -60,14 +65,36 @@ class _GuestJoinScreenState extends ConsumerState<GuestJoinScreen> {
           id: m['group_id'] as String,
           name: m['name'] as String,
           emoji: m['emoji'] as String,
-          memberCount: m['member_count'] as int,
+          memberCount: (m['member_count'] as num).toInt(),
         );
         _loadingGroup = false;
       });
-    } on DioException {
-      if (mounted) setState(() => _loadingGroup = false);
-    } catch (_) {
-      if (mounted) setState(() => _loadingGroup = false);
+    } on DioException catch (e) {
+      if (!mounted) return;
+      String reason;
+      if (e.response?.statusCode == 404) {
+        reason = 'The invite link is invalid or the group was deleted.';
+      } else if (e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        reason = 'Could not reach the server at $kBaseUrl. '
+            'If this looks wrong (e.g. an old LAN IP), reinstall the latest APK.';
+      } else {
+        reason = e.response?.data is Map
+            ? '${(e.response?.data as Map)['error'] ?? e.message}'
+            : (e.message ?? 'Network error');
+      }
+      setState(() {
+        _loadingGroup = false;
+        _loadError = reason;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loadingGroup = false;
+          _loadError = 'Unexpected error: $e';
+        });
+      }
     }
   }
 
@@ -128,7 +155,11 @@ class _GuestJoinScreenState extends ConsumerState<GuestJoinScreen> {
         child: _loadingGroup
             ? const Center(child: CircularProgressIndicator())
             : _group == null
-                ? _InvalidInvite(scheme: scheme)
+                ? _InvalidInvite(
+                    scheme: scheme,
+                    reason: _loadError,
+                    inviteCode: widget.inviteCode,
+                  )
                 : authState.maybeWhen(
                     data: (user) => _JoinBody(
                       group: _group!,
@@ -157,11 +188,19 @@ class _GuestJoinScreenState extends ConsumerState<GuestJoinScreen> {
 }
 
 class _InvalidInvite extends StatelessWidget {
-  const _InvalidInvite({required this.scheme});
+  const _InvalidInvite({
+    required this.scheme,
+    required this.inviteCode,
+    this.reason,
+  });
   final ColorScheme scheme;
+  final String inviteCode;
+  final String? reason;
 
   @override
   Widget build(BuildContext context) {
+    final shownReason =
+        reason ?? 'This invite link may be invalid or expired.';
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -171,7 +210,7 @@ class _InvalidInvite extends StatelessWidget {
             Icon(Icons.link_off_outlined, size: 72, color: scheme.onSurfaceVariant),
             const SizedBox(height: 16),
             Text(
-              'Invite not found',
+              "Couldn't open invite",
               style: GoogleFonts.montserrat(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
@@ -180,11 +219,34 @@ class _InvalidInvite extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'This invite link may be invalid or expired.\nAsk the group admin to share a new one.',
+              shownReason,
               textAlign: TextAlign.center,
               style: GoogleFonts.montserrat(
                 fontSize: 13,
                 color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: SelectableText(
+                inviteCode,
+                style: GoogleFonts.robotoMono(
+                  fontSize: 10,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Talking to: $kBaseUrl',
+              style: GoogleFonts.robotoMono(
+                fontSize: 9,
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
               ),
             ),
             const SizedBox(height: 24),
