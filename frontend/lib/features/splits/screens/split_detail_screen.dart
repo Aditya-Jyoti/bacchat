@@ -36,10 +36,17 @@ class SplitDetailScreen extends ConsumerWidget {
         actions: split.when(
           data: (s) {
             if (s == null) return null;
-            final canDelete = currentUser != null &&
+            final canManage = currentUser != null &&
                 (s.paidById == currentUser.id);
-            if (!canDelete) return null;
+            if (!canManage) return null;
             return [
+              IconButton(
+                icon: const Icon(Icons.edit_outlined),
+                tooltip: 'Edit split',
+                onPressed: () => context.push(
+                  '/group/$groupId/split/$splitId/edit',
+                ),
+              ),
               IconButton(
                 icon: Icon(Icons.delete_outline,
                     color: Theme.of(context).colorScheme.error),

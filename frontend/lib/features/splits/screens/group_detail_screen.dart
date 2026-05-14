@@ -89,6 +89,73 @@ class _GroupDetailBody extends ConsumerWidget {
     SharePlus.instance.share(ShareParams(text: 'Join "${group.name}" on Bacchat: $link'));
   }
 
+  Future<void> _confirmDeleteGroup(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete group?',
+            style: GoogleFonts.montserrat(fontWeight: FontWeight.w700)),
+        content: Text(
+          '"${group.name}" and all its splits will be permanently deleted. This cannot be undone.',
+          style: GoogleFonts.montserrat(),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await ref.read(splitsEditorProvider.notifier).deleteGroup(groupId);
+      if (context.mounted) context.go('/home/splits');
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmLeaveGroup(
+      BuildContext context, WidgetRef ref, String userId) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Leave group?',
+            style: GoogleFonts.montserrat(fontWeight: FontWeight.w700)),
+        content: Text(
+          'You will no longer see "${group.name}" or its splits. Make sure all your shares are settled first.',
+          style: GoogleFonts.montserrat(),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await ref.read(splitsEditorProvider.notifier).leaveGroup(groupId, userId);
+      if (context.mounted) context.go('/home/splits');
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
+  }
+
   void _showInfoModal(BuildContext context, WidgetRef ref, String? currentUserId) {
     showModalBottomSheet(
       context: context,
@@ -112,8 +179,15 @@ class _GroupDetailBody extends ConsumerWidget {
       error: (_, _) => null,
     );
 
-    return CustomScrollView(
-      slivers: [
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(groupDetailProvider(groupId));
+        ref.invalidate(splitsForGroupProvider(groupId));
+        ref.invalidate(groupBalanceProvider(groupId));
+      },
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
         SliverAppBar(
           pinned: true,
           title: Row(
@@ -136,22 +210,63 @@ class _GroupDetailBody extends ConsumerWidget {
           titleSpacing: 0,
           actions: [
             IconButton(
-              icon: const Icon(Icons.info_outline),
-              tooltip: 'Group info',
-              onPressed: () => _showInfoModal(context, ref, currentUser?.id),
+              icon: const Icon(Icons.account_balance_wallet_outlined),
+              tooltip: 'Balance',
+              onPressed: () => context.push('/group/$groupId/balance'),
             ),
             IconButton(
               icon: const Icon(Icons.share_outlined),
               tooltip: 'Invite',
               onPressed: () => _shareInvite(context),
             ),
-            TextButton.icon(
-              onPressed: () => context.push('/group/$groupId/balance'),
-              icon: const Icon(Icons.account_balance_wallet_outlined, size: 16),
-              label: Text(
-                'Balance',
-                style: GoogleFonts.montserrat(fontWeight: FontWeight.w600),
-              ),
+            PopupMenuButton<String>(
+              tooltip: 'More',
+              onSelected: (v) async {
+                switch (v) {
+                  case 'info':
+                    _showInfoModal(context, ref, currentUser?.id);
+                  case 'leave':
+                    if (currentUser != null) {
+                      await _confirmLeaveGroup(context, ref, currentUser.id);
+                    }
+                  case 'delete':
+                    await _confirmDeleteGroup(context, ref);
+                }
+              },
+              itemBuilder: (_) {
+                final isAdmin = group.members
+                    .any((m) => m.id == currentUser?.id && m.isAdmin);
+                return [
+                  const PopupMenuItem(
+                    value: 'info',
+                    child: Row(children: [
+                      Icon(Icons.info_outline, size: 18),
+                      SizedBox(width: 12),
+                      Text('Group info'),
+                    ]),
+                  ),
+                  const PopupMenuItem(
+                    value: 'leave',
+                    child: Row(children: [
+                      Icon(Icons.logout, size: 18),
+                      SizedBox(width: 12),
+                      Text('Leave group'),
+                    ]),
+                  ),
+                  if (isAdmin)
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Row(children: [
+                        Icon(Icons.delete_outline, size: 18,
+                            color: Theme.of(context).colorScheme.error),
+                        const SizedBox(width: 12),
+                        Text('Delete group',
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.error)),
+                      ]),
+                    ),
+                ];
+              },
             ),
           ],
         ),
@@ -214,6 +329,7 @@ class _GroupDetailBody extends ConsumerWidget {
 
         const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
       ],
+      ),
     );
   }
 }

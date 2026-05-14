@@ -11,6 +11,7 @@ import '../../features/ocr/screens/bill_scanner_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../features/splits/screens/add_split_screen.dart';
 import '../../features/splits/screens/balance_screen.dart';
+import '../../features/splits/screens/edit_split_screen.dart';
 import '../../features/splits/screens/group_detail_screen.dart';
 import '../../features/splits/screens/groups_screen.dart';
 import '../../features/splits/screens/split_detail_screen.dart';
@@ -75,6 +76,15 @@ final appRouter = GoRouter(
             groupId: state.pathParameters['groupId']!,
             splitId: state.pathParameters['splitId']!,
           ),
+          routes: [
+            GoRoute(
+              path: 'edit',
+              builder: (context, state) => EditSplitScreen(
+                groupId: state.pathParameters['groupId']!,
+                splitId: state.pathParameters['splitId']!,
+              ),
+            ),
+          ],
         ),
         GoRoute(
           path: 'balance',

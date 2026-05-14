@@ -401,5 +401,127 @@ router.delete('/:groupId/categories/:categoryId', authenticate, async (req: Auth
   }
 });
 
+/**
+ * @openapi
+ * /groups/{groupId}:
+ *   delete:
+ *     tags:
+ *       - Groups
+ *     summary: Delete a group (admin only)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: groupId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       204:
+ *         description: Group deleted
+ *       403:
+ *         description: Only group admin can delete
+ *       404:
+ *         description: Group not found
+ */
+router.delete('/:groupId', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.userId!;
+    const { groupId } = req.params;
+
+    const membership = await prisma.groupMember.findFirst({
+      where: { groupId, userId },
+    });
+
+    if (!membership) {
+      res.status(404).json({ error: 'Group not found' });
+      return;
+    }
+
+    if (!membership.isAdmin) {
+      res.status(403).json({ error: 'Only a group admin can delete this group' });
+      return;
+    }
+
+    // Cascading delete: Prisma schema must cascade for members/splits/shares
+    await prisma.splitGroup.delete({ where: { id: groupId } });
+    res.status(204).send();
+  } catch (error) {
+    console.error('Delete group error:', error);
+    res.status(500).json({ error: 'Failed to delete group' });
+  }
+});
+
+/**
+ * @openapi
+ * /groups/{groupId}/members/{memberUserId}:
+ *   delete:
+ *     tags:
+ *       - Groups
+ *     summary: Remove a member from a group (admin removes others, or self-leave)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: groupId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: memberUserId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       204:
+ *         description: Member removed
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Not found
+ *       409:
+ *         description: Member has unsettled shares
+ */
+router.delete('/:groupId/members/:memberUserId', authenticate, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.userId!;
+    const { groupId, memberUserId } = req.params;
+
+    const requester = await prisma.groupMember.findFirst({ where: { groupId, userId } });
+    if (!requester) {
+      res.status(404).json({ error: 'Group not found' });
+      return;
+    }
+
+    if (memberUserId !== userId && !requester.isAdmin) {
+      res.status(403).json({ error: 'Only an admin can remove other members' });
+      return;
+    }
+
+    const target = await prisma.groupMember.findFirst({
+      where: { groupId, userId: memberUserId },
+    });
+    if (!target) {
+      res.status(404).json({ error: 'Member not found in this group' });
+      return;
+    }
+
+    // Block removal if they still have unsettled shares — preserves audit trail
+    const unsettled = await prisma.splitShare.count({
+      where: { userId: memberUserId, isSettled: false, split: { groupId } },
+    });
+    if (unsettled > 0) {
+      res.status(409).json({ error: 'Member has unsettled shares — settle them first' });
+      return;
+    }
+
+    await prisma.groupMember.delete({ where: { id: target.id } });
+    res.status(204).send();
+  } catch (error) {
+    console.error('Remove member error:', error);
+    res.status(500).json({ error: 'Failed to remove member' });
+  }
+});
+
 export { formatGroupDetail };
 export default router;

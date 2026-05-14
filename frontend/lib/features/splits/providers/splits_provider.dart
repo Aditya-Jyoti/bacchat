@@ -47,6 +47,7 @@ final groupDetailProvider =
         id: mm['id'] as String,
         name: mm['name'] as String,
         isGuest: mm['is_guest'] as bool? ?? false,
+        isAdmin: mm['is_admin'] as bool? ?? false,
       );
     }).toList();
     return GroupDetail(
@@ -250,6 +251,42 @@ class SplitsEditor extends Notifier<void> {
     ref.invalidate(splitsForGroupProvider(groupId));
     ref.invalidate(splitGroupsProvider);
     return split['id'] as String;
+  }
+
+  Future<void> deleteGroup(String groupId) async {
+    await _client.delete('/groups/$groupId');
+    ref.invalidate(splitGroupsProvider);
+  }
+
+  Future<void> leaveGroup(String groupId, String userId) async {
+    await _client.delete('/groups/$groupId/members/$userId');
+    ref.invalidate(splitGroupsProvider);
+  }
+
+  Future<void> updateSplit({
+    required String splitId,
+    required String groupId,
+    String? title,
+    String? description,
+    String? category,
+    double? totalAmount,
+    List<({String userId, double amount})>? shares,
+  }) async {
+    final data = <String, dynamic>{};
+    if (title != null) data['title'] = title;
+    if (description != null) data['description'] = description;
+    if (category != null) data['category'] = category;
+    if (totalAmount != null) data['total_amount'] = totalAmount;
+    if (shares != null) {
+      data['shares'] = shares
+          .map((s) => {'user_id': s.userId, 'amount': s.amount})
+          .toList();
+    }
+    await _client.patch('/splits/$splitId', data: data);
+    ref.invalidate(splitDetailProvider(splitId));
+    ref.invalidate(splitsForGroupProvider(groupId));
+    ref.invalidate(splitGroupsProvider);
+    ref.invalidate(groupBalanceProvider(groupId));
   }
 
   Future<void> deleteSplit(String splitId, String groupId) async {

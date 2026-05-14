@@ -24,11 +24,13 @@ class MemberInfo {
   final String id;
   final String name;
   final bool isGuest;
+  final bool isAdmin;
 
   const MemberInfo({
     required this.id,
     required this.name,
     required this.isGuest,
+    this.isAdmin = false,
   });
 
   String get initial => name.isNotEmpty ? name[0].toUpperCase() : '?';

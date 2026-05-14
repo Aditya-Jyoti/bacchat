@@ -25,13 +25,19 @@ class GroupsScreen extends ConsumerWidget {
                 child: groups.when(
                   loading: () => const Center(child: CircularProgressIndicator()),
                   error: (e, _) => Center(child: Text('Error: $e')),
-                  data: (list) => list.isEmpty
-                      ? _EmptyGroupsState()
-                      : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
-                          itemCount: list.length,
-                          itemBuilder: (_, i) => _GroupCard(card: list[i]),
-                        ),
+                  data: (list) => RefreshIndicator(
+                    onRefresh: () async => ref.invalidate(splitGroupsProvider),
+                    child: list.isEmpty
+                        ? ListView(children: [
+                            SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+                            _EmptyGroupsState(),
+                          ])
+                        : ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+                            itemCount: list.length,
+                            itemBuilder: (_, i) => _GroupCard(card: list[i]),
+                          ),
+                  ),
                 ),
               ),
             ],

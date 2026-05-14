@@ -319,6 +319,123 @@ router.get('/splits/:splitId', authenticate, async (req: AuthRequest, res: Respo
 /**
  * @openapi
  * /splits/{splitId}:
+ *   patch:
+ *     tags:
+ *       - Splits
+ *     summary: Edit a split (payer or admin only) — title, description, category, total + shares
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: splitId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Updated split
+ *       403:
+ *         description: Only payer or admin can edit
+ */
+router.patch(
+  '/splits/:splitId',
+  authenticate,
+  [
+    body('title').optional().notEmpty().trim(),
+    body('description').optional({ nullable: true }).isString(),
+    body('category').optional().isIn(VALID_CATEGORIES),
+    body('total_amount').optional().isFloat({ min: 0.01 }),
+    body('shares').optional().isArray(),
+    body('shares.*.user_id').optional().isUUID(),
+    body('shares.*.amount').optional().isFloat({ min: 0 }),
+  ],
+  validate,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.userId!;
+      const { splitId } = req.params;
+      const { title, description, category, total_amount, shares } = req.body;
+
+      const existing = await prisma.split.findUnique({ where: { id: splitId } });
+      if (!existing) {
+        res.status(404).json({ error: 'Split not found' });
+        return;
+      }
+
+      const member = await prisma.groupMember.findFirst({
+        where: { groupId: existing.groupId, userId },
+      });
+      if (!member) {
+        res.status(403).json({ error: 'You are not a member of this group' });
+        return;
+      }
+      if (!member.isAdmin && existing.paidBy !== userId) {
+        res.status(403).json({ error: 'Only the payer or a group admin can edit this split' });
+        return;
+      }
+
+      // If shares are being changed, validate they sum to (new or existing) total
+      const newTotal: number = total_amount != null ? Number(total_amount) : Number(existing.totalAmount);
+
+      if (shares != null) {
+        if (!Array.isArray(shares) || shares.length === 0) {
+          res.status(400).json({ error: 'shares cannot be empty when provided' });
+          return;
+        }
+        const group = await prisma.splitGroup.findUnique({
+          where: { id: existing.groupId },
+          include: { members: { select: { userId: true } } },
+        });
+        const memberIds = new Set(group!.members.map((m) => m.userId));
+        for (const s of shares) {
+          if (!memberIds.has(s.user_id)) {
+            res.status(400).json({ error: `User ${s.user_id} is not a member of this group` });
+            return;
+          }
+        }
+        const sum = (shares as Array<{ amount: number }>).reduce((a, s) => a + Number(s.amount), 0);
+        if (Math.abs(sum - newTotal) > 0.01) {
+          res.status(400).json({ error: 'Shares must sum to total_amount (within ₹0.01)' });
+          return;
+        }
+      }
+
+      const updated = await prisma.$transaction(async (tx) => {
+        await tx.split.update({
+          where: { id: splitId },
+          data: {
+            ...(title != null ? { title } : {}),
+            ...(description !== undefined ? { description } : {}),
+            ...(category != null ? { category } : {}),
+            ...(total_amount != null ? { totalAmount: newTotal } : {}),
+          },
+        });
+
+        if (shares != null) {
+          await tx.splitShare.deleteMany({ where: { splitId } });
+          await tx.splitShare.createMany({
+            data: (shares as Array<{ user_id: string; amount: number }>).map((s) => ({
+              splitId,
+              userId: s.user_id,
+              amount: Number(s.amount),
+            })),
+          });
+        }
+
+        return tx.split.findUnique({ where: { id: splitId }, include: SPLIT_INCLUDE });
+      });
+
+      res.json(formatSplit(updated!));
+    } catch (error) {
+      console.error('Update split error:', error);
+      res.status(500).json({ error: 'Failed to update split' });
+    }
+  },
+);
+
+/**
+ * @openapi
+ * /splits/{splitId}:
  *   delete:
  *     tags:
  *       - Splits

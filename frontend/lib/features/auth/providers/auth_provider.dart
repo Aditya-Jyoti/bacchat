@@ -86,6 +86,22 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
     }
   }
 
+  /// Join via invite using the currently-authenticated account.
+  /// The backend reads the existing Bearer token and adds the user as a member.
+  Future<String> joinWithCurrentAccount(String inviteCode) async {
+    final client = ref.read(apiClientProvider);
+    try {
+      final resp = await client.post('/invite/$inviteCode/join');
+      final data = resp.data as Map<String, dynamic>;
+      // No token in response when authenticated; keep current state
+      final group = data['group'] as Map<String, dynamic>;
+      return group['id'] as String;
+    } on DioException catch (e) {
+      final msg = (e.response?.data as Map?)?['error'] ?? 'Failed to join group';
+      throw Exception(msg);
+    }
+  }
+
   Future<void> logout() async {
     final client = ref.read(apiClientProvider);
     try {

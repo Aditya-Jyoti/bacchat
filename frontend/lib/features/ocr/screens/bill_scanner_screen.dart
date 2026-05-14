@@ -53,14 +53,14 @@ class _BillScannerScreenState extends ConsumerState<BillScannerScreen> {
     });
 
     try {
-      final rawText = await OcrService.extractText(file.path);
-      final parsed = OcrService.parseBillText(rawText);
+      // Block-based parser uses ML Kit's spatial layout to recover the bill's
+      // tabular structure; falls back to flat-text regex if that yields nothing.
+      final parsed = await OcrService.extractItems(file.path);
 
       if (!mounted) return;
       setState(() {
         _items = parsed;
         _state = _ScanState.review;
-        // Default title from first item or generic
         if (_titleCtrl.text.isEmpty) {
           _titleCtrl.text = parsed.isNotEmpty ? 'Bill — ${parsed.first.name}' : 'Scanned Bill';
         }

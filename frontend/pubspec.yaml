@@ -45,6 +45,7 @@ dependencies:
   # SMS reading (Android only — auto-log bank transactions)
   flutter_sms_inbox: ^1.0.4
   permission_handler: ^11.4.0
+  flutter_secure_storage: ^10.2.0
 
 dev_dependencies:
   flutter_test:
