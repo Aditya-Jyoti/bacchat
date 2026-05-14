@@ -6,8 +6,6 @@ import '../../auth/providers/auth_provider.dart';
 import '../models/debt_models.dart';
 import '../models/split_models.dart';
 
-part 'splits_provider.g.dart';
-
 // ---------------------------------------------------------------------------
 // Groups list with net balance
 // ---------------------------------------------------------------------------

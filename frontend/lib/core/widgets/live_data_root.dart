@@ -3,10 +3,9 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../features/budget/providers/budget_provider.dart';
-import '../../features/home/providers/transaction_provider.dart';
 import '../../features/home/services/sms_listener.dart';
 import '../../features/splits/providers/splits_provider.dart';
+import '../database/app_database.dart';
 
 /// Wraps the app and keeps server-driven state fresh without manual reloads.
 ///
@@ -48,7 +47,12 @@ class _LiveDataRootState extends ConsumerState<LiveDataRoot>
   /// (e.g. on resume) are cheap and safe.
   Future<void> _bootstrapSmsListener() async {
     try {
-      await SmsListener.start();
+      final db = ref.read(appDatabaseProvider);
+      await SmsListener.start(db);
+      // Drain anything the background isolate stashed while the app was
+      // closed, then reconcile the wider inbox in case the listener was
+      // off entirely (no permission, fresh install).
+      await SmsListener.drainQueue();
       await SmsListener.reconcileInbox();
     } catch (_) {
       // Never block UI on SMS setup
@@ -69,17 +73,17 @@ class _LiveDataRootState extends ConsumerState<LiveDataRoot>
 
   void _poll() {
     if (!mounted) return;
-    // Family providers (keyed by groupId / splitId) are invalidated wholesale;
-    // Riverpod only triggers a refetch for instances that have a listener.
+    // Only the SHARED group/split data still polls the server. Personal
+    // transactions and budget live in local SQLite — their stream providers
+    // emit reactively on every DB write, so polling them is pointless.
     ref.invalidate(splitGroupsProvider);
     ref.invalidate(splitsForGroupProvider);
     ref.invalidate(splitDetailProvider);
     ref.invalidate(groupDetailProvider);
     ref.invalidate(groupBalanceProvider);
     ref.invalidate(groupCategoriesProvider);
-    ref.invalidate(transactionsProvider);
-    ref.invalidate(allTransactionsProvider);
-    ref.invalidate(budgetOverviewProvider);
+    // Drain anything the background SMS isolate has queued since last tick.
+    SmsListener.drainQueue();
   }
 
   @override

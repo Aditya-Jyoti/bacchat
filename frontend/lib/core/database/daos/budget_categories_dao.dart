@@ -9,18 +9,18 @@ class BudgetCategoriesDao extends DatabaseAccessor<AppDatabase>
     with _$BudgetCategoriesDaoMixin {
   BudgetCategoriesDao(super.db);
 
-  Future<List<BudgetCategory>> getCategoriesForUser(int userId) =>
-      (select(budgetCategories)..where((c) => c.userId.equals(userId))).get();
+  Stream<List<BudgetCategory>> watchAll() =>
+      (select(budgetCategories)..orderBy([(c) => OrderingTerm.asc(c.createdAt)])).watch();
 
-  Stream<List<BudgetCategory>> watchCategoriesForUser(int userId) =>
-      (select(budgetCategories)..where((c) => c.userId.equals(userId))).watch();
+  Future<List<BudgetCategory>> getAll() =>
+      (select(budgetCategories)..orderBy([(c) => OrderingTerm.asc(c.createdAt)])).get();
 
-  Future<int> insertCategory(BudgetCategoriesCompanion category) =>
-      into(budgetCategories).insert(category);
+  Future<BudgetCategory?> findById(String id) =>
+      (select(budgetCategories)..where((c) => c.id.equals(id))).getSingleOrNull();
 
-  Future<bool> updateCategory(BudgetCategoriesCompanion category) =>
-      update(budgetCategories).replace(category);
+  Future<void> upsertCategory(BudgetCategoriesCompanion category) =>
+      into(budgetCategories).insertOnConflictUpdate(category);
 
-  Future<int> deleteCategory(int id) =>
+  Future<int> deleteCategory(String id) =>
       (delete(budgetCategories)..where((c) => c.id.equals(id))).go();
 }

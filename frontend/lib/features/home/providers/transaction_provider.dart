@@ -1,14 +1,18 @@
+import 'dart:async';
+
+import 'package:drift/drift.dart' as drift;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
-import '../../../core/api/api_client.dart';
-import '../../auth/providers/auth_provider.dart';
-import '../../budget/providers/budget_provider.dart';
+import '../../../core/database/app_database.dart';
 
+/// Public-facing transaction shape — unchanged from the previous network
+/// version so screens didn't need rewiring after the move to local storage.
 class PersonalTransaction {
   final String id;
   final String title;
   final double amount;
-  final String type; // expense | income
+  final String type; // 'expense' | 'income'
   final String? categoryId;
   final String? categoryName;
   final String? categoryIcon;
@@ -31,66 +35,92 @@ class PersonalTransaction {
 
   bool get isExpense => type == 'expense';
   bool get hasMerchantMemory => merchantKey != null && merchantKey!.isNotEmpty;
-
-  PersonalTransaction copyWith({
-    String? title,
-    double? amount,
-    String? type,
-    String? categoryId,
-    String? categoryName,
-    String? categoryIcon,
-    DateTime? date,
-  }) =>
-      PersonalTransaction(
-        id: id,
-        title: title ?? this.title,
-        amount: amount ?? this.amount,
-        type: type ?? this.type,
-        categoryId: categoryId ?? this.categoryId,
-        categoryName: categoryName ?? this.categoryName,
-        categoryIcon: categoryIcon ?? this.categoryIcon,
-        splitId: splitId,
-        merchantKey: merchantKey,
-        date: date ?? this.date,
-      );
-
-  static PersonalTransaction fromJson(Map<String, dynamic> m) =>
-      PersonalTransaction(
-        id: m['id'] as String,
-        title: m['title'] as String,
-        amount: (m['amount'] as num).toDouble(),
-        type: m['type'] as String,
-        categoryId: m['category_id'] as String?,
-        categoryName: m['category_name'] as String?,
-        categoryIcon: m['category_icon'] as String?,
-        splitId: m['split_id'] as String?,
-        merchantKey: m['merchant_key'] as String?,
-        date: DateTime.parse(m['date'] as String),
-      );
 }
 
-/// Default provider: returns the *current month* of transactions.
-final transactionsProvider =
-    FutureProvider<List<PersonalTransaction>>((ref) async {
-  final user = await ref.watch(authProvider.future);
-  if (user == null) return [];
-  final client = ref.read(apiClientProvider);
-  final resp = await client.get('/transactions');
-  final list = (resp.data as List<dynamic>?) ?? [];
-  return list.map((t) => PersonalTransaction.fromJson(t as Map<String, dynamic>)).toList();
+const _uuid = Uuid();
+
+/// All-history transactions (Activity screen). Streams directly from SQLite —
+/// every mutation triggers a re-emit automatically, so there's no polling
+/// involved for local data.
+final allTransactionsProvider =
+    StreamProvider<List<PersonalTransaction>>((ref) {
+  final db = ref.read(appDatabaseProvider);
+  final txStream = db.transactionsDao.watchAll();
+  final catStream = db.budgetCategoriesDao.watchAll();
+  return _combineWithCategories(txStream, catStream);
 });
 
-/// Full history (capped at 500 rows on the backend). Used by the Activity
-/// screen so the user can scroll back through previous months.
-final allTransactionsProvider =
-    FutureProvider<List<PersonalTransaction>>((ref) async {
-  final user = await ref.watch(authProvider.future);
-  if (user == null) return [];
-  final client = ref.read(apiClientProvider);
-  final resp = await client.get('/transactions', queryParameters: {'all': 'true'});
-  final list = (resp.data as List<dynamic>?) ?? [];
-  return list.map((t) => PersonalTransaction.fromJson(t as Map<String, dynamic>)).toList();
+/// Current-month transactions — used wherever the previous network provider
+/// was watched (kept as a separate provider so existing screens compile
+/// unchanged). Filters on date locally; cheap because the DB does the
+/// range scan and the watch is reactive.
+final transactionsProvider =
+    StreamProvider<List<PersonalTransaction>>((ref) {
+  final db = ref.read(appDatabaseProvider);
+  final now = DateTime.now();
+  final from = DateTime(now.year, now.month, 1);
+  final to = DateTime(now.year, now.month + 1, 1);
+  return _combineWithCategories(
+    db.transactionsDao.watchRange(from, to),
+    db.budgetCategoriesDao.watchAll(),
+  );
 });
+
+/// Joins the raw transactions stream with the category lookup so consumers
+/// see the resolved category name/icon, exactly as the old API responses did.
+Stream<List<PersonalTransaction>> _combineWithCategories(
+  Stream<List<Transaction>> txStream,
+  Stream<List<BudgetCategory>> catStream,
+) async* {
+  await for (final pair in _zipLatest(txStream, catStream)) {
+    final (txs, cats) = pair;
+    final catById = {for (final c in cats) c.id: c};
+    yield [
+      for (final t in txs)
+        PersonalTransaction(
+          id: t.id,
+          title: t.title,
+          amount: t.amount,
+          type: t.type,
+          categoryId: t.categoryId,
+          categoryName: t.categoryId == null ? null : catById[t.categoryId]?.name,
+          categoryIcon: t.categoryId == null ? null : catById[t.categoryId]?.icon,
+          splitId: null, // local DB doesn't track split links
+          merchantKey: t.merchantKey,
+          date: t.date,
+        ),
+    ];
+  }
+}
+
+/// Minimal "combine latest" — emits whenever either source emits, with the
+/// most recent value from the other. Avoids a full rxdart dep.
+Stream<(A, B)> _zipLatest<A, B>(Stream<A> a, Stream<B> b) async* {
+  A? lastA;
+  B? lastB;
+  bool seenA = false;
+  bool seenB = false;
+  final controller = StreamController<(A, B)>();
+  final subA = a.listen((v) {
+    lastA = v;
+    seenA = true;
+    if (seenB) controller.add((lastA as A, lastB as B));
+  });
+  final subB = b.listen((v) {
+    lastB = v;
+    seenB = true;
+    if (seenA) controller.add((lastA as A, lastB as B));
+  });
+  controller.onCancel = () async {
+    await subA.cancel();
+    await subB.cancel();
+  };
+  yield* controller.stream;
+}
+
+// ---------------------------------------------------------------------------
+// Mutations
+// ---------------------------------------------------------------------------
 
 final transactionEditorProvider =
     NotifierProvider<TransactionEditor, void>(() => TransactionEditor());
@@ -99,9 +129,12 @@ class TransactionEditor extends Notifier<void> {
   @override
   void build() {}
 
-  ApiClient get _client => ref.read(apiClientProvider);
+  AppDatabase get _db => ref.read(appDatabaseProvider);
 
-  Future<void> createTransaction({
+  /// Insert a new transaction. If [categoryId] is null and [merchantKey] has
+  /// a saved merchant→category mapping, that mapping is auto-applied — same
+  /// behaviour the old backend offered.
+  Future<String> createTransaction({
     required String title,
     required double amount,
     required String type,
@@ -109,15 +142,24 @@ class TransactionEditor extends Notifier<void> {
     String? merchantKey,
     DateTime? date,
   }) async {
-    await _client.post('/transactions', data: {
-      'title': title,
-      'amount': amount,
-      'type': type,
-      if (categoryId != null) 'category_id': categoryId,
-      if (merchantKey != null) 'merchant_key': merchantKey,
-      if (date != null) 'date': date.toIso8601String(),
-    });
-    _invalidateAll();
+    final id = _uuid.v4();
+
+    String? resolvedCategory = categoryId;
+    if (resolvedCategory == null && merchantKey != null && merchantKey.isNotEmpty) {
+      final mapping = await _db.merchantCategoriesDao.findByMerchant(merchantKey);
+      resolvedCategory = mapping?.categoryId;
+    }
+
+    await _db.transactionsDao.insertTx(TransactionsCompanion.insert(
+      id: id,
+      title: title,
+      amount: amount,
+      type: type,
+      categoryId: drift.Value(resolvedCategory),
+      merchantKey: drift.Value(merchantKey),
+      date: date ?? DateTime.now(),
+    ));
+    return id;
   }
 
   Future<void> updateTransaction({
@@ -130,27 +172,32 @@ class TransactionEditor extends Notifier<void> {
     DateTime? date,
     bool rememberCategory = false,
   }) async {
-    final data = <String, dynamic>{
-      if (title != null) 'title': title,
-      if (amount != null) 'amount': amount,
-      if (type != null) 'type': type,
-      if (clearCategory == true) 'category_id': null,
-      if (categoryId != null) 'category_id': categoryId,
-      if (date != null) 'date': date.toIso8601String(),
-      if (rememberCategory) 'remember_category': true,
-    };
-    await _client.patch('/transactions/$id', data: data);
-    _invalidateAll();
+    final patch = TransactionsCompanion(
+      title: title != null ? drift.Value(title) : const drift.Value.absent(),
+      amount: amount != null ? drift.Value(amount) : const drift.Value.absent(),
+      type: type != null ? drift.Value(type) : const drift.Value.absent(),
+      categoryId: clearCategory == true
+          ? const drift.Value(null)
+          : categoryId != null
+              ? drift.Value(categoryId)
+              : const drift.Value.absent(),
+      date: date != null ? drift.Value(date) : const drift.Value.absent(),
+    );
+    await _db.transactionsDao.updateTx(id, patch);
+
+    // Persist the "always categorise X as Y" decision so the next SMS from
+    // the same payee auto-tags.
+    if (rememberCategory) {
+      final tx = await _db.transactionsDao.findById(id);
+      if (tx != null &&
+          tx.merchantKey != null &&
+          tx.merchantKey!.isNotEmpty &&
+          tx.categoryId != null) {
+        await _db.merchantCategoriesDao.upsert(tx.merchantKey!, tx.categoryId!);
+      }
+    }
   }
 
-  Future<void> deleteTransaction(String id) async {
-    await _client.delete('/transactions/$id');
-    _invalidateAll();
-  }
-
-  void _invalidateAll() {
-    ref.invalidate(transactionsProvider);
-    ref.invalidate(allTransactionsProvider);
-    ref.invalidate(budgetOverviewProvider);
-  }
+  Future<void> deleteTransaction(String id) =>
+      _db.transactionsDao.deleteTx(id);
 }

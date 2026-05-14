@@ -86,6 +86,10 @@ app.use('/', webRoutes); // /g/:groupId etc — guest web UI (cookie-auth)
 app.use('/v1', apiLimiter, splitRoutes);
 app.use('/v1', apiLimiter, settlementRoutes);
 app.use('/v1', apiLimiter, balanceRoutes);
+// /v1/budget and /v1/transactions are retained for backwards compatibility
+// with any in-flight clients, but new clients store this data locally in
+// SQLite for privacy — the server should never see personal spend data.
+// Plan: remove once analytics confirms zero traffic on these routes.
 app.use('/v1/budget', apiLimiter, budgetRoutes);
 app.use('/v1/transactions', apiLimiter, transactionRoutes);
 app.use('/v1/profile', apiLimiter, profileRoutes);

@@ -191,11 +191,8 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
               skipped++;
             }
           }
-          // The /transactions provider doesn't get auto-invalidated when
-          // processIncoming uses Dio directly (it bypasses the editor
-          // notifier), so nudge it manually.
-          ref.invalidate(transactionsProvider);
-          ref.invalidate(allTransactionsProvider);
+          // Stream providers auto-emit on every Drift insert — no need to
+          // invalidate manually.
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -417,8 +414,9 @@ class _MonthGroupedList extends ConsumerWidget {
 
     return RefreshIndicator(
       onRefresh: () async {
-        ref.invalidate(allTransactionsProvider);
-        ref.invalidate(transactionsProvider);
+        // Local Drift stream auto-emits on every write, so refresh here just
+        // drains any pending background-isolate SMS into the DB.
+        await SmsListener.drainQueue();
       },
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
@@ -1312,21 +1310,13 @@ class _QuickCategoryDialogState extends ConsumerState<_QuickCategoryDialog> {
       _error = null;
     });
     try {
-      await ref.read(budgetEditorProvider.notifier).addCategory(
+      final newId = await ref.read(budgetEditorProvider.notifier).addCategory(
             name: name,
             icon: _emoji,
             monthlyLimit: limit,
             isFixed: false,
           );
-      // budgetEditor.addCategory doesn't return the new id, so refresh the
-      // overview and find the one we just inserted by name.
-      final fresh = await ref.refresh(budgetOverviewProvider.future);
-      final created = fresh == null
-          ? null
-          : fresh.categories
-              .where((c) => c.name.toLowerCase() == name.toLowerCase())
-              .firstOrNull;
-      if (mounted) Navigator.of(context).pop(created?.id);
+      if (mounted) Navigator.of(context).pop(newId);
     } catch (e) {
       if (mounted) {
         setState(() {

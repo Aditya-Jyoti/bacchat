@@ -9,37 +9,30 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     with _$TransactionsDaoMixin {
   TransactionsDao(super.db);
 
-  Future<List<Transaction>> getTransactionsForUser(int userId) =>
-      (select(transactions)
-            ..where((t) => t.userId.equals(userId))
-            ..orderBy([(t) => OrderingTerm.desc(t.date)]))
-          .get();
+  /// All transactions, newest first. Used by the Activity screen.
+  Stream<List<Transaction>> watchAll() =>
+      (select(transactions)..orderBy([(t) => OrderingTerm.desc(t.date)])).watch();
 
-  Stream<List<Transaction>> watchTransactionsForUser(int userId) =>
+  /// Transactions inside [from, to). Used by the budget overview to total
+  /// the current month's spend without pulling the whole ledger.
+  Stream<List<Transaction>> watchRange(DateTime from, DateTime to) =>
       (select(transactions)
-            ..where((t) => t.userId.equals(userId))
+            ..where((t) => t.date.isBetweenValues(from, to))
             ..orderBy([(t) => OrderingTerm.desc(t.date)]))
           .watch();
 
-  Future<List<Transaction>> getTransactionsByCategory(int categoryId) =>
-      (select(transactions)
-            ..where((t) => t.categoryId.equals(categoryId))
-            ..orderBy([(t) => OrderingTerm.desc(t.date)]))
-          .get();
+  Future<Transaction?> findById(String id) =>
+      (select(transactions)..where((t) => t.id.equals(id))).getSingleOrNull();
 
-  Future<List<Transaction>> getRecentTransactions(int userId, int limit) =>
-      (select(transactions)
-            ..where((t) => t.userId.equals(userId))
-            ..orderBy([(t) => OrderingTerm.desc(t.date)])
-            ..limit(limit))
-          .get();
+  Future<void> insertTx(TransactionsCompanion row) =>
+      into(transactions).insertOnConflictUpdate(row);
 
-  Future<int> insertTransaction(TransactionsCompanion transaction) =>
-      into(transactions).insert(transaction);
+  Future<bool> updateTx(String id, TransactionsCompanion patch) async {
+    final rows = await (update(transactions)..where((t) => t.id.equals(id)))
+        .write(patch);
+    return rows > 0;
+  }
 
-  Future<bool> updateTransaction(TransactionsCompanion transaction) =>
-      update(transactions).replace(transaction);
-
-  Future<int> deleteTransaction(int id) =>
+  Future<int> deleteTx(String id) =>
       (delete(transactions)..where((t) => t.id.equals(id))).go();
 }

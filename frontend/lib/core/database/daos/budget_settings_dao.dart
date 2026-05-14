@@ -9,14 +9,26 @@ class BudgetSettingsDao extends DatabaseAccessor<AppDatabase>
     with _$BudgetSettingsDaoMixin {
   BudgetSettingsDao(super.db);
 
-  Future<BudgetSetting?> getSettingsForUser(int userId) =>
-      (select(budgetSettings)..where((s) => s.userId.equals(userId)))
-          .getSingleOrNull();
+  /// Single-row table — always pinned to id=1.
+  Stream<BudgetSetting?> watchSettings() =>
+      (select(budgetSettings)..where((s) => s.id.equals(1))).watchSingleOrNull();
 
-  Stream<BudgetSetting?> watchSettingsForUser(int userId) =>
-      (select(budgetSettings)..where((s) => s.userId.equals(userId)))
-          .watchSingleOrNull();
+  Future<BudgetSetting?> getSettings() =>
+      (select(budgetSettings)..where((s) => s.id.equals(1))).getSingleOrNull();
 
-  Future<int> upsertSettings(BudgetSettingsCompanion settings) =>
-      into(budgetSettings).insertOnConflictUpdate(settings);
+  Future<void> upsertSettings({
+    required double monthlyIncome,
+    required double monthlySavingsGoal,
+  }) =>
+      into(budgetSettings).insertOnConflictUpdate(
+        BudgetSettingsCompanion(
+          id: const Value(1),
+          monthlyIncome: Value(monthlyIncome),
+          monthlySavingsGoal: Value(monthlySavingsGoal),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+
+  /// Used on logout — wipes the single row so the next user starts fresh.
+  Future<void> clear() => (delete(budgetSettings)).go();
 }
