@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Bacchat app icon — 1024×1024.
+
+  Composition:
+    • Bright blue background with 22% rounded corners.
+    • Four white "person" glyphs at the inner corners (kept inside the
+      adaptive-icon safe zone so launchers with circular/squircle masks
+      don't crop them).
+    • Centered white ₹ rendered via a sans-serif text element with bold
+      weight — Noto / system sans-serif fallback both ship the glyph.
+    • Four diagonal arrows from the rupee outward to each person, drawn
+      with SVG `marker-end` so the heads stay perfectly aligned with the
+      shaft direction.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <!-- Triangular arrowhead used by all four arrows. orient="auto"
+         rotates it to follow each line's direction automatically. -->
+    <marker id="arrow"
+            viewBox="0 0 12 12"
+            refX="3" refY="6"
+            markerWidth="3" markerHeight="3"
+            orient="auto"
+            markerUnits="strokeWidth">
+      <path d="M 0,0 L 12,6 L 0,12 Z" fill="#FFFFFF"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="224" ry="224" fill="#1E88E5"/>
+
+  <!-- ============================================================== -->
+  <!-- Person glyphs: circle head + rounded shoulder shape.           -->
+  <!-- ============================================================== -->
+  <g fill="#FFFFFF">
+    <!-- top-left -->
+    <g transform="translate(248, 268)">
+      <circle cx="0" cy="-32" r="46"/>
+      <path d="M -74 70
+               C -74 22, -38 6, 0 6
+               C 38 6, 74 22, 74 70
+               L 74 86
+               C 74 100, 60 110, 44 110
+               L -44 110
+               C -60 110, -74 100, -74 86
+               Z"/>
+    </g>
+    <!-- top-right -->
+    <g transform="translate(776, 268)">
+      <circle cx="0" cy="-32" r="46"/>
+      <path d="M -74 70
+               C -74 22, -38 6, 0 6
+               C 38 6, 74 22, 74 70
+               L 74 86
+               C 74 100, 60 110, 44 110
+               L -44 110
+               C -60 110, -74 100, -74 86
+               Z"/>
+    </g>
+    <!-- bottom-left -->
+    <g transform="translate(248, 756)">
+      <circle cx="0" cy="-32" r="46"/>
+      <path d="M -74 70
+               C -74 22, -38 6, 0 6
+               C 38 6, 74 22, 74 70
+               L 74 86
+               C 74 100, 60 110, 44 110
+               L -44 110
+               C -60 110, -74 100, -74 86
+               Z"/>
+    </g>
+    <!-- bottom-right -->
+    <g transform="translate(776, 756)">
+      <circle cx="0" cy="-32" r="46"/>
+      <path d="M -74 70
+               C -74 22, -38 6, 0 6
+               C 38 6, 74 22, 74 70
+               L 74 86
+               C 74 100, 60 110, 44 110
+               L -44 110
+               C -60 110, -74 100, -74 86
+               Z"/>
+    </g>
+  </g>
+
+  <!-- ============================================================== -->
+  <!-- Diagonal arrows centre → corners. marker-end auto-orients.    -->
+  <!-- Shafts kept short to leave breathing room around the people.  -->
+  <!-- ============================================================== -->
+  <g stroke="#FFFFFF" stroke-width="34" stroke-linecap="round" fill="none">
+    <line x1="412" y1="412" x2="332" y2="332" marker-end="url(#arrow)"/>
+    <line x1="612" y1="412" x2="692" y2="332" marker-end="url(#arrow)"/>
+    <line x1="412" y1="612" x2="332" y2="692" marker-end="url(#arrow)"/>
+    <line x1="612" y1="612" x2="692" y2="692" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- ============================================================== -->
+  <!-- Rupee glyph — rendered with the system sans-serif. dy/y picked-->
+  <!-- so the visual centre of ₹ sits at the canvas centre (512,512).-->
+  <!-- ============================================================== -->
+  <text x="512" y="630"
+        font-family="Noto Sans, DejaVu Sans, Liberation Sans, sans-serif"
+        font-size="340"
+        font-weight="900"
+        text-anchor="middle"
+        fill="#FFFFFF">₹</text>
+</svg>

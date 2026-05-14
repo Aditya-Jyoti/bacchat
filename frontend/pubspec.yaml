@@ -63,6 +63,20 @@ dev_dependencies:
   riverpod_annotation: ^4.0.0
   custom_lint: ^0.8.1
   riverpod_lint: ^3.1.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true            # generates legacy + adaptive-icon resources
+  ios: true                # iOS icons (single image, no transparency)
+  image_path: "assets/icon/app_icon.png"
+  # Adaptive icon (Android 8+): a flat-colour background layer plus the
+  # transparent foreground with the safe-zone-scaled content.
+  adaptive_icon_background: "#1E88E5"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+  # Modernise the legacy mipmap icon too so launchers that ignore adaptive
+  # still get the new artwork (we overwrite ic_launcher.png at every density).
+  remove_alpha_ios: true
+  min_sdk_android: 21
 
 flutter:
   uses-material-design: true

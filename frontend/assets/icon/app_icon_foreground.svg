@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Adaptive-icon foreground layer — transparent background, the same
+  content shrunk into the inner 432px safe zone of the 1024px canvas
+  so circular / squircle / teardrop launcher masks never clip the
+  people or arrows.
+
+  Centre = (512, 512). Safe zone = the inner ~660px diameter circle.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- 0.75x scale around the centre, so far corner people sit at
+       512 ± (242 * 0.75) ≈ 330,694 — comfortably inside the safe zone. -->
+  <g transform="translate(512 512) scale(0.78) translate(-512 -512)">
+    <g fill="#FFFFFF">
+      <g transform="translate(248, 268)">
+        <circle cx="0" cy="-32" r="46"/>
+        <path d="M -74 70 C -74 22, -38 6, 0 6 C 38 6, 74 22, 74 70
+                 L 74 86 C 74 100, 60 110, 44 110 L -44 110
+                 C -60 110, -74 100, -74 86 Z"/>
+      </g>
+      <g transform="translate(776, 268)">
+        <circle cx="0" cy="-32" r="46"/>
+        <path d="M -74 70 C -74 22, -38 6, 0 6 C 38 6, 74 22, 74 70
+                 L 74 86 C 74 100, 60 110, 44 110 L -44 110
+                 C -60 110, -74 100, -74 86 Z"/>
+      </g>
+      <g transform="translate(248, 756)">
+        <circle cx="0" cy="-32" r="46"/>
+        <path d="M -74 70 C -74 22, -38 6, 0 6 C 38 6, 74 22, 74 70
+                 L 74 86 C 74 100, 60 110, 44 110 L -44 110
+                 C -60 110, -74 100, -74 86 Z"/>
+      </g>
+      <g transform="translate(776, 756)">
+        <circle cx="0" cy="-32" r="46"/>
+        <path d="M -74 70 C -74 22, -38 6, 0 6 C 38 6, 74 22, 74 70
+                 L 74 86 C 74 100, 60 110, 44 110 L -44 110
+                 C -60 110, -74 100, -74 86 Z"/>
+      </g>
+    </g>
+
+    <defs>
+      <marker id="afg-arrow" viewBox="0 0 12 12" refX="3" refY="6"
+              markerWidth="3" markerHeight="3" orient="auto"
+              markerUnits="strokeWidth">
+        <path d="M 0,0 L 12,6 L 0,12 Z" fill="#FFFFFF"/>
+      </marker>
+    </defs>
+    <g stroke="#FFFFFF" stroke-width="34" stroke-linecap="round" fill="none">
+      <line x1="412" y1="412" x2="332" y2="332" marker-end="url(#afg-arrow)"/>
+      <line x1="612" y1="412" x2="692" y2="332" marker-end="url(#afg-arrow)"/>
+      <line x1="412" y1="612" x2="332" y2="692" marker-end="url(#afg-arrow)"/>
+      <line x1="612" y1="612" x2="692" y2="692" marker-end="url(#afg-arrow)"/>
+    </g>
+
+    <text x="512" y="630"
+          font-family="Noto Sans, DejaVu Sans, Liberation Sans, sans-serif"
+          font-size="340" font-weight="900" text-anchor="middle"
+          fill="#FFFFFF">₹</text>
+  </g>
+</svg>
