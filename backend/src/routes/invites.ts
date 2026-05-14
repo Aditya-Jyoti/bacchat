@@ -30,10 +30,21 @@ const router: ExpressRouter = Router();
 router.get('/invite/:inviteCode', async (req: Request, res: Response): Promise<void> => {
   try {
     const { inviteCode } = req.params;
-    // Log lookups so we can see in docker logs whether the code arrived AT ALL
-    // and whether it matches anything in the prod DB. Most "invite not found"
-    // reports turn out to be a stale code from a different (dev) DB.
-    console.log(`[invite] lookup code="${inviteCode}" accepts="${req.headers.accept ?? '?'}"`);
+    // Decide JSON vs HTML *before* the DB call so the error path matches.
+    //
+    // Why this can't just use req.accepts('html'):
+    //   Dio (and many native HTTP clients) send Accept: */*. Express's
+    //   req.accepts('html') returns truthy for */*, so the app got the HTML
+    //   landing page and crashed parsing it as JSON. The reliable signal is
+    //   the mount path — /v1/invite/* is always an API call, only the
+    //   un-prefixed /invite/* might be a browser landing.
+    const wantsJson =
+      req.baseUrl === '/v1' ||
+      req.headers.authorization?.startsWith('Bearer ') ||
+      req.xhr ||
+      req.accepts(['json', 'html']) === 'json';
+
+    console.log(`[invite] lookup code="${inviteCode}" baseUrl="${req.baseUrl}" accepts="${req.headers.accept ?? '?'}" wantsJson=${wantsJson}`);
 
     const group = await prisma.splitGroup.findUnique({
       where: { inviteCode },
@@ -42,29 +53,28 @@ router.get('/invite/:inviteCode', async (req: Request, res: Response): Promise<v
 
     if (!group) {
       console.log(`[invite] NOT FOUND code="${inviteCode}"`);
-      if (req.accepts('html')) {
-        res.status(404).send(_html404(inviteCode));
-      } else {
+      if (wantsJson) {
         res.status(404).json({ error: 'Invite code not found', code: inviteCode });
+      } else {
+        res.status(404).send(_html404(inviteCode));
       }
       return;
     }
     console.log(`[invite] HIT code="${inviteCode}" → group="${group.name}" (${group.id})`);
 
-    // Browser request → HTML landing page
-    if (req.accepts('html')) {
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.send(_htmlLanding({ inviteCode, name: group.name, emoji: group.emoji, memberCount: group._count.members }));
+    if (wantsJson) {
+      res.json({
+        group_id: group.id,
+        name: group.name,
+        emoji: group.emoji,
+        member_count: group._count.members,
+      });
       return;
     }
 
-    // API request → JSON
-    res.json({
-      group_id: group.id,
-      name: group.name,
-      emoji: group.emoji,
-      member_count: group._count.members,
-    });
+    // Browser request → HTML landing page
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(_htmlLanding({ inviteCode, name: group.name, emoji: group.emoji, memberCount: group._count.members }));
   } catch (error) {
     console.error('Get invite error:', error);
     res.status(500).json({ error: 'Failed to fetch invite' });

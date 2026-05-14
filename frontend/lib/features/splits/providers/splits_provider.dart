@@ -76,7 +76,10 @@ final splitsForGroupProvider =
   final list = (resp.data as List<dynamic>?) ?? [];
   return list.map((s) {
     final m = s as Map<String, dynamic>;
-    final shares = (m['shares'] as List<dynamic>?) ?? [];
+    // List endpoint returns share_count directly (no full shares array).
+    // Fall back to shares.length only if the detail-style shape is returned.
+    final shareCount = (m['share_count'] as num?)?.toInt() ??
+        ((m['shares'] as List<dynamic>?) ?? []).length;
     return SplitCard(
       id: m['id'] as String,
       title: m['title'] as String,
@@ -85,7 +88,7 @@ final splitsForGroupProvider =
       totalAmount: (m['total_amount'] as num).toDouble(),
       paidById: m['paid_by_id'] as String,
       paidByName: m['paid_by_name'] as String,
-      shareCount: shares.length,
+      shareCount: shareCount,
       createdAt: DateTime.parse(m['created_at'] as String),
     );
   }).toList();

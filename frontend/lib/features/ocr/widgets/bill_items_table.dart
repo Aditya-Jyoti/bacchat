@@ -6,6 +6,10 @@ import '../../../core/utils/format_money.dart';
 import '../../splits/models/split_models.dart';
 import '../models/bill_item.dart';
 
+/// Editable bill review — every field is a real text field with a visible
+/// focus indicator. Name, qty and price can all be corrected after OCR;
+/// rows can be deleted or added; each row picks who pays (specific member
+/// or "split equally").
 class BillItemsTable extends StatefulWidget {
   const BillItemsTable({
     super.key,
@@ -24,7 +28,6 @@ class BillItemsTable extends StatefulWidget {
 }
 
 class _BillItemsTableState extends State<BillItemsTable> {
-  // Keep one set of controllers per row so text stays in sync with model.
   late final List<TextEditingController> _nameCtrls;
   late final List<TextEditingController> _qtyCtrls;
   late final List<TextEditingController> _priceCtrls;
@@ -32,9 +35,15 @@ class _BillItemsTableState extends State<BillItemsTable> {
   @override
   void initState() {
     super.initState();
-    _nameCtrls = widget.items.map((i) => TextEditingController(text: i.name)).toList();
-    _qtyCtrls = widget.items.map((i) => TextEditingController(text: '${i.qty}')).toList();
-    _priceCtrls = widget.items.map((i) => TextEditingController(text: i.price.toStringAsFixed(0))).toList();
+    _nameCtrls = widget.items
+        .map((i) => TextEditingController(text: i.name))
+        .toList();
+    _qtyCtrls = widget.items
+        .map((i) => TextEditingController(text: '${i.qty}'))
+        .toList();
+    _priceCtrls = widget.items
+        .map((i) => TextEditingController(text: i.price.toStringAsFixed(2)))
+        .toList();
   }
 
   @override
@@ -56,6 +65,16 @@ class _BillItemsTableState extends State<BillItemsTable> {
     widget.onChanged();
   }
 
+  void _addRow() {
+    final item = BillItem(name: '', qty: 1, price: 0);
+    widget.items.add(item);
+    _nameCtrls.add(TextEditingController());
+    _qtyCtrls.add(TextEditingController(text: '1'));
+    _priceCtrls.add(TextEditingController());
+    widget.onChanged();
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -64,47 +83,43 @@ class _BillItemsTableState extends State<BillItemsTable> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Column header
+        // Helper hint
         Container(
           color: scheme.surfaceContainerHighest,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: [
+              Icon(Icons.edit_outlined, size: 14, color: scheme.onSurfaceVariant),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Tap any field to edit name, qty or price.',
+                  style: GoogleFonts.montserrat(
+                    fontSize: 11,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Column header
+        Container(
+          color: scheme.surfaceContainerLow,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: [
               Expanded(
-                flex: 4,
-                child: Text('Item',
-                    style: GoogleFonts.montserrat(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: scheme.onSurfaceVariant)),
+                flex: 5,
+                child: _headerCell('Item', scheme),
               ),
-              SizedBox(
-                width: 40,
-                child: Text('Qty',
-                    style: GoogleFonts.montserrat(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: scheme.onSurfaceVariant)),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 64,
-                child: Text('Price',
-                    style: GoogleFonts.montserrat(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: scheme.onSurfaceVariant)),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 100,
-                child: Text('Assigned to',
-                    style: GoogleFonts.montserrat(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: scheme.onSurfaceVariant)),
-              ),
-              const SizedBox(width: 32), // delete button space
+              SizedBox(width: 44, child: _headerCell('Qty', scheme, center: true)),
+              const SizedBox(width: 6),
+              SizedBox(width: 72, child: _headerCell('Price', scheme, right: true)),
+              const SizedBox(width: 6),
+              SizedBox(width: 96, child: _headerCell('Who', scheme)),
+              const SizedBox(width: 32),
             ],
           ),
         ),
@@ -114,7 +129,7 @@ class _BillItemsTableState extends State<BillItemsTable> {
           final i = entry.key;
           final item = entry.value;
           return _ItemRow(
-            key: ValueKey(i),
+            key: ValueKey('row-${item.hashCode}-$i'),
             item: item,
             nameCtrl: _nameCtrls[i],
             qtyCtrl: _qtyCtrls[i],
@@ -140,18 +155,46 @@ class _BillItemsTableState extends State<BillItemsTable> {
           );
         }),
 
+        // Add row button
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _addRow,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add_circle_outline, size: 18, color: scheme.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Add row',
+                    style: GoogleFonts.montserrat(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: scheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
         // Total row
         Container(
           color: scheme.primaryContainer,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Total',
-                  style: GoogleFonts.montserrat(
-                    fontWeight: FontWeight.w700,
-                    color: scheme.onPrimaryContainer,
-                  )),
+              Text(
+                'Total',
+                style: GoogleFonts.montserrat(
+                  fontWeight: FontWeight.w700,
+                  color: scheme.onPrimaryContainer,
+                ),
+              ),
               Text(
                 FormatUtils.formatMoney(total),
                 style: GoogleFonts.montserrat(
@@ -166,10 +209,26 @@ class _BillItemsTableState extends State<BillItemsTable> {
       ],
     );
   }
+
+  Widget _headerCell(String label, ColorScheme scheme,
+      {bool center = false, bool right = false}) {
+    return Text(
+      label,
+      textAlign: right
+          ? TextAlign.right
+          : (center ? TextAlign.center : TextAlign.left),
+      style: GoogleFonts.montserrat(
+        fontSize: 10,
+        fontWeight: FontWeight.w800,
+        color: scheme.onSurfaceVariant,
+        letterSpacing: 0.4,
+      ),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Single editable row
+// Editable row — every field has a visible focus indicator
 // ---------------------------------------------------------------------------
 
 class _ItemRow extends StatelessWidget {
@@ -201,54 +260,75 @@ class _ItemRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final inputDecoration = (String? hint, {String? prefix}) => InputDecoration(
+          isDense: true,
+          hintText: hint,
+          hintStyle: GoogleFonts.montserrat(
+            fontSize: 12,
+            color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+          prefixText: prefix,
+          prefixStyle: GoogleFonts.montserrat(
+            fontSize: 12,
+            color: scheme.onSurfaceVariant,
+          ),
+          // Visible enabled & focused borders so the user knows it's editable.
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide:
+                BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: scheme.primary, width: 1.5),
+          ),
+        );
 
     return Container(
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: scheme.outlineVariant, width: 0.5),
+          bottom: BorderSide(
+              color: scheme.outlineVariant.withValues(alpha: 0.4), width: 0.5),
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Item name (editable)
+          // Name (editable)
           Expanded(
-            flex: 4,
+            flex: 5,
             child: TextField(
               controller: nameCtrl,
               onChanged: onNameChanged,
               style: GoogleFonts.montserrat(fontSize: 13),
-              decoration: const InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 4),
-              ),
+              decoration: inputDecoration('Item name'),
             ),
           ),
+          const SizedBox(width: 6),
 
           // Qty
           SizedBox(
-            width: 40,
+            width: 44,
             child: TextField(
               controller: qtyCtrl,
               onChanged: onQtyChanged,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              style: GoogleFonts.montserrat(fontSize: 13),
-              textAlign: TextAlign.center,
-              decoration: const InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 4),
+              style: GoogleFonts.montserrat(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
+              textAlign: TextAlign.center,
+              decoration: inputDecoration('1'),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
 
-          // Price per unit
+          // Price
           SizedBox(
-            width: 64,
+            width: 72,
             child: TextField(
               controller: priceCtrl,
               onChanged: onPriceChanged,
@@ -258,52 +338,59 @@ class _ItemRow extends StatelessWidget {
               ],
               style: GoogleFonts.montserrat(fontSize: 13),
               textAlign: TextAlign.right,
-              decoration: InputDecoration(
+              decoration: inputDecoration('0', prefix: '₹'),
+            ),
+          ),
+          const SizedBox(width: 6),
+
+          // Assigned-to
+          SizedBox(
+            width: 96,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.6)),
+              ),
+              child: DropdownButton<String?>(
+                value: item.assignedToUserId,
                 isDense: true,
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 4),
-                prefixText: '₹',
-                prefixStyle: GoogleFonts.montserrat(fontSize: 11, color: scheme.onSurfaceVariant),
+                isExpanded: true,
+                underline: const SizedBox.shrink(),
+                style: GoogleFonts.montserrat(fontSize: 12),
+                items: [
+                  DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text(
+                      'Split all',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 12,
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  ...members.map(
+                    (m) => DropdownMenuItem<String?>(
+                      value: m.id,
+                      child: Text(
+                        m.name.split(' ').first,
+                        style: GoogleFonts.montserrat(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ],
+                onChanged: onAssignedChanged,
               ),
             ),
           ),
-          const SizedBox(width: 8),
 
-          // Assigned-to dropdown
-          SizedBox(
-            width: 100,
-            child: DropdownButton<String?>(
-              value: item.assignedToUserId,
-              isDense: true,
-              isExpanded: true,
-              underline: const SizedBox.shrink(),
-              style: GoogleFonts.montserrat(fontSize: 12),
-              hint: Text('Split',
-                  style: GoogleFonts.montserrat(
-                      fontSize: 12, color: scheme.primary)),
-              items: [
-                DropdownMenuItem<String?>(
-                  value: null,
-                  child: Text('Split equally',
-                      style: GoogleFonts.montserrat(fontSize: 12)),
-                ),
-                ...members.map(
-                  (m) => DropdownMenuItem<String?>(
-                    value: m.id,
-                    child: Text(m.name.split(' ').first,
-                        style: GoogleFonts.montserrat(fontSize: 12)),
-                  ),
-                ),
-              ],
-              onChanged: onAssignedChanged,
-            ),
-          ),
-
-          // Delete row
           IconButton(
-            icon: Icon(Icons.close, size: 16, color: scheme.error),
+            icon: Icon(Icons.delete_outline, size: 18, color: scheme.error),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            tooltip: 'Remove row',
             onPressed: onDelete,
           ),
         ],

@@ -28,6 +28,9 @@ class ApiClient {
       connectTimeout: const Duration(seconds: 12),
       receiveTimeout: const Duration(seconds: 12),
       contentType: 'application/json',
+      // Explicit Accept so the backend's content negotiation never serves
+      // HTML to the app (Dio's default */* used to match req.accepts('html')).
+      headers: {'Accept': 'application/json'},
     ));
 
     _dio.interceptors.add(InterceptorsWrapper(
