@@ -162,6 +162,7 @@ class _SplitDetailBody extends StatelessWidget {
 
     final unsettled = split.shares.where((s) => !s.isSettled).toList();
     final allSettled = unsettled.isEmpty;
+    final iAmPayer = currentUser != null && split.paidById == currentUser.id;
 
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -250,7 +251,7 @@ class _SplitDetailBody extends StatelessWidget {
                 color: scheme.onSurface,
               ),
             ),
-            if (!allSettled)
+            if (!allSettled && iAmPayer)
               TextButton(
                 onPressed: () => _settleAll(context),
                 child: Text(
@@ -393,16 +394,23 @@ class _ShareRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            share.isSettled
-                ? Icon(Icons.check_circle, color: Colors.green.shade600, size: 22)
-                : IconButton(
-                    icon: Icon(Icons.radio_button_unchecked,
-                        color: scheme.onSurfaceVariant),
-                    tooltip: 'Mark settled',
-                    onPressed: () => ref
-                        .read(splitsEditorProvider.notifier)
-                        .settleShare(share.id, groupId, splitId),
-                  ),
+            if (share.isSettled)
+              Icon(Icons.check_circle, color: Colors.green.shade600, size: 22)
+            else if (isMe || currentUserId == paidById)
+              // Only the debtor (me, when this is my share) or the payer can
+              // mark a share as settled. Other group members see no button.
+              IconButton(
+                icon: Icon(Icons.radio_button_unchecked,
+                    color: scheme.onSurfaceVariant),
+                tooltip: isMe ? "Mark I've paid" : 'Confirm received',
+                onPressed: () => ref
+                    .read(splitsEditorProvider.notifier)
+                    .settleShare(share.id, groupId, splitId),
+              )
+            else
+              Icon(Icons.lock_clock_outlined,
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.4),
+                  size: 20),
           ],
         ),
       ),

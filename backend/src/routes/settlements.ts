@@ -17,7 +17,7 @@ const SPLIT_INCLUDE = {
  *   patch:
  *     tags:
  *       - Settlements
- *     summary: Mark a share as settled
+ *     summary: Mark a share as settled (only the debtor or the payer)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -30,7 +30,7 @@ const SPLIT_INCLUDE = {
  *       200:
  *         description: Share settled
  *       403:
- *         description: Not the payer or an admin
+ *         description: Only the debtor or the payer can settle this share
  *       404:
  *         description: Share not found
  *       409:
@@ -59,16 +59,16 @@ router.patch('/shares/:shareId/settle', authenticate, async (req: AuthRequest, r
       return;
     }
 
+    // Either side of the debt can confirm settlement:
+    //   - the debtor (share.userId)  — "I paid them back"
+    //   - the payer (split.paidBy)   — "I received their payment"
+    // Crucially: a group admin who is *not* either side cannot settle.
+    const isDebtor = share.userId === userId;
     const isPayer = share.split.paidBy === userId;
 
-    if (!isPayer) {
-      const member = await prisma.groupMember.findFirst({
-        where: { groupId: share.split.groupId, userId },
-      });
-      if (!member?.isAdmin) {
-        res.status(403).json({ error: 'Only the payer or a group admin can settle shares' });
-        return;
-      }
+    if (!isDebtor && !isPayer) {
+      res.status(403).json({ error: 'Only the debtor or the payer can settle this share' });
+      return;
     }
 
     const updated = await prisma.splitShare.update({
@@ -96,7 +96,7 @@ router.patch('/shares/:shareId/settle', authenticate, async (req: AuthRequest, r
  *   post:
  *     tags:
  *       - Settlements
- *     summary: Settle all unsettled shares in a split
+ *     summary: Settle all unsettled shares in a split (payer only)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -109,7 +109,7 @@ router.patch('/shares/:shareId/settle', authenticate, async (req: AuthRequest, r
  *       200:
  *         description: All shares settled, returns full split detail
  *       403:
- *         description: Not the payer or an admin
+ *         description: Only the payer can settle the whole split
  *       404:
  *         description: Split not found
  */
@@ -125,16 +125,9 @@ router.post('/splits/:splitId/settle-all', authenticate, async (req: AuthRequest
       return;
     }
 
-    const isPayer = split.paidBy === userId;
-
-    if (!isPayer) {
-      const member = await prisma.groupMember.findFirst({
-        where: { groupId: split.groupId, userId },
-      });
-      if (!member?.isAdmin) {
-        res.status(403).json({ error: 'Only the payer or a group admin can settle all shares' });
-        return;
-      }
+    if (split.paidBy !== userId) {
+      res.status(403).json({ error: 'Only the payer can mark every share as settled' });
+      return;
     }
 
     const fullSplit = await prisma.$transaction(async (tx) => {
@@ -152,5 +145,100 @@ router.post('/splits/:splitId/settle-all', authenticate, async (req: AuthRequest
     res.status(500).json({ error: 'Failed to settle all shares' });
   }
 });
+
+/**
+ * @openapi
+ * /groups/{groupId}/settle-between:
+ *   post:
+ *     tags:
+ *       - Settlements
+ *     summary: Settle every unsettled debt between two specific members
+ *     description: |
+ *       Marks every unsettled share where one person owes another as settled
+ *       in one call. The caller must be one of the two participants.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: groupId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [from_user_id, to_user_id]
+ *             properties:
+ *               from_user_id:
+ *                 type: string
+ *                 description: The debtor (person who owes)
+ *               to_user_id:
+ *                 type: string
+ *                 description: The creditor (person who paid)
+ *     responses:
+ *       200:
+ *         description: "{ settled_count, total_amount }"
+ *       400:
+ *         description: Bad request
+ *       403:
+ *         description: Caller must be either the debtor or creditor
+ */
+router.post(
+  '/groups/:groupId/settle-between',
+  authenticate,
+  async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.userId!;
+      const { groupId } = req.params;
+      const { from_user_id, to_user_id } = req.body ?? {};
+
+      if (typeof from_user_id !== 'string' || typeof to_user_id !== 'string') {
+        res.status(400).json({ error: 'from_user_id and to_user_id are required' });
+        return;
+      }
+      if (from_user_id === to_user_id) {
+        res.status(400).json({ error: 'from and to must be different users' });
+        return;
+      }
+      if (userId !== from_user_id && userId !== to_user_id) {
+        res.status(403).json({ error: 'You must be one of the two participants' });
+        return;
+      }
+
+      // Find every unsettled share where from_user_id owes to_user_id in this
+      // group: the share belongs to from_user_id and the parent split was paid
+      // by to_user_id.
+      const candidates = await prisma.splitShare.findMany({
+        where: {
+          userId: from_user_id,
+          isSettled: false,
+          split: { groupId, paidBy: to_user_id },
+        },
+        select: { id: true, amount: true },
+      });
+
+      if (candidates.length === 0) {
+        res.json({ settled_count: 0, total_amount: 0 });
+        return;
+      }
+
+      const ids = candidates.map((c) => c.id);
+      const totalAmount = candidates.reduce((s, c) => s + Number(c.amount), 0);
+
+      await prisma.splitShare.updateMany({
+        where: { id: { in: ids } },
+        data: { isSettled: true },
+      });
+
+      res.json({ settled_count: ids.length, total_amount: totalAmount });
+    } catch (error) {
+      console.error('Settle between error:', error);
+      res.status(500).json({ error: 'Failed to settle debts' });
+    }
+  },
+);
 
 export default router;

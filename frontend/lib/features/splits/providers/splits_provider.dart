@@ -293,6 +293,24 @@ class SplitsEditor extends Notifier<void> {
     ref.invalidate(groupBalanceProvider(groupId));
   }
 
+  /// Settle every unsettled debt from one member to another in a single call.
+  /// Returns the number of shares settled.
+  Future<int> settleBetween({
+    required String groupId,
+    required String fromUserId,
+    required String toUserId,
+  }) async {
+    final resp = await _client.post(
+      '/groups/$groupId/settle-between',
+      data: {'from_user_id': fromUserId, 'to_user_id': toUserId},
+    );
+    final m = resp.data as Map<String, dynamic>;
+    ref.invalidate(splitsForGroupProvider(groupId));
+    ref.invalidate(splitGroupsProvider);
+    ref.invalidate(groupBalanceProvider(groupId));
+    return (m['settled_count'] as num).toInt();
+  }
+
   Future<void> deleteSplit(String splitId, String groupId) async {
     await _client.delete('/splits/$splitId');
     ref.invalidate(splitsForGroupProvider(groupId));

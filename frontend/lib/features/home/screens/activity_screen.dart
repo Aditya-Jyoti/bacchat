@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/utils/format_money.dart';
 import '../../../core/widgets/app_background.dart';
@@ -62,32 +63,50 @@ class ActivityScreen extends ConsumerWidget {
       builder: (_) => const _SmsLoadingDialog(),
     );
 
-    final parsed = await SmsService.scanInbox();
+    final result = await SmsService.scanInbox();
 
     if (!context.mounted) return;
     Navigator.of(context).pop(); // dismiss loading
 
-    if (parsed == null) {
+    switch (result.status) {
+      case SmsScanStatus.unsupportedPlatform:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('SMS import is only available on Android')),
+        );
+        return;
+      case SmsScanStatus.permissionDenied:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('SMS permission denied — grant it to scan your inbox')),
+        );
+        return;
+      case SmsScanStatus.permissionPermanentlyDenied:
+        _showPermissionPermanentlyDeniedDialog(context);
+        return;
+      case SmsScanStatus.failed:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.error ?? 'Could not read SMS inbox'),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+        return;
+      case SmsScanStatus.ok:
+        break;
+    }
+
+    if (result.items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('SMS permission denied')),
+        const SnackBar(content: Text('No bank transactions found in your recent SMS')),
       );
       return;
     }
 
-    if (parsed.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No bank transactions found in recent SMS')),
-      );
-      return;
-    }
-
-    if (!context.mounted) return;
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       builder: (_) => _SmsReviewSheet(
-        items: parsed,
+        items: result.items,
         onImport: (selected) async {
           Navigator.of(context).pop();
           int count = 0;
@@ -108,6 +127,32 @@ class ActivityScreen extends ConsumerWidget {
             );
           }
         },
+      ),
+    );
+  }
+
+  Future<void> _showPermissionPermanentlyDeniedDialog(BuildContext context) async {
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('SMS access blocked'),
+        content: const Text(
+          'You permanently denied SMS access for Bacchat. To scan your inbox '
+          'for bank transactions, enable it from Settings → Apps → Bacchat → '
+          'Permissions → SMS.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await openAppSettings();
+            },
+            child: const Text('Open settings'),
+          ),
+        ],
       ),
     );
   }

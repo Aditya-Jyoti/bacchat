@@ -9,7 +9,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../models/split_models.dart';
 import '../providers/splits_provider.dart';
 
-enum _SplitMode { equal, custom, percent }
+enum _SplitMode { equal, custom }
 
 const _builtInCategories = [
   (id: 'food', label: 'Food', icon: '🍔'),
@@ -51,8 +51,6 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
   final Map<String, bool> _included = {};
   // userId → custom amount text controller
   final Map<String, TextEditingController> _customCtrls = {};
-  // userId → percent text controller
-  final Map<String, TextEditingController> _pctCtrls = {};
 
   bool _initialised = false;
 
@@ -62,9 +60,6 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
     _descCtrl.dispose();
     _amountCtrl.dispose();
     for (final c in _customCtrls.values) {
-      c.dispose();
-    }
-    for (final c in _pctCtrls.values) {
       c.dispose();
     }
     super.dispose();
@@ -79,18 +74,12 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
         (s, id) => s + (double.tryParse(_customCtrls[id]?.text ?? '') ?? 0),
       );
 
-  double _percentSum() => _includedIds.fold(
-        0.0,
-        (s, id) => s + (double.tryParse(_pctCtrls[id]?.text ?? '') ?? 0),
-      );
-
   void _initialiseForMembers(List<MemberInfo> members, String? currentUserId) {
     if (_initialised) return;
     _initialised = true;
     for (final m in members) {
       _included.putIfAbsent(m.id, () => true);
       _customCtrls.putIfAbsent(m.id, () => TextEditingController());
-      _pctCtrls.putIfAbsent(m.id, () => TextEditingController());
     }
     if (currentUserId != null && members.any((m) => m.id == currentUserId)) {
       _paidById = currentUserId;
@@ -119,34 +108,17 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
       return list;
     }
 
-    if (_mode == _SplitMode.custom) {
-      final list = included.map((m) {
-        final amt = double.tryParse(_customCtrls[m.id]?.text ?? '') ?? 0;
-        return (userId: m.id, amount: amt);
-      }).toList();
-      final sum = list.fold(0.0, (s, e) => s + e.amount);
-      if ((sum - _totalAmount).abs() > 0.01) {
-        _toast(
-            'Amounts must sum to ${FormatUtils.formatMoney(_totalAmount)} (currently ${FormatUtils.formatMoney(sum)})');
-        return null;
-      }
-      _clampSum(list, _totalAmount);
-      return list;
-    }
-
-    // percent
-    final pctList = included.map((m) {
-      final p = double.tryParse(_pctCtrls[m.id]?.text ?? '') ?? 0;
-      return (userId: m.id, percent: p);
+    // custom
+    final list = included.map((m) {
+      final amt = double.tryParse(_customCtrls[m.id]?.text ?? '') ?? 0;
+      return (userId: m.id, amount: amt);
     }).toList();
-    final totalPct = pctList.fold(0.0, (s, e) => s + e.percent);
-    if ((totalPct - 100).abs() > 0.1) {
-      _toast('Percentages must sum to 100% (currently ${totalPct.toStringAsFixed(1)}%)');
+    final sum = list.fold(0.0, (s, e) => s + e.amount);
+    if ((sum - _totalAmount).abs() > 0.01) {
+      _toast(
+          'Amounts must sum to ${FormatUtils.formatMoney(_totalAmount)} (currently ${FormatUtils.formatMoney(sum)})');
       return null;
     }
-    final list = pctList
-        .map((e) => (userId: e.userId, amount: _totalAmount * e.percent / 100))
-        .toList();
     _clampSum(list, _totalAmount);
     return list;
   }
@@ -527,7 +499,6 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
                         segments: const [
                           ButtonSegment(value: _SplitMode.equal, label: Text('Equal'), icon: Icon(Icons.balance, size: 16)),
                           ButtonSegment(value: _SplitMode.custom, label: Text('Custom'), icon: Icon(Icons.tune, size: 16)),
-                          ButtonSegment(value: _SplitMode.percent, label: Text('Percent'), icon: Icon(Icons.percent, size: 16)),
                         ],
                         selected: {_mode},
                         onSelectionChanged: (v) => setState(() => _mode = v.first),
@@ -582,91 +553,34 @@ class _AddSplitScreenState extends ConsumerState<AddSplitScreen> {
       );
     }
 
-    if (_mode == _SplitMode.custom) {
-      final sum = _customSum();
-      final ok = (sum - _totalAmount).abs() < 0.01;
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ...included.map((m) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: TextField(
-                  controller: _customCtrls[m.id],
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-                  ],
-                  onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                    labelText: m.name,
-                    isDense: true,
-                    border: const OutlineInputBorder(),
-                    prefixText: '₹ ',
-                  ),
-                ),
-              )),
-          const SizedBox(height: 4),
-          _RunningTotal(
-            label: 'Running total',
-            current: sum,
-            target: _totalAmount,
-            ok: ok,
-            scheme: scheme,
-          ),
-        ],
-      );
-    }
-
-    // percent
-    final sum = _percentSum();
-    final ok = (sum - 100).abs() < 0.1;
+    // custom mode
+    final sum = _customSum();
+    final ok = (sum - _totalAmount).abs() < 0.01;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ...included.map((m) {
-          final pct = double.tryParse(_pctCtrls[m.id]?.text ?? '') ?? 0;
-          final calc = _totalAmount * pct / 100;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: TextField(
-                    controller: _pctCtrls[m.id],
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-                    ],
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                      labelText: m.name,
-                      isDense: true,
-                      border: const OutlineInputBorder(),
-                      suffixText: '%',
-                    ),
-                  ),
+        ...included.map((m) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: TextField(
+                controller: _customCtrls[m.id],
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                ],
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: m.name,
+                  isDense: true,
+                  border: const OutlineInputBorder(),
+                  prefixText: '₹ ',
                 ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: 80,
-                  child: Text(
-                    FormatUtils.formatMoney(calc),
-                    textAlign: TextAlign.right,
-                    style: GoogleFonts.montserrat(
-                      fontWeight: FontWeight.w700,
-                      color: scheme.onSurface,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }),
+              ),
+            )),
+        const SizedBox(height: 4),
         _RunningTotal(
-          label: 'Percentage total',
-          currentLabel: '${sum.toStringAsFixed(1)}%',
-          targetLabel: '100%',
+          label: 'Running total',
+          current: sum,
+          target: _totalAmount,
           ok: ok,
           scheme: scheme,
         ),
@@ -944,25 +858,21 @@ class _PreviewRow extends StatelessWidget {
 class _RunningTotal extends StatelessWidget {
   const _RunningTotal({
     required this.label,
-    this.current,
-    this.target,
-    this.currentLabel,
-    this.targetLabel,
+    required this.current,
+    required this.target,
     required this.ok,
     required this.scheme,
   });
   final String label;
-  final double? current;
-  final double? target;
-  final String? currentLabel;
-  final String? targetLabel;
+  final double current;
+  final double target;
   final bool ok;
   final ColorScheme scheme;
 
   @override
   Widget build(BuildContext context) {
-    final shownCur = currentLabel ?? FormatUtils.formatMoney(current ?? 0);
-    final shownTgt = targetLabel ?? FormatUtils.formatMoney(target ?? 0);
+    final shownCur = FormatUtils.formatMoney(current);
+    final shownTgt = FormatUtils.formatMoney(target);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
