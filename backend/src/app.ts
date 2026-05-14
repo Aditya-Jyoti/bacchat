@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
+import { requestLogger } from './middleware/requestLogger';
 import authRoutes from './routes/auth';
 import groupRoutes from './routes/groups';
 import inviteRoutes from './routes/invites';
@@ -18,8 +19,8 @@ const app: Application = express();
 const isProd = process.env.NODE_ENV === 'production';
 
 app.set('trust proxy', 1); // Traefik forwards X-Forwarded-For
+app.use(requestLogger); // Must come BEFORE body parsing so we time the full request
 
-// HTTP-level hardening
 app.use(
   helmet({
     contentSecurityPolicy: false, // CSP would break the inline-script invite landing page
@@ -28,23 +29,24 @@ app.use(
 );
 
 app.use(cors());
-app.use(express.json({ limit: '256kb' }));
-app.use(express.urlencoded({ extended: true, limit: '256kb' }));
+app.use(express.json({ limit: '512kb' }));
+app.use(express.urlencoded({ extended: true, limit: '512kb' }));
 
-// Auth rate limit — applied to /auth/* signup/login/guest endpoints (10 req / 15 min / IP)
+// Auth rate limit — protects login/signup brute force without locking out NAT'd
+// groups of legitimate users.  60 req / 15 min per IP across all auth routes.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 60,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many attempts. Please try again later.' },
-  skipSuccessfulRequests: true,
+  message: { error: 'Too many authentication attempts. Try again in 15 minutes.' },
 });
 
-// General API limiter (300 req / 15 min / IP) — wide but blocks abusive scrapers
+// General API limiter — 1200 req / 15 min per IP. Generous enough that active
+// users won't notice, tight enough to slow scrapers.
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: 1200,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Rate limit exceeded.' },
@@ -60,7 +62,7 @@ app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Android App Links verification
+// Android App Links verification — populate APP_FINGERPRINT in .env to enable
 app.get('/.well-known/assetlinks.json', (_req: Request, res: Response) => {
   const fingerprint = process.env.APP_FINGERPRINT;
   const links = fingerprint
@@ -70,7 +72,6 @@ app.get('/.well-known/assetlinks.json', (_req: Request, res: Response) => {
   res.json(links);
 });
 
-// Mount routes — auth gets stricter rate limit; others get general API limit
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/v1/auth', authLimiter, authRoutes);
 app.use('/v1/groups', apiLimiter, groupRoutes);
@@ -83,13 +84,12 @@ app.use('/v1/budget', apiLimiter, budgetRoutes);
 app.use('/v1/transactions', apiLimiter, transactionRoutes);
 app.use('/v1/profile', apiLimiter, profileRoutes);
 
-app.use((_req: Request, res: Response) => {
-  res.status(404).json({ error: 'Route not found' });
+app.use((req: Request, res: Response) => {
+  res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` });
 });
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  console.error('Error:', err);
-  // Never leak stack traces / internals in production
+  console.error('[500] Unhandled error:', err.stack || err.message);
   res.status(500).json({
     error: 'Internal server error',
     ...(isProd ? {} : { detail: err.message }),
