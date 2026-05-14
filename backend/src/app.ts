@@ -35,21 +35,23 @@ app.use(cookieParser());
 app.use(express.json({ limit: '512kb' }));
 app.use(express.urlencoded({ extended: true, limit: '512kb' }));
 
-// Auth rate limit — 60 req/min per IP. Stops credential brute force (no human
-// signs up 60×/minute) without false-positiving NAT'd LANs.
+// Auth rate limit — 120 req/min per IP. Still blocks credential stuffing
+// (no human signs up 120×/min) but gives NAT'd LANs of testers headroom.
 const authLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 60,
+  max: 120,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many authentication attempts. Try again in a minute.' },
 });
 
-// General API limiter — 300 req/min per IP. Active session with parallel
-// requests + pull-to-refresh sits well under this; scrapers/bots do not.
+// General API limiter — 1800 req/min (= 30/s) per IP. Sized for ~50 active
+// users sharing one egress IP (corporate NAT, household, etc.) each running
+// the 10-second live-poll: average ~150 req/min with comfortable burst room.
+// Sustained 30/s scrape attempts still trip the limiter cleanly.
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 300,
+  max: 1800,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Rate limit exceeded. Please wait a moment.' },

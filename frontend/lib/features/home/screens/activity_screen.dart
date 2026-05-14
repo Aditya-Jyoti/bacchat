@@ -740,6 +740,18 @@ class _AddOrEditSheetState extends ConsumerState<_AddOrEditSheet> {
     super.dispose();
   }
 
+  Future<void> _createCategoryInline() async {
+    final newId = await showDialog<String>(
+      context: context,
+      builder: (_) => const _QuickCategoryDialog(),
+    );
+    if (newId != null && mounted) {
+      // Auto-select the freshly created category so the user doesn't have
+      // to pick it again from a list that's about to repopulate.
+      setState(() => _categoryId = newId);
+    }
+  }
+
   Future<void> _save() async {
     final title = _titleCtrl.text.trim();
     final amount = double.tryParse(_amountCtrl.text.trim());
@@ -969,6 +981,22 @@ class _AddOrEditSheetState extends ConsumerState<_AddOrEditSheet> {
                         selected: _categoryId == c.id,
                         onSelected: (_) => setState(() => _categoryId = c.id),
                       )),
+                  // Inline "+ New" affordance so users don't have to bounce
+                  // out to the budget setup screen just to tag a transaction.
+                  ActionChip(
+                    avatar: Icon(Icons.add, size: 14, color: scheme.primary),
+                    label: Text(
+                      'New category',
+                      style: GoogleFonts.montserrat(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: scheme.primary,
+                      ),
+                    ),
+                    side: BorderSide(color: scheme.primary.withValues(alpha: 0.4)),
+                    backgroundColor: scheme.primary.withValues(alpha: 0.06),
+                    onPressed: _createCategoryInline,
+                  ),
                 ],
               ),
 
@@ -1191,6 +1219,182 @@ class _SmsReviewSheetState extends State<_SmsReviewSheet> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Quick "Create category" dialog — invoked from the transaction sheet so
+// users can introduce a new spend bucket without leaving the form.
+// Pops with the new category's id (or null on cancel) so the caller can
+// auto-select it once the budget refetches.
+// ---------------------------------------------------------------------------
+
+class _QuickCategoryDialog extends ConsumerStatefulWidget {
+  const _QuickCategoryDialog();
+
+  @override
+  ConsumerState<_QuickCategoryDialog> createState() => _QuickCategoryDialogState();
+}
+
+class _QuickCategoryDialogState extends ConsumerState<_QuickCategoryDialog> {
+  static const _emojis = [
+    '🎬', '🍿', '🎮', '🎵', '✈️', '🏠', '⚡', '🍔',
+    '🛒', '💊', '🎓', '💼', '🚗', '🐾', '🎁', '📦',
+  ];
+
+  final _nameCtrl = TextEditingController();
+  final _limitCtrl = TextEditingController();
+  String _emoji = '🎬';
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _limitCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final name = _nameCtrl.text.trim();
+    final limit = double.tryParse(_limitCtrl.text.trim());
+    if (name.isEmpty) {
+      setState(() => _error = 'Pick a name');
+      return;
+    }
+    if (limit == null || limit < 0) {
+      setState(() => _error = 'Enter a monthly limit (0 if you just want to track)');
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await ref.read(budgetEditorProvider.notifier).addCategory(
+            name: name,
+            icon: _emoji,
+            monthlyLimit: limit,
+            isFixed: false,
+          );
+      // budgetEditor.addCategory doesn't return the new id, so refresh the
+      // overview and find the one we just inserted by name.
+      final fresh = await ref.refresh(budgetOverviewProvider.future);
+      final created = fresh == null
+          ? null
+          : fresh.categories
+              .where((c) => c.name.toLowerCase() == name.toLowerCase())
+              .firstOrNull;
+      if (mounted) Navigator.of(context).pop(created?.id);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = e.toString().replaceFirst('Exception: ', '');
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AlertDialog(
+      title: Text(
+        'New category',
+        style: GoogleFonts.montserrat(fontWeight: FontWeight.w800),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Pick an icon',
+              style: GoogleFonts.montserrat(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: scheme.onSurfaceVariant,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: _emojis.map((e) {
+                final sel = e == _emoji;
+                return GestureDetector(
+                  onTap: () => setState(() => _emoji = e),
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: sel
+                          ? scheme.primaryContainer
+                          : scheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
+                      border: sel
+                          ? Border.all(color: scheme.primary, width: 1.5)
+                          : null,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(e, style: const TextStyle(fontSize: 18)),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _nameCtrl,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                border: OutlineInputBorder(),
+                hintText: 'e.g. Movies',
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _limitCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+              ],
+              decoration: const InputDecoration(
+                labelText: 'Monthly limit (₹)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.currency_rupee),
+                hintText: '5000',
+              ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(_error!,
+                  style: GoogleFonts.montserrat(
+                      fontSize: 11, color: scheme.error)),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Create'),
+        ),
+      ],
     );
   }
 }
