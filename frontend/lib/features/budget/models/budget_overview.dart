@@ -6,6 +6,10 @@ class BudgetOverview {
   final List<CategoryBudget> categories;
   final double moneySpentSoFar;
   final DateTime now;
+  // False when the user hasn't saved a `budget_settings` row yet. The
+  // category list and per-category spend are still populated — we just
+  // can't show budget-vs-actual progress without an income/savings target.
+  final bool isConfigured;
 
   const BudgetOverview({
     required this.monthlyIncome,
@@ -13,6 +17,7 @@ class BudgetOverview {
     required this.categories,
     required this.moneySpentSoFar,
     required this.now,
+    this.isConfigured = true,
   });
 
   double get totalFixedExpenses => categories

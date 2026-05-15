@@ -43,9 +43,7 @@ class DashboardScreen extends ConsumerWidget {
                   context,
                   user.name,
                   user.isGuest,
-                  child: overview == null
-                      ? _EmptyBudgetState()
-                      : _BudgetContent(overview: overview),
+                  child: _BudgetContent(overview: overview),
                 ),
               );
             },
@@ -253,56 +251,17 @@ class _UserHeader extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Empty state (no budget configured)
 // ---------------------------------------------------------------------------
-
-class _EmptyBudgetState extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.account_balance_wallet_outlined,
-                size: 72, color: scheme.onSurfaceVariant),
-            const SizedBox(height: 16),
-            Text(
-              'No budget set up yet',
-              style: GoogleFonts.montserrat(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: scheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Tap the button below to set your monthly\nincome and expense categories.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.montserrat(
-                fontSize: 13,
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
 // FAB — shows only when budget is not set up
 // ---------------------------------------------------------------------------
 
 class _BudgetFab extends ConsumerWidget {
   const _BudgetFab({required this.budget});
-  final AsyncValue<BudgetOverview?> budget;
+  final AsyncValue<BudgetOverview> budget;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final show = budget.when(
-      data: (v) => v == null,
+      data: (v) => !v.isConfigured,
       loading: () => false,
       error: (_, _) => false,
     );
@@ -328,19 +287,28 @@ class _BudgetContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isConfigured = overview.isConfigured;
+    final hasSpend = overview.moneySpentSoFar > 0;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _BudgetRing(overview: overview),
-          const SizedBox(height: 28),
-          _StatRow(overview: overview),
-          const SizedBox(height: 20),
+          if (isConfigured) ...[
+            _BudgetRing(overview: overview),
+            const SizedBox(height: 28),
+            _StatRow(overview: overview),
+            const SizedBox(height: 20),
+          ] else ...[
+            _NoBudgetSpendCard(overview: overview),
+            const SizedBox(height: 20),
+          ],
           const _SplitsBalanceCard(),
-          const SizedBox(height: 20),
-          _DaysBar(overview: overview),
-          if (overview.categories.isNotEmpty) ...[
+          if (isConfigured) ...[
+            const SizedBox(height: 20),
+            _DaysBar(overview: overview),
+          ],
+          if (overview.categories.isNotEmpty && (isConfigured || hasSpend)) ...[
             const SizedBox(height: 28),
             _CategoryList(overview: overview),
           ],
@@ -349,9 +317,12 @@ class _BudgetContent extends StatelessWidget {
             alignment: Alignment.centerRight,
             child: TextButton.icon(
               onPressed: () => context.push('/budget/setup'),
-              icon: const Icon(Icons.edit_outlined, size: 16),
+              icon: Icon(
+                isConfigured ? Icons.edit_outlined : Icons.add,
+                size: 16,
+              ),
               label: Text(
-                'Edit budget',
+                isConfigured ? 'Edit budget' : 'Set up budget',
                 style: GoogleFonts.montserrat(fontSize: 13),
               ),
             ),
@@ -359,6 +330,72 @@ class _BudgetContent extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Compact "spend so far this month" card shown when no budget is configured.
+// Replaces the ring/stat-row so the user still sees their month-to-date spend
+// without first having to set up income + savings targets.
+// ---------------------------------------------------------------------------
+
+class _NoBudgetSpendCard extends StatelessWidget {
+  const _NoBudgetSpendCard({required this.overview});
+  final BudgetOverview overview;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final monthLabel = _monthName(overview.now.month);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Spent in $monthLabel',
+            style: GoogleFonts.montserrat(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: scheme.onSurfaceVariant,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            FormatUtils.formatMoney(overview.moneySpentSoFar),
+            style: GoogleFonts.montserrat(
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              color: scheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Set up a budget to track this against an income + savings target.',
+            style: GoogleFonts.montserrat(
+              fontSize: 11,
+              color: scheme.onSurfaceVariant,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _monthName(int m) {
+    const names = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    return names[m - 1];
   }
 }
 
@@ -611,7 +648,8 @@ class _CategoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final isOver = cat.progress >= 1.0;
+    final hasLimit = cat.monthlyLimit > 0;
+    final isOver = hasLimit && cat.progress >= 1.0;
 
     final barColor = isOver ? scheme.error : scheme.primary;
 
@@ -646,13 +684,14 @@ class _CategoryCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        Text(
-                          cat.isFixed ? 'Fixed' : 'Variable',
-                          style: GoogleFonts.montserrat(
-                            fontSize: 11,
-                            color: scheme.onSurfaceVariant,
+                        if (hasLimit)
+                          Text(
+                            cat.isFixed ? 'Fixed' : 'Variable',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 11,
+                              color: scheme.onSurfaceVariant,
+                            ),
                           ),
-                        ),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -667,25 +706,29 @@ class _CategoryCard extends StatelessWidget {
                             color: isOver ? scheme.error : scheme.onSurface,
                           ),
                         ),
-                        Text(
-                          'of ${FormatUtils.formatMoney(cat.monthlyLimit)}',
-                          style: GoogleFonts.montserrat(
-                            fontSize: 12,
-                            color: scheme.onSurfaceVariant,
+                        if (hasLimit)
+                          Text(
+                            'of ${FormatUtils.formatMoney(cat.monthlyLimit)}',
+                            style: GoogleFonts.montserrat(
+                              fontSize: 12,
+                              color: scheme.onSurfaceVariant,
+                            ),
                           ),
-                        ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: cat.progress,
-                        minHeight: 8,
-                        backgroundColor: scheme.outline.withValues(alpha: 0.25),
-                        valueColor: AlwaysStoppedAnimation(barColor),
+                    if (hasLimit) ...[
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: cat.progress,
+                          minHeight: 8,
+                          backgroundColor:
+                              scheme.outline.withValues(alpha: 0.25),
+                          valueColor: AlwaysStoppedAnimation(barColor),
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

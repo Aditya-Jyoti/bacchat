@@ -31,7 +31,7 @@ class _BudgetSetupScreenState extends ConsumerState<BudgetSetupScreen> {
 
   Future<void> _loadExisting() async {
     final overview = await ref.read(budgetOverviewProvider.future);
-    if (!mounted || overview == null) return;
+    if (!mounted) return;
     setState(() {
       _incomeCtrl.text = overview.monthlyIncome > 0
           ? overview.monthlyIncome.toStringAsFixed(0)

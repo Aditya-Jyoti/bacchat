@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -111,15 +112,33 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
       return;
     }
 
-    showDialog(
+    // Capture the dialog's own BuildContext so we can pop precisely the route
+    // we pushed — `Navigator.of(parentContext).pop()` would pop whatever's on
+    // top of the stack, which has bitten us when the dialog dismissal raced
+    // a navigation, leaving the loading spinner stuck on screen.
+    BuildContext? dialogContext;
+    bool dialogClosed = false;
+    void closeDialog() {
+      if (dialogClosed) return;
+      dialogClosed = true;
+      final ctx = dialogContext;
+      if (ctx != null && ctx.mounted) {
+        Navigator.of(ctx).pop();
+      }
+    }
+
+    unawaited(showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const _SmsLoadingDialog(),
-    );
+      builder: (ctx) {
+        dialogContext = ctx;
+        return const _SmsLoadingDialog();
+      },
+    ));
 
     final result = await SmsService.scanInbox();
+    closeDialog();
     if (!context.mounted) return;
-    Navigator.of(context).pop();
 
     switch (result.status) {
       case SmsScanStatus.unsupportedPlatform:

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -328,8 +329,19 @@ class SmsService {
     PermissionStatus status;
     try {
       status = await Permission.sms.status;
-      if (!status.isGranted) {
-        status = await Permission.sms.request();
+      // On Android 13+ sideloaded builds the SMS permission is "restricted"
+      // — `.request()` either silently returns denied or, on some plugin
+      // versions, never completes. Both behaviours leave the loading dialog
+      // stuck. Short-circuit when we already know the user has to take the
+      // manual route, and put a hard timeout on `.request()` either way so
+      // a hung future can't freeze the UI.
+      if (!status.isGranted && !status.isPermanentlyDenied) {
+        status = await Permission.sms
+            .request()
+            .timeout(const Duration(seconds: 8), onTimeout: () {
+          debugPrint('[sms] permission request timed out');
+          return PermissionStatus.permanentlyDenied;
+        });
       }
     } catch (e) {
       debugPrint('[sms] permission error: $e');
@@ -352,7 +364,10 @@ class SmsService {
       messages = await query.querySms(
         kinds: [SmsQueryKind.inbox],
         count: 400,
-      );
+      ).timeout(const Duration(seconds: 20), onTimeout: () {
+        debugPrint('[sms] querySms timed out');
+        throw TimeoutException('SMS query took too long');
+      });
     } catch (e, st) {
       debugPrint('[sms] querySms error: $e\n$st');
       return SmsScanResult(

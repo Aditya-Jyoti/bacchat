@@ -12,8 +12,14 @@ const _uuid = Uuid();
 /// Streams the budget overview directly from the local SQLite DB. Joins three
 /// tables (settings + categories + this-month's transactions) and recomputes
 /// on every change — no server round-trip, no polling.
+///
+/// Always emits a non-null overview. When `budget_settings` is empty the
+/// `isConfigured` flag is false; consumers that need a full budget view
+/// (ring, daily budget, ...) gate on that, while consumers that only need
+/// the category list + per-category spend (transactions sheet picker, home
+/// category breakdown) can render unconditionally.
 final budgetOverviewProvider =
-    StreamProvider<BudgetOverview?>((ref) {
+    StreamProvider<BudgetOverview>((ref) {
   final db = ref.read(appDatabaseProvider);
   final now = DateTime.now();
   final from = DateTime(now.year, now.month, 1);
@@ -25,7 +31,6 @@ final budgetOverviewProvider =
     db.transactionsDao.watchRange(from, to),
   ).map((triple) {
     final (settings, cats, txs) = triple;
-    if (settings == null) return null; // not set up yet
 
     // Per-category and total spend for the current month.
     final spentByCat = <String, double>{};
@@ -39,8 +44,8 @@ final budgetOverviewProvider =
     }
 
     return BudgetOverview(
-      monthlyIncome: settings.monthlyIncome,
-      monthlySavingsGoal: settings.monthlySavingsGoal,
+      monthlyIncome: settings?.monthlyIncome ?? 0,
+      monthlySavingsGoal: settings?.monthlySavingsGoal ?? 0,
       categories: [
         for (final c in cats)
           CategoryBudget(
@@ -54,6 +59,7 @@ final budgetOverviewProvider =
       ],
       moneySpentSoFar: totalSpent,
       now: now,
+      isConfigured: settings != null,
     );
   });
 });
