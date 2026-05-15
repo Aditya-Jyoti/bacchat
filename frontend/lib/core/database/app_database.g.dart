@@ -1515,6 +1515,325 @@ class MerchantCategoriesCompanion extends UpdateCompanion<MerchantCategory> {
   }
 }
 
+class $PlaceholderClaimsTable extends PlaceholderClaims
+    with TableInfo<$PlaceholderClaimsTable, PlaceholderClaim> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PlaceholderClaimsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _memberIdMeta = const VerificationMeta(
+    'memberId',
+  );
+  @override
+  late final GeneratedColumn<String> memberId = GeneratedColumn<String>(
+    'member_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _groupIdMeta = const VerificationMeta(
+    'groupId',
+  );
+  @override
+  late final GeneratedColumn<String> groupId = GeneratedColumn<String>(
+    'group_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _claimUrlMeta = const VerificationMeta(
+    'claimUrl',
+  );
+  @override
+  late final GeneratedColumn<String> claimUrl = GeneratedColumn<String>(
+    'claim_url',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    memberId,
+    groupId,
+    claimUrl,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'placeholder_claims';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PlaceholderClaim> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('member_id')) {
+      context.handle(
+        _memberIdMeta,
+        memberId.isAcceptableOrUnknown(data['member_id']!, _memberIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_memberIdMeta);
+    }
+    if (data.containsKey('group_id')) {
+      context.handle(
+        _groupIdMeta,
+        groupId.isAcceptableOrUnknown(data['group_id']!, _groupIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_groupIdMeta);
+    }
+    if (data.containsKey('claim_url')) {
+      context.handle(
+        _claimUrlMeta,
+        claimUrl.isAcceptableOrUnknown(data['claim_url']!, _claimUrlMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_claimUrlMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {memberId};
+  @override
+  PlaceholderClaim map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PlaceholderClaim(
+      memberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}member_id'],
+      )!,
+      groupId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}group_id'],
+      )!,
+      claimUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}claim_url'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $PlaceholderClaimsTable createAlias(String alias) {
+    return $PlaceholderClaimsTable(attachedDatabase, alias);
+  }
+}
+
+class PlaceholderClaim extends DataClass
+    implements Insertable<PlaceholderClaim> {
+  final String memberId;
+  final String groupId;
+  final String claimUrl;
+  final DateTime createdAt;
+  const PlaceholderClaim({
+    required this.memberId,
+    required this.groupId,
+    required this.claimUrl,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['member_id'] = Variable<String>(memberId);
+    map['group_id'] = Variable<String>(groupId);
+    map['claim_url'] = Variable<String>(claimUrl);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  PlaceholderClaimsCompanion toCompanion(bool nullToAbsent) {
+    return PlaceholderClaimsCompanion(
+      memberId: Value(memberId),
+      groupId: Value(groupId),
+      claimUrl: Value(claimUrl),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory PlaceholderClaim.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PlaceholderClaim(
+      memberId: serializer.fromJson<String>(json['memberId']),
+      groupId: serializer.fromJson<String>(json['groupId']),
+      claimUrl: serializer.fromJson<String>(json['claimUrl']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'memberId': serializer.toJson<String>(memberId),
+      'groupId': serializer.toJson<String>(groupId),
+      'claimUrl': serializer.toJson<String>(claimUrl),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  PlaceholderClaim copyWith({
+    String? memberId,
+    String? groupId,
+    String? claimUrl,
+    DateTime? createdAt,
+  }) => PlaceholderClaim(
+    memberId: memberId ?? this.memberId,
+    groupId: groupId ?? this.groupId,
+    claimUrl: claimUrl ?? this.claimUrl,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  PlaceholderClaim copyWithCompanion(PlaceholderClaimsCompanion data) {
+    return PlaceholderClaim(
+      memberId: data.memberId.present ? data.memberId.value : this.memberId,
+      groupId: data.groupId.present ? data.groupId.value : this.groupId,
+      claimUrl: data.claimUrl.present ? data.claimUrl.value : this.claimUrl,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlaceholderClaim(')
+          ..write('memberId: $memberId, ')
+          ..write('groupId: $groupId, ')
+          ..write('claimUrl: $claimUrl, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(memberId, groupId, claimUrl, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PlaceholderClaim &&
+          other.memberId == this.memberId &&
+          other.groupId == this.groupId &&
+          other.claimUrl == this.claimUrl &&
+          other.createdAt == this.createdAt);
+}
+
+class PlaceholderClaimsCompanion extends UpdateCompanion<PlaceholderClaim> {
+  final Value<String> memberId;
+  final Value<String> groupId;
+  final Value<String> claimUrl;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const PlaceholderClaimsCompanion({
+    this.memberId = const Value.absent(),
+    this.groupId = const Value.absent(),
+    this.claimUrl = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PlaceholderClaimsCompanion.insert({
+    required String memberId,
+    required String groupId,
+    required String claimUrl,
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : memberId = Value(memberId),
+       groupId = Value(groupId),
+       claimUrl = Value(claimUrl);
+  static Insertable<PlaceholderClaim> custom({
+    Expression<String>? memberId,
+    Expression<String>? groupId,
+    Expression<String>? claimUrl,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (memberId != null) 'member_id': memberId,
+      if (groupId != null) 'group_id': groupId,
+      if (claimUrl != null) 'claim_url': claimUrl,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PlaceholderClaimsCompanion copyWith({
+    Value<String>? memberId,
+    Value<String>? groupId,
+    Value<String>? claimUrl,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return PlaceholderClaimsCompanion(
+      memberId: memberId ?? this.memberId,
+      groupId: groupId ?? this.groupId,
+      claimUrl: claimUrl ?? this.claimUrl,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (memberId.present) {
+      map['member_id'] = Variable<String>(memberId.value);
+    }
+    if (groupId.present) {
+      map['group_id'] = Variable<String>(groupId.value);
+    }
+    if (claimUrl.present) {
+      map['claim_url'] = Variable<String>(claimUrl.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlaceholderClaimsCompanion(')
+          ..write('memberId: $memberId, ')
+          ..write('groupId: $groupId, ')
+          ..write('claimUrl: $claimUrl, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1525,6 +1844,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $MerchantCategoriesTable merchantCategories =
       $MerchantCategoriesTable(this);
+  late final $PlaceholderClaimsTable placeholderClaims =
+      $PlaceholderClaimsTable(this);
   late final TransactionsDao transactionsDao = TransactionsDao(
     this as AppDatabase,
   );
@@ -1536,6 +1857,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final MerchantCategoriesDao merchantCategoriesDao =
       MerchantCategoriesDao(this as AppDatabase);
+  late final PlaceholderClaimsDao placeholderClaimsDao = PlaceholderClaimsDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1545,6 +1869,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     budgetSettings,
     budgetCategories,
     merchantCategories,
+    placeholderClaims,
   ];
 }
 
@@ -2396,6 +2721,200 @@ typedef $$MerchantCategoriesTableProcessedTableManager =
       MerchantCategory,
       PrefetchHooks Function()
     >;
+typedef $$PlaceholderClaimsTableCreateCompanionBuilder =
+    PlaceholderClaimsCompanion Function({
+      required String memberId,
+      required String groupId,
+      required String claimUrl,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$PlaceholderClaimsTableUpdateCompanionBuilder =
+    PlaceholderClaimsCompanion Function({
+      Value<String> memberId,
+      Value<String> groupId,
+      Value<String> claimUrl,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$PlaceholderClaimsTableFilterComposer
+    extends Composer<_$AppDatabase, $PlaceholderClaimsTable> {
+  $$PlaceholderClaimsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get memberId => $composableBuilder(
+    column: $table.memberId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get groupId => $composableBuilder(
+    column: $table.groupId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get claimUrl => $composableBuilder(
+    column: $table.claimUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PlaceholderClaimsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PlaceholderClaimsTable> {
+  $$PlaceholderClaimsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get memberId => $composableBuilder(
+    column: $table.memberId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get groupId => $composableBuilder(
+    column: $table.groupId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get claimUrl => $composableBuilder(
+    column: $table.claimUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PlaceholderClaimsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PlaceholderClaimsTable> {
+  $$PlaceholderClaimsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get memberId =>
+      $composableBuilder(column: $table.memberId, builder: (column) => column);
+
+  GeneratedColumn<String> get groupId =>
+      $composableBuilder(column: $table.groupId, builder: (column) => column);
+
+  GeneratedColumn<String> get claimUrl =>
+      $composableBuilder(column: $table.claimUrl, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$PlaceholderClaimsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PlaceholderClaimsTable,
+          PlaceholderClaim,
+          $$PlaceholderClaimsTableFilterComposer,
+          $$PlaceholderClaimsTableOrderingComposer,
+          $$PlaceholderClaimsTableAnnotationComposer,
+          $$PlaceholderClaimsTableCreateCompanionBuilder,
+          $$PlaceholderClaimsTableUpdateCompanionBuilder,
+          (
+            PlaceholderClaim,
+            BaseReferences<
+              _$AppDatabase,
+              $PlaceholderClaimsTable,
+              PlaceholderClaim
+            >,
+          ),
+          PlaceholderClaim,
+          PrefetchHooks Function()
+        > {
+  $$PlaceholderClaimsTableTableManager(
+    _$AppDatabase db,
+    $PlaceholderClaimsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PlaceholderClaimsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PlaceholderClaimsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PlaceholderClaimsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> memberId = const Value.absent(),
+                Value<String> groupId = const Value.absent(),
+                Value<String> claimUrl = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PlaceholderClaimsCompanion(
+                memberId: memberId,
+                groupId: groupId,
+                claimUrl: claimUrl,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String memberId,
+                required String groupId,
+                required String claimUrl,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PlaceholderClaimsCompanion.insert(
+                memberId: memberId,
+                groupId: groupId,
+                claimUrl: claimUrl,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PlaceholderClaimsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PlaceholderClaimsTable,
+      PlaceholderClaim,
+      $$PlaceholderClaimsTableFilterComposer,
+      $$PlaceholderClaimsTableOrderingComposer,
+      $$PlaceholderClaimsTableAnnotationComposer,
+      $$PlaceholderClaimsTableCreateCompanionBuilder,
+      $$PlaceholderClaimsTableUpdateCompanionBuilder,
+      (
+        PlaceholderClaim,
+        BaseReferences<
+          _$AppDatabase,
+          $PlaceholderClaimsTable,
+          PlaceholderClaim
+        >,
+      ),
+      PlaceholderClaim,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2408,4 +2927,6 @@ class $AppDatabaseManager {
       $$BudgetCategoriesTableTableManager(_db, _db.budgetCategories);
   $$MerchantCategoriesTableTableManager get merchantCategories =>
       $$MerchantCategoriesTableTableManager(_db, _db.merchantCategories);
+  $$PlaceholderClaimsTableTableManager get placeholderClaims =>
+      $$PlaceholderClaimsTableTableManager(_db, _db.placeholderClaims);
 }

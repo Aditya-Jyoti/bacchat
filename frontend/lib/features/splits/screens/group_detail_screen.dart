@@ -367,7 +367,7 @@ class _GroupDetailBody extends ConsumerWidget {
 // Group info modal
 // ---------------------------------------------------------------------------
 
-class _GroupInfoModal extends StatelessWidget {
+class _GroupInfoModal extends ConsumerWidget {
   const _GroupInfoModal({
     required this.group,
     required this.groupId,
@@ -381,8 +381,13 @@ class _GroupInfoModal extends StatelessWidget {
   final String? currentUserId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    // memberId → cached claim URL for placeholder members the admin added by
+    // name on this device. Used to make those rows tap-to-copy.
+    final cachedClaims =
+        ref.watch(cachedPlaceholderClaimsProvider(groupId)).value ??
+            const <String, String>{};
 
     // Compute stats from splits
     double totalSpend = 0;
@@ -531,6 +536,7 @@ class _GroupInfoModal extends StatelessWidget {
                       member: m,
                       isMe: isMe,
                       scheme: scheme,
+                      claimUrl: cachedClaims[m.id],
                     );
                   }).toList(),
                 ),
@@ -712,14 +718,18 @@ class _MemberRow extends StatelessWidget {
     required this.member,
     required this.isMe,
     required this.scheme,
+    this.claimUrl,
   });
   final MemberInfo member;
   final bool isMe;
   final ColorScheme scheme;
+  // If set, the row is tappable to copy this URL — that means the local
+  // device has a cached claim link for this placeholder member.
+  final String? claimUrl;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
@@ -746,6 +756,10 @@ class _MemberRow extends StatelessWidget {
               ),
             ),
           ),
+          if (claimUrl != null) ...[
+            Icon(Icons.link, size: 14, color: scheme.onSurfaceVariant),
+            const SizedBox(width: 6),
+          ],
           if (member.isGuest)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -762,6 +776,22 @@ class _MemberRow extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+
+    if (claimUrl == null) return row;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () async {
+          await Clipboard.setData(ClipboardData(text: claimUrl!));
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Claim link for ${member.name} copied')),
+            );
+          }
+        },
+        child: row,
       ),
     );
   }

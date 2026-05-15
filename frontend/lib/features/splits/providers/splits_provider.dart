@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
+import '../../../core/database/app_database.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../models/debt_models.dart';
 import '../models/split_models.dart';
@@ -62,6 +63,21 @@ final groupDetailProvider =
     }
     rethrow;
   }
+});
+
+// ---------------------------------------------------------------------------
+// Locally-cached claim URLs for placeholder members in a group. The backend
+// only returns the URL on creation, so we stash it in Drift and expose it
+// here so the members list can offer a tap-to-copy on placeholder rows.
+// Streams so the row updates the moment the user adds a new placeholder.
+// ---------------------------------------------------------------------------
+
+final cachedPlaceholderClaimsProvider =
+    StreamProvider.family<Map<String, String>, String>((ref, groupId) {
+  final dao = ref.watch(appDatabaseProvider).placeholderClaimsDao;
+  return dao
+      .watchByGroup(groupId)
+      .map((rows) => {for (final r in rows) r.memberId: r.claimUrl});
 });
 
 // ---------------------------------------------------------------------------
@@ -242,7 +258,9 @@ class SplitsEditor extends Notifier<void> {
   }
 
   /// Admin-only. Adds a placeholder member by name to [groupId] and returns
-  /// the one-time claim URL the admin can share with the real person.
+  /// the one-time claim URL the admin can share with the real person. The
+  /// URL is also cached locally (Drift) keyed by member id so the admin can
+  /// re-copy/share it later by tapping the placeholder in the members list.
   Future<({String claimUrl, String memberId})> addPlaceholderMember({
     required String groupId,
     required String name,
@@ -252,11 +270,15 @@ class SplitsEditor extends Notifier<void> {
       data: {'name': name},
     );
     final m = resp.data as Map<String, dynamic>;
+    final claimUrl = m['claim_url'] as String;
+    final memberId = m['placeholder_user_id'] as String;
+    await ref.read(appDatabaseProvider).placeholderClaimsDao.upsert(
+          memberId: memberId,
+          groupId: groupId,
+          claimUrl: claimUrl,
+        );
     ref.invalidate(groupDetailProvider(groupId));
-    return (
-      claimUrl: m['claim_url'] as String,
-      memberId: m['placeholder_user_id'] as String,
-    );
+    return (claimUrl: claimUrl, memberId: memberId);
   }
 
   Future<String> createSplit({

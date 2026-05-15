@@ -11,11 +11,13 @@ import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 import 'tables/budget_categories_table.dart';
 import 'tables/budget_settings_table.dart';
 import 'tables/merchant_categories_table.dart';
+import 'tables/placeholder_claims_table.dart';
 import 'tables/transactions_table.dart';
 
 import 'daos/budget_categories_dao.dart';
 import 'daos/budget_settings_dao.dart';
 import 'daos/merchant_categories_dao.dart';
+import 'daos/placeholder_claims_dao.dart';
 import 'daos/transactions_dao.dart';
 
 part 'app_database.g.dart';
@@ -32,19 +34,21 @@ part 'app_database.g.dart';
     BudgetSettings,
     BudgetCategories,
     MerchantCategories,
+    PlaceholderClaims,
   ],
   daos: [
     TransactionsDao,
     BudgetSettingsDao,
     BudgetCategoriesDao,
     MerchantCategoriesDao,
+    PlaceholderClaimsDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -60,6 +64,9 @@ class AppDatabase extends _$AppDatabase {
               await m.deleteTable(t.actualTableName);
             }
             await m.createAll();
+          }
+          if (from < 3) {
+            await m.createTable(placeholderClaims);
           }
         },
       );
