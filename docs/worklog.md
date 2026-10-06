@@ -45,6 +45,14 @@ Append-only. Newest entries go at the bottom, above the template. Do not edit pa
 - Tests: frontend 853 pass in 50 suites; typecheck and lint clean.
 - Not wired into screens yet. NPS default URL is a placeholder to verify before release.
 
+## 2026-10-06 (app services)
+
+- Added src/services: AppServicesProvider and useServices (db, navClient, now, secure, settings), change-notifying db wrapper, useDbQuery and ready-made query hooks, refreshNavs with a once-a-day guard, advisor and sync factories, LocalDataSource and SyncStateStore. App.tsx mounts the provider after the hydration gate.
+- testUtils renderWithTheme now wraps an AppServicesProvider over a lazily seeded in-memory db (optional custom db).
+- Tests: typecheck, lint and jest all green (893 tests).
+- Docs updated: decisions.md 15, progress.md.
+- Follow-ups: swap src/services/sodium.ts for react-native-libsodium before a release build; enable SQLCipher in app.json; wire screens to the hooks.
+
 ---
 
 ## Template

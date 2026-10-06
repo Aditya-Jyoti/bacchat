@@ -31,6 +31,10 @@ flowchart LR
 - [ ] M8 Native Android modules: SMS and notification reader, share intent, Material You dynamic colour, keystore and biometrics, launcher shortcut
 - [ ] M9 Polish and accessibility: TalkBack summaries, 200% font scale, reduce motion, contrast audit, empty states, illustrations
 
+## App services (done)
+
+src/services provides the provider, reactive query hooks, NAV refresh, advisor and sync factories. Screens are not wired yet.
+
 ## Next steps
 
 1. Land the frontend foundation (M1) with theme tests against the design-system hex table.

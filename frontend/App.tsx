@@ -7,6 +7,7 @@ import { useHydrated, usePreferences } from './src/lib';
 import { setLocale } from './src/lib/i18n';
 import './src/lib/i18n.hi';
 import { AppNavigation } from './src/navigation';
+import { AppServicesProvider } from './src/services';
 import { ThemeProvider, useBacchatFonts, useTheme } from './src/theme';
 
 function Themed(): React.JSX.Element {
@@ -31,7 +32,10 @@ export default function App(): React.JSX.Element | null {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider preference={theme}>
-          <Themed />
+          {/* Renders nothing until the database is open and seeded, so the splash stays up. */}
+          <AppServicesProvider autoRefreshNavs>
+            <Themed />
+          </AppServicesProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

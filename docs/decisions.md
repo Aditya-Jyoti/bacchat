@@ -102,3 +102,10 @@ Status values: Accepted, Proposed (needs confirmation), Superseded.
 - Decision: A random master key is wrapped by an Argon2id passphrase key and by a recovery key and stored as a public `keyring` blob. Blobs use XChaCha20-Poly1305 with a version byte and associated data binding the blob name. Merge is three-way per row against the last synced snapshot; conflicts surface as objects the k9 sheet renders.
 - Consequences: Changing the passphrase re-wraps the key and never re-encrypts data. The backend returns 413 (not 507) for the storage cap.
 
+
+## 15. App services layer
+
+- Status: Accepted
+- Context: Screens need one place to get the database, clock, secrets and the sync and advisor clients.
+- Decision: `src/services` holds an AppServicesProvider (renders nothing until the db is open and seeded). The db key is a random 256-bit hex string kept in the secure store (expo-secure-store, memory fallback). Repositories are wrapped so every write emits a change, which useDbQuery listens to. "Today" is the design's sample day while the seeded sample is in use and the real clock otherwise. Secrets (API key, model, sync token, master key) live in the secure store; switches and the NAV day guard live in usePreferences. Sync rows map to repositories with ISO timestamps; accounts, goals sets also carry debts, holdings, UPI ids, allocations and recurring rows with table-prefixed ids. Pulled rows keep their remote timestamps through an applied-stamp map in key-value storage so they are not echoed back.
+- Consequences: SQLCipher still needs the expo-sqlite config plugin option in a dev build. The sync libsodium binding is chosen in `services/sodium.ts` (WASM today; react-native-libsodium for release). The random source is `crypto.getRandomValues`; without one the db falls back to memory.
