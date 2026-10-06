@@ -43,8 +43,8 @@ flowchart LR
 
 | Item | Impact | Plan |
 |---|---|---|
-| Android SDK unreachable in the sandbox | Cannot build or run the app here | Rely on Jest, typecheck and lint here; verify on a real device and in CI later |
-| Docker daemon unavailable in the sandbox | Cannot build or run the image here | Test backend as a Node process; validate the image in CI |
+| Android SDK unreachable in the sandbox | Cannot build or run the app here | Rely on Jest, typecheck and lint here; verify on a real device later |
+| Docker daemon unavailable in the sandbox | Cannot build or run the image here | Test backend as a Node process; validate the image with `npm run demo` against a running container |
 | Fonts (Young Serif, Figtree) not yet bundled; Hindi serif pairing open | Typography falls back to system fonts | Add font files via expo-font; keep fallbacks; resolve open question 4 |
 | Material You native module | Third-party module or small local module, needs a device | Warm fallback palette is always available; record choice in decisions.md |
 | SQLCipher library choice | Affects native build and migrations | Pick between op-sqlite and expo-sqlite with SQLCipher in M1 |

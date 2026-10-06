@@ -80,5 +80,5 @@ Filled in by the lead after each run. Leave blanks until then.
 ## Known sandbox limits
 
 - No Android SDK in the development sandbox, so the app cannot be built or run on an emulator here. Jest, typecheck and lint still run. Native module behaviour (SMS, share, Material You, keystore) must be checked on a real device later.
-- No Docker daemon in the sandbox, so `docker build` and compose cannot be verified here. The backend is tested as a plain Node process; the image is validated in CI.
+- No Docker daemon in the sandbox, so `docker build` and compose cannot be verified here. The backend is tested as a plain Node process; the image can be validated with `DEMO_URL=... npm run demo` against a running container.
 - Network access is limited, so tests never depend on live NAV files or AI providers; use recorded fixtures.

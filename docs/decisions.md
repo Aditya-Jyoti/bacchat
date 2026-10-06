@@ -23,7 +23,7 @@ Status values: Accepted, Proposed (needs confirmation), Superseded.
 - Status: Accepted
 - Context: The app and the sync service evolve together but must be deployable independently.
 - Decision: One repo with `frontend/` and `backend/`, each with its own `package.json`, lockfile, tsconfig and build files. No shared workspace tooling at first.
-- Consequences: Simple CI per folder and a self-contained backend Docker context. Shared types (API shapes) are duplicated or copied until a shared package is justified.
+- Consequences: Independent per-folder builds and a self-contained backend Docker context. Shared types (API shapes) are duplicated or copied until a shared package is justified.
 
 ## 4. Node and TypeScript backend with Docker
 
@@ -65,7 +65,7 @@ Status values: Accepted, Proposed (needs confirmation), Superseded.
 - Status: Accepted
 - Context: Em dashes, curly quotes, arrows and emojis cause diff noise, encoding bugs and inconsistent rendering.
 - Decision: All code, comments, docs and commit messages are plain ASCII. UI copy such as the rupee sign lives in i18n resources and sample data; in source write the rupee sign as a backslash-u-20B9 escape. Docs write "Rs".
-- Consequences: A CI check can enforce it. Authors must retype pasted text.
+- Consequences: A grep check can enforce it. Authors must retype pasted text.
 
 ## 10. SQLCipher local database
 
