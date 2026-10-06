@@ -99,3 +99,13 @@ Copy this block above the line, fill it in, keep entries short.
 - Docs: architecture.md section 13, decisions.md ADRs.
 - Not verified: anything native (llama.rn on a device), real file access in `services/modelFiles.ts` (expo-file-system and expo/fetch), real model URLs and checksums, Hindi wording (`aiUi.` is in HI_FALLBACK).
 - Follow-ups: pin model URLs and checksums; Hindi strings; call `ai.unloadDevice()` when the app goes to the background; GPU opt-in; a Wi-Fi-only download choice; run the on-device path on a low-RAM phone.
+
+## 2026-10-06 (android scaffold and remaining work, summary)
+
+- Android scaffold generated with `expo prebuild` and committed under frontend/android (regenerate with `npx expo prebuild --platform android --clean` after adding native modules or plugins).
+- Native modules written (not compiled here): SMS and notifications, share intent, launcher shortcut, ML Kit OCR, dynamic wallpaper colours; config plugins for share intent and shortcuts; SQLCipher, native libsodium and llama.rn wired in app config.
+- Biometric app lock, Hindi toggle with about 710 translated keys and Devanagari serif, profile name, balances derived from entries.
+- Sync targets: WebDAV, S3 (SigV4) and Google Drive appDataFolder behind one SyncTarget interface; screenshot and Ask history data sets.
+- AI router: user's API key (Anthropic or any OpenAI-compatible endpoint), on-device model (llama.rn), auto and per-feature modes; consent, redaction and hallucination checks for SMS and email extraction.
+- Tests: frontend 1413 pass in 99 suites, backend 37 pass.
+- Not verified: all Kotlin and Gradle, llama.rn and libsodium device builds, real Drive, WebDAV, S3 and Nextcloud servers, live AMFI and NPS endpoints (blocked by the sandbox proxy), model URLs and checksums.
