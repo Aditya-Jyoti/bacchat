@@ -8,9 +8,11 @@
     "scheme": "bacchat",
     "newArchEnabled": true,
     "android": {
-      "package": "app.bacchat",
-      "edgeToEdgeEnabled": true
+      "package": "app.bacchat"
     },
-    "plugins": ["expo-font", "expo-secure-store"]
+    "plugins": [
+      "expo-font",
+      "expo-secure-store"
+    ]
   }
 }
