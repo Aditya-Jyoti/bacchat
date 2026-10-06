@@ -36,6 +36,15 @@ Append-only. Newest entries go at the bottom, above the template. Do not edit pa
 - Not wired into screens yet: sync engine (K25, K26, K9), local database, AI client.
 - Tests: frontend 564 pass, typecheck and lint clean.
 
+## 2026-10-06 (data layer)
+
+- Database layer: models, repositories (memory and expo-sqlite with key provider), versioned schema, seed from sample data, derived queries (net worth, spendable, spend by category, daily totals, cash flow, UPI flows, budget pace and calm alerts, upcoming, goal totals).
+- AMFI and NPS NAV parsers with an anonymous cached client and exact holding valuation.
+- SMS, email and screenshot OCR parsers, categoriser and ingestion that reuses the reconciliation engine.
+- AI advisor client for the user's own key: five read-only aggregate tools, tool-use loop, streaming, calm errors, privacy guard and leak test.
+- Tests: frontend 853 pass in 50 suites; typecheck and lint clean.
+- Not wired into screens yet. NPS default URL is a placeholder to verify before release.
+
 ---
 
 ## Template

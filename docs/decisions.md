@@ -80,3 +80,25 @@ Status values: Accepted, Proposed (needs confirmation), Superseded.
 - Context: Sync must be end-to-end encrypted, work with an untrusted or self-hosted server, and survive device loss.
 - Decision: Derive the key with Argon2id from the user's passphrase and a random salt. Encrypt each blob with XChaCha20-Poly1305 using a random 24 byte nonce and the blob name as associated data. Use libsodium bindings. Offer a recovery key at setup. Use optimistic concurrency with `baseVersion`; a 409 leads to the k9 resolve pattern.
 - Consequences: The server cannot read data and cannot recover a lost passphrase. Argon2id cost parameters must suit low-end phones (tune and record here). Key rotation and passphrase change need a re-encrypt pass (planned).
+
+## 12. Key-value storage and persisted stores
+
+- Status: Accepted
+- Context: Home order, first run, Money segment, goals, budget and preferences must survive restarts.
+- Decision: AsyncStorage behind `src/lib/storage.ts`, zustand `persist` for stores, a hydration gate in App.tsx, theme and locale in `usePreferences`.
+- Consequences: Simple and testable with an in-memory implementation. Heavier data lives in the database layer instead.
+
+## 13. Database layer: JSON columns and micro-unit NAVs
+
+- Status: Accepted
+- Context: Entities change often while the design is young, and fund NAVs have four decimals.
+- Decision: Each table stores the record as JSON plus a few indexed columns, with versioned migrations (`PRAGMA user_version`). Fund units are micro-units and NAVs micro-rupees (`lastNavMicro`) so valuation is exact; this replaces `lastNavPaise` in the ER diagram. Card names are sent to the AI advisor as "Card 1", "Card 2". `sql.js` is a dev-only dependency so the same repository tests run against the memory and SQLite implementations.
+- Consequences: New optional fields need no migration. Derived queries are pure functions over `entries.between` and can move to SQL aggregates later.
+
+## 14. Sync client design
+
+- Status: Accepted
+- Context: The server must never see plaintext or the passphrase.
+- Decision: A random master key is wrapped by an Argon2id passphrase key and by a recovery key and stored as a public `keyring` blob. Blobs use XChaCha20-Poly1305 with a version byte and associated data binding the blob name. Merge is three-way per row against the last synced snapshot; conflicts surface as objects the k9 sheet renders.
+- Consequences: Changing the passphrase re-wraps the key and never re-encrypts data. The backend returns 413 (not 507) for the storage cap.
+

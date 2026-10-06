@@ -55,12 +55,12 @@ describe('XChaCha20-Poly1305', () => {
 
   it('round trips a blob with a fresh 24 byte nonce each time', () => {
     const cipher = new BlobCipher(sodium, sodium.randombytes_buf(32));
-    const a = cipher.encryptJson('entries', { hello: 'rupee ₹' });
-    const b = cipher.encryptJson('entries', { hello: 'rupee ₹' });
+    const a = cipher.encryptJson('entries', { hello: 'rupee \u20B9' });
+    const b = cipher.encryptJson('entries', { hello: 'rupee \u20B9' });
     expect(a.nonce.length).toBe(24);
     expect(hex(a.nonce)).not.toBe(hex(b.nonce));
     expect(a.ciphertext[0]).toBe(1);
-    expect(cipher.decryptJson('entries', a.ciphertext, a.nonce)).toEqual({ hello: 'rupee ₹' });
+    expect(cipher.decryptJson('entries', a.ciphertext, a.nonce)).toEqual({ hello: 'rupee \u20B9' });
   });
 
   it('fails with the wrong key', () => {

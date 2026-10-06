@@ -31,8 +31,8 @@ describe('i18n bundles', () => {
   it('serves the Hindi skeleton and falls back to English for missing keys', () => {
     registerBundle('hi', hi);
     setLocale('hi');
-    expect(t('tabs.home')).toBe('होम');
-    expect(t('homeUi.greeting')).toContain('राहुल');
+    expect(t('tabs.home')).toBe('\u0939\u094B\u092E');
+    expect(t('homeUi.greeting')).toContain('\u0930\u093E\u0939\u0941\u0932');
     expect(t('goalsUi.title')).toBe('Goals');
   });
 
