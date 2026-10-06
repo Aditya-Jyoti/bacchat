@@ -1,0 +1,19 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+# Android
+local.properties
+*.apk
+*.aab
+.cxx/
+captures/
+# IDE
+.idea/
+*.iml
+.vscode/
+# OS
+.DS_Store
+# Backend runtime data
+backend/data/
+*.db
