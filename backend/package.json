@@ -13,7 +13,8 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "demo": "tsx demo/demo.ts"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

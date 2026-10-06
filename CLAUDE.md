@@ -22,7 +22,6 @@ frontend/   React Native app (TypeScript). Own package.json and build files.
   src/lib/          Formatters (INR), reconciliation, sync client, AI client
 backend/    Sync service ("Bacchat Cloud"). Node + TypeScript. Own package.json, Dockerfile.
 docs/       Design and engineering docs, work log, progress. Mermaid for all diagrams.
-.github/    CI workflows.
 ```
 
 The backend is deployable on its own. It only stores client-side-encrypted blobs and never sees plaintext.

@@ -139,3 +139,7 @@ sequenceDiagram
 ```
 
 Device enrolment is implemented: Phone A calls `POST /v1/devices/pairing` and shows the code or QR, Phone B sends it as `pairingCode` to `POST /v1/register` and receives a token for the existing account. Other implemented details: nonce must decode to 24 bytes, blob names match `[A-Za-z0-9._-]{1,64}`, `meta` is capped at 4 KB, MAX_BLOB_BYTES defaults to 10 MB.
+
+## Demo
+
+`npm run demo` exercises every endpoint and limit and prints PASS or FAIL per check. Set `DEMO_URL` to point it at a running server or container. See [testing.md](testing.md).

@@ -56,25 +56,13 @@ The exact script names live in each `package.json`; keep this page in sync.
 | Screens | One smoke test per k-id: renders with sample data, carries its k-id header, no hard-coded colours (lint rule), light and dark; key navigation edges from screens.md |
 | Backend API | Healthz; register returns token and stores only its hash; PUT/GET round trip; If-Match conflict returns 409; MAX_BLOB_BYTES gives 413; storage cap gives 507; list; device list and revoke; account delete removes blobs; auth failures give 401 |
 
-## CI (planned)
+## Backend demo
 
-GitHub Actions in `.github/workflows/`:
+`cd backend && npm run demo` starts an in-process server (temp SQLite, tiny caps) and walks through every backend feature with PASS/FAIL output: health and headers, register, auth failures, push and pull, optimistic concurrency (409), blob listing and usage, size and account caps (413), pairing a second device, two-device conflict, device list and revoke, device limit, account isolation, persistence across a restart, account deletion and rate limiting (45 checks).
 
-```mermaid
-flowchart LR
-    P[Push or pull request] --> F[frontend job: install, typecheck, lint, test]
-    P --> B[backend job: install, typecheck, lint, test]
-    P --> D[docker job: build image, run, curl /healthz]
-    P --> T[docs job: check Mermaid parses and ASCII only]
-    F --> G[All green required to merge]
-    B --> G
-    D --> G
-    T --> G
-```
+To test a running server, for example the Docker image: `DEMO_URL=http://localhost:8080 npm run demo` (the cap and device-limit checks that need small limits are skipped in that mode).
 
-- Node 20, npm cache keyed on lockfiles.
-- The Android build job (Gradle via `expo prebuild`) is a later addition once the native modules exist.
-- The docs job greps for non-ASCII characters and renders Mermaid blocks with `@mermaid-js/mermaid-cli` (planned).
+There is no CI in this repository; run the checks locally before every commit.
 
 ## Latest results
 

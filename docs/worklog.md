@@ -7,7 +7,7 @@ Append-only. Newest entries go at the bottom, above the template. Do not edit pa
 - Reviewed the design documents (Khata direction, screens k1 to k29, key patterns, privacy and sync, component inventory).
 - Stack decision: switched from Kotlin and Compose to React Native with TypeScript (Expo, react-native-paper, react-navigation, zustand, SQLCipher SQLite). See decisions.md 1 and 2.
 - Wrote CLAUDE.md, docs/README.md, docs/product.md, docs/design-system.md and docs/screens.md.
-- Restructured the repo into `frontend/`, `backend/`, `docs/` and `.github/`.
+- Restructured the repo into `frontend/`, `backend/`, and `docs/`.
 - Wrote docs/architecture.md, backend.md, testing.md, decisions.md, worklog.md and progress.md (planned design, marked where specifics may change).
 - Started parallel work: frontend foundation (theme, navigation, shared components), backend sync service with Docker, and docs.
 
@@ -20,6 +20,12 @@ Append-only. Newest entries go at the bottom, above the template. Do not edit pa
 - Engineering docs written; screens.md marked done; testing results recorded.
 - Tests: frontend 516 pass, backend 37 pass. Docker build and Android build not possible in this sandbox.
 - Open issues: Material You native module, SMS and share-intent native modules, persistence, i18n key merge, git push blocked by missing GitHub app access.
+
+## 2026-10-06 (demo, CI removed)
+
+- Removed the CI workflow as requested; docs updated.
+- Added `backend/demo` with `npm run demo`: 45 checks covering every backend feature, runs in-process or against `DEMO_URL`.
+- Started persistence, i18n, sync client, data layer, NAV parser, ingestion parsers and AI client work on the frontend.
 
 ---
 

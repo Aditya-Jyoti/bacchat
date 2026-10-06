@@ -20,7 +20,7 @@ flowchart LR
     M8 --> M9
 ```
 
-- [x] M0 Docs and repo: CLAUDE.md, docs set, repo layout, CI workflow
+- [x] M0 Docs and repo: CLAUDE.md, docs set, repo layout
 - [x] M1 Frontend foundation and theme: Expo project, TypeScript strict, oklch conversion, khataPalette, Paper theme adapter, fonts, i18n, navigation shell, sample data
 - [x] M2 Shared components: charts (NetWorthChart, OwnOweBar, AllocationBar, DailyBars, PairedBarChart), SegmentedProgress, MonthStrip, AmountKeypad, ReorderableList, NumberStepper, AvatarStack, ChartTooltip, Banner, skeleton
 - [x] M3 Home screens: k21, k22, k1, k2, k18
@@ -35,7 +35,7 @@ flowchart LR
 
 1. Land the frontend foundation (M1) with theme tests against the design-system hex table.
 2. Land the backend skeleton with register, blobs and health, plus its Dockerfile (M6).
-3. Add CI workflows for frontend, backend and docs checks.
+3. Run the backend demo (`npm run demo`) against the Docker image once a daemon is available.
 4. Fill the Latest results table in testing.md after the first green runs.
 5. Decide device enrolment for sync (second phone getting a token) before M7.
 

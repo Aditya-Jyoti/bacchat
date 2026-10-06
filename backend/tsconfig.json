@@ -16,5 +16,5 @@
     "rootDir": ".",
     "noEmit": true
   },
-  "include": ["src", "test", "vitest.config.ts", "eslint.config.js"]
+  "include": ["src", "test", "demo", "vitest.config.ts", "eslint.config.js"]
 }
