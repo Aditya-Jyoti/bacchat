@@ -1,6 +1,6 @@
 # Progress
 
-Last updated: 2026-10-06. Update with every meaningful change, together with worklog.md.
+Last updated: 2026-10-06 (all screens built on sample data; M7-M9 remain). Update with every meaningful change, together with worklog.md.
 
 ## Milestones
 
@@ -20,13 +20,13 @@ flowchart LR
     M8 --> M9
 ```
 
-- [ ] M0 Docs and repo: CLAUDE.md, docs set, repo layout, CI skeleton (docs written; CI workflows pending)
-- [ ] M1 Frontend foundation and theme: Expo project, TypeScript strict, oklch conversion, khataPalette, Paper theme adapter, fonts, i18n, navigation shell, sample data
-- [ ] M2 Shared components: charts (NetWorthChart, OwnOweBar, AllocationBar, DailyBars, PairedBarChart), SegmentedProgress, MonthStrip, AmountKeypad, ReorderableList, NumberStepper, AvatarStack, ChartTooltip, Banner, skeleton
-- [ ] M3 Home screens: k21, k22, k1, k2, k18
-- [ ] M4 Money screens: k3, k4, k5, k6, k7, k8, k9, k19, k27, k28 and the reconcile lib
-- [ ] M5 Goals and You screens: k12, k13, k14, k23, k10, k11, k15, k16, k17, k24
-- [ ] M6 Backend and Docker: API from backend.md, SQLite storage, cap, tests, Dockerfile, compose
+- [x] M0 Docs and repo: CLAUDE.md, docs set, repo layout, CI workflow
+- [x] M1 Frontend foundation and theme: Expo project, TypeScript strict, oklch conversion, khataPalette, Paper theme adapter, fonts, i18n, navigation shell, sample data
+- [x] M2 Shared components: charts (NetWorthChart, OwnOweBar, AllocationBar, DailyBars, PairedBarChart), SegmentedProgress, MonthStrip, AmountKeypad, ReorderableList, NumberStepper, AvatarStack, ChartTooltip, Banner, skeleton
+- [x] M3 Home screens: k21, k22, k1, k2, k18
+- [x] M4 Money screens: k3, k4, k5, k6, k7, k8, k9, k19, k27, k28 and the reconcile lib
+- [x] M5 Goals and You screens: k12, k13, k14, k23, k10, k11, k15, k16, k17, k24
+- [x] M6 Backend and Docker: API from backend.md, SQLite storage, cap, tests, Dockerfile, compose
 - [ ] M7 Sync client: Argon2id and XChaCha20-Poly1305, push and pull with baseVersion, k25, k26, k9 conflict reuse
 - [ ] M8 Native Android modules: SMS and notification reader, share intent, Material You dynamic colour, keystore and biometrics, launcher shortcut
 - [ ] M9 Polish and accessibility: TalkBack summaries, 200% font scale, reduce motion, contrast audit, empty states, illustrations

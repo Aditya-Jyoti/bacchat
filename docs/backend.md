@@ -19,6 +19,7 @@ Base path `/v1`. Bodies for blobs are raw `application/octet-stream`. Errors are
 | `PUT /v1/blobs/:name` | bearer | Upload a blob. Header `If-Match: <baseVersion>` (0 or absent for new) | 200 `{ "version" }` | 409 version conflict (returns current version), 413 over `MAX_BLOB_BYTES`, 507 over storage cap |
 | `GET /v1/blobs/:name` | bearer | Download a blob; `ETag` is its version | 200 bytes | 404 |
 | `GET /v1/blobs` | bearer | List blob names, versions, sizes, updated time | 200 JSON list | |
+| `POST /v1/devices/pairing` | bearer | Create a single-use pairing code (10 minutes, hash stored) that a new device passes to register as `pairingCode` | 201 JSON | |
 | `GET /v1/devices` | bearer | List devices on the account | 200 JSON list | |
 | `DELETE /v1/devices/:id` | bearer | Revoke a device token | 204 | 404 |
 | `DELETE /v1/account` | bearer | Delete the account and every blob | 204 | |
@@ -137,4 +138,4 @@ sequenceDiagram
     S-->>B: 200 version 3
 ```
 
-Device enrolment (how Phone B obtains a token for an existing account) is not final. Likely: Phone A shows a one-time code or QR, Phone B redeems it at a planned `POST /v1/devices` endpoint. Tracked in [progress.md](progress.md).
+Device enrolment is implemented: Phone A calls `POST /v1/devices/pairing` and shows the code or QR, Phone B sends it as `pairingCode` to `POST /v1/register` and receives a token for the existing account. Other implemented details: nonce must decode to 24 bytes, blob names match `[A-Za-z0-9._-]{1,64}`, `meta` is capped at 4 KB, MAX_BLOB_BYTES defaults to 10 MB.

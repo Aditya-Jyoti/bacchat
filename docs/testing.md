@@ -82,12 +82,12 @@ Filled in by the lead after each run. Leave blanks until then.
 
 | Date | Area | Command | Result | Tests passed | Notes |
 |---|---|---|---|---|---|
-| TBD | frontend | `npm run typecheck` | TBD | n/a | |
-| TBD | frontend | `npm run lint` | TBD | n/a | |
-| TBD | frontend | `npm test` | TBD | TBD | |
-| TBD | backend | `npm test` | TBD | TBD | |
-| TBD | backend | `docker build` | TBD | n/a | |
-| TBD | docs | Mermaid and ASCII check | TBD | n/a | |
+| 2026-10-06 | frontend | `npm run typecheck` | pass | n/a | tsc strict |
+| 2026-10-06 | frontend | `npm run lint` | pass | n/a | max-warnings 0, hex literals banned outside tests |
+| 2026-10-06 | frontend | `npm test` | pass | 516 in 33 suites | theme, lib, data, components, all 29 screens in light and dark; act() warnings from icon fonts remain |
+| 2026-10-06 | backend | `npm test` | pass | 37 | memory and SQLite stores |
+| 2026-10-06 | backend | `docker build` | not run | n/a | no Docker daemon in this sandbox; Dockerfile reviewed by hand |
+| 2026-10-06 | docs | ASCII check | pass | n/a | Mermaid not rendered yet |
 
 ## Known sandbox limits
 

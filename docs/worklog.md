@@ -11,6 +11,16 @@ Append-only. Newest entries go at the bottom, above the template. Do not edit pa
 - Wrote docs/architecture.md, backend.md, testing.md, decisions.md, worklog.md and progress.md (planned design, marked where specifics may change).
 - Started parallel work: frontend foundation (theme, navigation, shared components), backend sync service with Docker, and docs.
 
+## 2026-10-06 (build)
+
+- Frontend foundation: Expo SDK 57 project, oklch and Khata palette port (verified against design hex values), theme provider with contrast guard and fallback, formatters, reconciliation, sample data, navigation for all 29 k-ids.
+- Shared primitives and 30+ custom components (charts, keypad, sliders, sheets, illustrations).
+- All 29 screens implemented (k1-k29) with light and dark tests.
+- Backend sync service (Node 20, Fastify, SQLite) with Docker, pairing endpoint, 37 tests.
+- Engineering docs written; screens.md marked done; testing results recorded.
+- Tests: frontend 516 pass, backend 37 pass. Docker build and Android build not possible in this sandbox.
+- Open issues: Material You native module, SMS and share-intent native modules, persistence, i18n key merge, git push blocked by missing GitHub app access.
+
 ---
 
 ## Template

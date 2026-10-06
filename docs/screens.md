@@ -1,6 +1,6 @@
 # Screens
 
-Screens are identified by the k-ids from the Khata v2 design. Status values: todo, in progress, done. Update this table as screens land.
+All 29 screens are implemented with sample data and light/dark tests. Screens are identified by the k-ids from the Khata v2 design. Status values: todo, in progress, done. Update this table as screens land.
 
 ## Navigation
 
@@ -110,32 +110,32 @@ flowchart LR
 
 | k-id | Screen | Route | Tab | Kind | Status | Notes |
 |---|---|---|---|---|---|---|
-| k21 | Splash | `splash` | Start | screen | todo | |
-| k22 | Welcome | `welcome` | Start | screen | todo | |
-| k1 | Home | `home` | Home | tab | todo | |
-| k2 | Arrange home | `arrange_home` | Home | screen | todo | |
-| k18 | Ask Bacchat | `ask` | Home | sheet | todo | |
-| k3 | Money - Summary | `money/summary` | Money | tab | todo | |
-| k4 | Money - Entries | `money/entries` | Money | tab | todo | |
-| k5 | Add entry | `money/add` | Money | screen | todo | |
-| k6 | Date picker | `money/date` | Money | dialog | todo | |
-| k7 | Reading screenshot | `money/reading` | Money | screen | todo | |
-| k8 | Screenshot review | `money/review` | Money | screen | todo | |
-| k9 | Resolve conflict | `money/conflict` | Money | sheet | todo | |
-| k19 | Search | `money/search` | Money | screen | todo | |
-| k27 | Long-press menu | `money/entry_menu` | Money | menu | todo | |
-| k28 | Select mode | `money/select` | Money | mode | todo | |
-| k12 | Goals | `goals` | Goals | tab | todo | |
-| k13 | Goal detail | `goals/detail` | Goals | screen | todo | |
-| k14 | New goal | `goals/new` | Goals | screen | todo | |
-| k23 | You | `you` | You | tab | todo | |
-| k10 | Accounts | `you/accounts` | You | screen | todo | |
-| k11 | Add account | `you/accounts/add` | You | screen | todo | |
-| k15 | Budget | `you/budget` | You | screen | todo | |
-| k16 | Edit budget | `you/budget/edit` | You | screen | todo | |
-| k17 | Coming up | `you/coming_up` | You | screen | todo | |
-| k24 | Settings | `you/settings` | You | screen | todo | |
-| k25 | Backup and sync | `you/sync` | You | screen | todo | |
-| k26 | Syncing | `you/sync/progress` | You | screen | todo | |
-| k20 | Component sheet 1 | `debug/components` | Debug | gallery | todo | |
-| k29 | Component sheet 2 | `debug/components2` | Debug | gallery | todo | |
+| k21 | Splash | `splash` | Start | screen | done | |
+| k22 | Welcome | `welcome` | Start | screen | done | |
+| k1 | Home | `home` | Home | tab | done | |
+| k2 | Arrange home | `arrange_home` | Home | screen | done | |
+| k18 | Ask Bacchat | `ask` | Home | sheet | done | |
+| k3 | Money - Summary | `money/summary` | Money | tab | done | |
+| k4 | Money - Entries | `money/entries` | Money | tab | done | |
+| k5 | Add entry | `money/add` | Money | screen | done | |
+| k6 | Date picker | `money/date` | Money | dialog | done | |
+| k7 | Reading screenshot | `money/reading` | Money | screen | done | |
+| k8 | Screenshot review | `money/review` | Money | screen | done | |
+| k9 | Resolve conflict | `money/conflict` | Money | sheet | done | |
+| k19 | Search | `money/search` | Money | screen | done | |
+| k27 | Long-press menu | `money/entry_menu` | Money | menu | done | |
+| k28 | Select mode | `money/select` | Money | mode | done | |
+| k12 | Goals | `goals` | Goals | tab | done | |
+| k13 | Goal detail | `goals/detail` | Goals | screen | done | |
+| k14 | New goal | `goals/new` | Goals | screen | done | |
+| k23 | You | `you` | You | tab | done | |
+| k10 | Accounts | `you/accounts` | You | screen | done | |
+| k11 | Add account | `you/accounts/add` | You | screen | done | |
+| k15 | Budget | `you/budget` | You | screen | done | |
+| k16 | Edit budget | `you/budget/edit` | You | screen | done | |
+| k17 | Coming up | `you/coming_up` | You | screen | done | |
+| k24 | Settings | `you/settings` | You | screen | done | |
+| k25 | Backup and sync | `you/sync` | You | screen | done | |
+| k26 | Syncing | `you/sync/progress` | You | screen | done | |
+| k20 | Component sheet 1 | `debug/components` | Debug | gallery | done | |
+| k29 | Component sheet 2 | `debug/components2` | Debug | gallery | done | |
