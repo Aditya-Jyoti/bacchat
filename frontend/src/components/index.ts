@@ -20,3 +20,5 @@ export * from './Amount';
 export * from './Tag';
 export * from './ListRow';
 export * from './ScreenScaffold';
+export * from './ChartTooltip';
+export * from './SegmentedProgress';
