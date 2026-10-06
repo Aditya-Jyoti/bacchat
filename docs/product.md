@@ -2,7 +2,7 @@
 
 ## Vision
 
-Money creates anxiety; Bacchat should not add to it. It is a calm, private, open-source notebook for the money you own, owe, spend and save, built natively for Android. Everything runs on the phone. Cloud sync is opt-in and end-to-end encrypted.
+Money creates anxiety; Bacchat should not add to it. It is a calm, private, open-source notebook for the money you own, owe, spend and save, built with React Native, Android first. Everything runs on the phone. Cloud sync is opt-in and end-to-end encrypted.
 
 ## Features
 

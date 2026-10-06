@@ -1,6 +1,6 @@
 # Bacchat
 
-A calm, private, open-source money notebook for Android. Built with Kotlin and Jetpack Compose (Material 3 / Material You).
+A calm, private, open-source money notebook for mobile (Android first). Built with React Native and TypeScript (Material 3 / Material You).
 
 - `frontend/` - the Android app
 - `backend/` - optional end-to-end-encrypted sync service (Docker)
@@ -9,8 +9,8 @@ A calm, private, open-source money notebook for Android. Built with Kotlin and J
 
 ## Quick start
 
-Frontend: `cd frontend && ./gradlew :core:test` (pure Kotlin tests), `./gradlew :app:assembleDebug` (needs the Android SDK).
+Frontend: `cd frontend && npm install && npm test`.
 
-Backend: `cd backend && ./gradlew test`, then `docker compose up --build`.
+Backend: `cd backend && npm install && npm test`, then `docker compose up --build`.
 
 See `docs/README.md` for the full documentation index.
