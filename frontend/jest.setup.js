@@ -11,3 +11,8 @@ jest.mock('@expo/vector-icons/MaterialIcons', () => {
   Icon.glyphMap = glyphMap;
   return { __esModule: true, default: Icon };
 });
+
+// Reanimated / worklets need native runtimes; use their official Jest mocks.
+jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+require('react-native-gesture-handler/jestSetup');

@@ -1,0 +1,22 @@
+/** Home copy that the design hard-codes (the rest comes from src/data). Rupee sign as escape. */
+export const homeCopy = {
+  today: 'Sat, 24 Oct',
+  greeting: 'Good evening, Rahul',
+  initial: 'R',
+  ask: 'Ask',
+  netWorth: 'Net worth',
+  since: 'since 1 Sep',
+  own: 'You own',
+  owe: 'You owe',
+  ranges: ['1M', '6M', '1Y', 'All'] as const,
+  privacy: 'Kept on this phone \u00B7 fund prices updated 9:30 am',
+  insight: 'Two card bills (\u20B920,000) are due in 12 days. HDFC Savings covers both with room to spare.',
+  spendable: { name: 'Spendable money', sub: 'Banks + cash \u2212 card dues', amount: '\u20B95,23,150', icon: 'account_balance_wallet' },
+  dues: { name: 'Card dues', sub: '2 cards \u00B7 next on 31 Oct', amount: '\u20B920,000', icon: 'credit_card' },
+  spentSuffix: 'spent',
+  budgetLeft: '\u20B913,760 left of \u20B945,000',
+  daysLeft: '7 days left',
+  budgetFill: 0.69,
+  budgetToday: 0.77,
+  addEntry: 'Add entry',
+};
