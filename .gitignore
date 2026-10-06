@@ -17,3 +17,10 @@ captures/
 # Backend runtime data
 backend/data/
 *.db
+
+# Node
+node_modules/
+dist/
+.expo/
+coverage/
+.env
