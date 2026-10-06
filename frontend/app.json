@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "Bacchat",
+    "slug": "bacchat",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "scheme": "bacchat",
+    "newArchEnabled": true,
+    "android": {
+      "package": "app.bacchat",
+      "edgeToEdgeEnabled": true
+    },
+    "plugins": ["expo-font", "expo-secure-store"]
+  }
+}
