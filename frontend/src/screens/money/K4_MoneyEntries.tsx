@@ -3,10 +3,11 @@
  * MATCHED / RESOLVED / TO REVIEW, and docked add actions. Route params: filter
  * ('review' | 'sms' | 'mail' | 'shot') opens pre-filtered, category narrows to one category.
  */
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { ScreenScaffold } from '../../components/ScreenScaffold';
+import { useTabScrollToTop } from '../../components/useTabScrollToTop';
 import { MoneySegmentedControl } from '../../navigation/MoneySegmentedControl';
 import { useTheme } from '../../theme';
 import { EntryRow, entryRowProps } from './parts/EntryRow';
@@ -21,6 +22,8 @@ const MONTHS = ['August', 'September', 'October'];
 export default function K4_MoneyEntries(): React.JSX.Element {
   const { colors, typography, spacing } = useTheme();
   const nav = useMoneyNav();
+  const scrollRef = useRef<ScrollView>(null);
+  useTabScrollToTop(scrollRef);
   const [filter, setFilter] = useState<EntryFilter>(parseFilter(nav.params.filter));
   // Follow the route param when it changes (a notification opening this tab while mounted).
   const incoming = nav.params.filter;
@@ -41,7 +44,7 @@ export default function K4_MoneyEntries(): React.JSX.Element {
   ];
   return (
     <ScreenScaffold testID="screen-k4" scroll={false} contentStyle={{ paddingHorizontal: 0 }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.screenMargin, paddingBottom: spacing.lg }} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} contentContainerStyle={{ paddingHorizontal: spacing.screenMargin, paddingBottom: spacing.lg }} keyboardShouldPersistTaps="handled">
         <MoneyHeader
           month={MONTHS[month]}
           onPrev={() => setMonth((m) => Math.max(0, m - 1))}

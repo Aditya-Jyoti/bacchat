@@ -9,6 +9,7 @@ import { ReorderableList } from '../../components/ReorderableList';
 import { sectionMeta, useHomeConfig, type HomeSectionConfig } from '../../data';
 import { useTheme } from '../../theme';
 import { useGo } from '../useGo';
+import { t } from '../../lib/i18n';
 
 const ROW = 60;
 
@@ -24,22 +25,22 @@ export default function K2_ArrangeHome(): React.JSX.Element {
       <View style={{ height: 56, flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 4, paddingRight: 12 }}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Close"
+          accessibilityLabel={t('homeUi.close')}
           onPress={back}
           style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}
         >
           <Glyph name="close" size={24} color={colors.onSurface} />
         </Pressable>
         <Text accessibilityRole="header" style={[typography.titleMedium, { flex: 1, fontSize: 20, color: colors.onSurface }]}>
-          Arrange home
+          {t('homeUi.arrangeTitle')}
         </Text>
         <Button mode="contained" onPress={back} contentStyle={{ height: 40, paddingHorizontal: 4 }}>
-          Done
+          {t('homeUi.done')}
         </Button>
       </View>
       <View style={{ flex: 1, paddingHorizontal: spacing.screenMargin, paddingTop: 4 }}>
         <Text style={[typography.bodyMedium, { color: colors.onSurfaceVariant, marginBottom: 14, lineHeight: 21 }]}>
-          Put what matters most at the top. Hidden sections stay here, one tap away.
+          {t('homeUi.arrangeIntro')}
         </Text>
         <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 }, rule]}>
           <View style={{ width: 32, alignItems: 'center' }}>
@@ -51,8 +52,8 @@ export default function K2_ArrangeHome(): React.JSX.Element {
             <Glyph name="show_chart" size={20} color={colors.onPrimaryContainer} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={[typography.bodyLarge, { fontWeight: '600', color: colors.onSurface }]}>Net worth</Text>
-            <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>Always first</Text>
+            <Text style={[typography.bodyLarge, { fontWeight: '600', color: colors.onSurface }]}>{t('homeUi.netWorth')}</Text>
+            <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{t('homeUi.alwaysFirst')}</Text>
           </View>
         </View>
         <ReorderableList<HomeSectionConfig>
@@ -81,7 +82,7 @@ export default function K2_ArrangeHome(): React.JSX.Element {
                 </View>
                 <Switch
                   testID={`switch-${item.id}`}
-                  accessibilityLabel={`Show ${meta.label}`}
+                  accessibilityLabel={t('homeUi.showSection', { name: meta.label })}
                   value={item.enabled}
                   onValueChange={(v) => setEnabled(item.id, v)}
                 />
@@ -90,9 +91,9 @@ export default function K2_ArrangeHome(): React.JSX.Element {
           }}
         />
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-          <Text style={[typography.bodyMedium, { fontSize: 13, color: colors.onSurfaceVariant }]}>{hidden} hidden</Text>
+          <Text style={[typography.bodyMedium, { fontSize: 13, color: colors.onSurfaceVariant }]}>{t('homeUi.hiddenCount', { n: hidden })}</Text>
           <Pressable accessibilityRole="button" onPress={reset} style={{ minHeight: spacing.touchTarget, justifyContent: 'center' }}>
-            <Text style={[typography.labelLarge, { color: colors.primary }]}>Reset to default</Text>
+            <Text style={[typography.labelLarge, { color: colors.primary }]}>{t('homeUi.resetDefault')}</Text>
           </Pressable>
         </View>
       </View>

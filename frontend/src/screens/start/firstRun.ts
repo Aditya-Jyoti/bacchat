@@ -1,7 +1,26 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
-/** Whether the welcome has been shown. In-memory for now; persistence arrives with the key-value store. */
-export const useFirstRun = create<{ seen: boolean; markSeen: () => void }>((set) => ({
-  seen: false,
-  markSeen: () => set({ seen: true }),
-}));
+import { persistStorage, registerPersisted } from '../../lib/persistence';
+
+type FirstRunState = { seen: boolean; markSeen: () => void };
+
+/** Whether the welcome has been shown. Kept on this phone. */
+export const useFirstRun = registerPersisted(
+  create<FirstRunState>()(
+    persist(
+      (set) => ({
+        seen: false,
+        markSeen: () => {
+          set({ seen: true });
+        },
+      }),
+      {
+        name: 'bacchat.firstRun',
+        version: 1,
+        storage: persistStorage<{ seen: boolean }>(),
+        partialize: (s) => ({ seen: s.seen }),
+      },
+    ),
+  ),
+);

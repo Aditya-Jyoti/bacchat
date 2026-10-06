@@ -1,4 +1,7 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+import { persistStorage, registerPersisted } from '../lib/persistence';
 
 import type { HomeSectionId } from './types';
 
@@ -66,14 +69,38 @@ type HomeConfigState = {
   move: (from: number, to: number) => void;
   setEnabled: (id: HomeSectionId, enabled: boolean) => void;
   reset: () => void;
-  /** Replace from persisted JSON (key-value store wiring comes later). */
+  /** Replace from a JSON string (import and tests). */
   hydrate: (json: string | null | undefined) => void;
 };
 
-export const useHomeConfig = create<HomeConfigState>((set) => ({
-  config: defaultHomeConfig(),
-  move: (from, to) => set((s) => ({ config: moveSection(s.config, from, to) })),
-  setEnabled: (id, enabled) => set((s) => ({ config: setSectionEnabled(s.config, id, enabled) })),
-  reset: () => set({ config: defaultHomeConfig() }),
-  hydrate: (json) => set({ config: deserializeHomeConfig(json) }),
-}));
+export const useHomeConfig = registerPersisted(
+  create<HomeConfigState>()(
+    persist(
+      (set) => ({
+        config: defaultHomeConfig(),
+        move: (from, to) => {
+          set((s) => ({ config: moveSection(s.config, from, to) }));
+        },
+        setEnabled: (id, enabled) => {
+          set((s) => ({ config: setSectionEnabled(s.config, id, enabled) }));
+        },
+        reset: () => {
+          set({ config: defaultHomeConfig() });
+        },
+        hydrate: (json) => {
+          set({ config: deserializeHomeConfig(json) });
+        },
+      }),
+      {
+        name: 'bacchat.home',
+        version: 1,
+        storage: persistStorage<{ config: HomeConfig }>(),
+        partialize: (s) => ({ config: s.config }),
+        merge: (persisted, current) => ({
+          ...current,
+          config: normalizeHomeConfig((persisted as { config?: unknown } | undefined)?.config ?? current.config),
+        }),
+      },
+    ),
+  ),
+);

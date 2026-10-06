@@ -4,6 +4,7 @@ import { Text, View } from 'react-native';
 import { CategoryIcon } from '../../../components/CategoryIcon';
 import { formatRupees } from '../../../lib/format';
 import { useTheme } from '../../../theme';
+import { t } from '../../../lib/i18n';
 
 export type BudgetRowProps = { name: string; icon: string; spentPaise: number; limitPaise: number };
 
@@ -16,7 +17,7 @@ export function BudgetRow({ name, icon, spentPaise, limitPaise }: BudgetRowProps
     <View
       testID={`budget-row-${name}`}
       accessible
-      accessibilityLabel={`${name}, ${formatRupees(spentPaise)} of ${formatRupees(limitPaise)}${over ? ', over budget' : ''}`}
+      accessibilityLabel={t('accountsUi.budgetRowLabel', { name, spent: formatRupees(spentPaise), limit: formatRupees(limitPaise), over: over ? t('accountsUi.overBudget') : '' })}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: colors.outlineVariant }}
     >
       <CategoryIcon name={icon} />

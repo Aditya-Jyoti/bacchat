@@ -7,22 +7,29 @@ import { Glyph } from '../../components/Glyph';
 import { useTheme } from '../../theme';
 import { useGo } from '../useGo';
 import { ThinkingDots } from './ask/ThinkingDots';
+import { t } from '../../lib/i18n';
 
-const R = '\u20B9';
-const copy = {
-  title: 'Ask Bacchat',
-  badge: 'Your key \u00B7 Claude',
-  placeholder: 'Ask about your money\u2026',
-  privacy: 'Only totals were shared, never transactions.',
-  q1: 'Can I afford Goa without touching my emergency fund?',
-  q2: 'And if I go in January?',
-  tools: ['read \u00B7 goals', 'read \u00B7 cash flow', 'read \u00B7 card dues'],
-  a1: ['Yes, comfortably. After bills, SIPs and your ', `${R}20,000`, ' card dues you keep about ', `${R}52,000`, ' a month. Setting aside ', `${R}5,500 a month`, ' finishes Goa by 20 Dec, and your emergency fund stays at ', `${R}2,40,000`, '.'],
-  actions: [`Set aside ${R}5,500 monthly`, 'Show the maths'],
-};
-const BOLD = new Set([copy.a1[3], copy.a1[5]]);
+const a = (key: string): string => t(`askUi.${key}`);
+
+/** Ask sheet copy, read through t() on each render. */
+function getCopy() {
+  return {
+    title: a('title'),
+    badge: a('badge'),
+    placeholder: a('placeholder'),
+    privacy: a('privacy'),
+    q1: a('q1'),
+    q2: a('q2'),
+    tools: [a('tool0'), a('tool1'), a('tool2')],
+    a1: [0, 1, 2, 3, 4, 5, 6, 7, 8].map((n) => a(`a${n}`)),
+    actions: [a('action0'), a('action1')],
+  };
+}
+/** Indexes of the amounts that are set in bold. */
+const BOLD_AT = new Set([3, 5]);
 
 export default function K18_Ask(): React.JSX.Element {
+  const copy = getCopy();
   const { colors, typography, shapes, spacing } = useTheme();
   const { back } = useGo();
   const [questions, setQuestions] = useState<string[]>([]);
@@ -64,12 +71,12 @@ export default function K18_Ask(): React.JSX.Element {
 
   return (
     <View testID="screen-k18" style={{ flex: 1, backgroundColor: colors.scrim }}>
-      <Pressable accessibilityLabel="Close" accessibilityRole="button" onPress={back} style={{ height: 78 }} />
+      <Pressable accessibilityLabel={a('close')} accessibilityRole="button" onPress={back} style={{ height: 78 }} />
       <SafeAreaView
         edges={['bottom']}
         style={{ flex: 1, backgroundColor: colors.surfaceContainer, borderTopLeftRadius: shapes.sheet, borderTopRightRadius: shapes.sheet }}
       >
-        <View {...pan.panHandlers} style={{ paddingVertical: 12 }} accessibilityLabel="Drag down to close">
+        <View {...pan.panHandlers} style={{ paddingVertical: 12 }} accessibilityLabel={a('dragClose')}>
           <View style={{ width: 32, height: 4, borderRadius: 2, backgroundColor: colors.outline, alignSelf: 'center' }} />
         </View>
         <View style={{ paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -102,7 +109,7 @@ export default function K18_Ask(): React.JSX.Element {
           </View>
           <Text style={[typography.bodyMedium, { color: colors.onSurface, lineHeight: 22 }]}>
             {copy.a1.map((part, i) => (
-              <Text key={i} style={BOLD.has(part) ? { fontFamily: typography.labelLarge.fontFamily, fontWeight: '600' } : undefined}>
+              <Text key={i} style={BOLD_AT.has(i) ? { fontFamily: typography.labelLarge.fontFamily, fontWeight: '600' } : undefined}>
                 {part}
               </Text>
             ))}
@@ -165,7 +172,7 @@ export default function K18_Ask(): React.JSX.Element {
           />
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Speak"
+            accessibilityLabel={a('speak')}
             style={{ width: spacing.touchTarget, height: spacing.touchTarget, alignItems: 'center', justifyContent: 'center' }}
           >
             <Glyph name="mic" size={22} color={colors.onSurfaceVariant} />
@@ -174,7 +181,7 @@ export default function K18_Ask(): React.JSX.Element {
             <Pressable
               testID="ask-stop"
               accessibilityRole="button"
-              accessibilityLabel="Stop"
+              accessibilityLabel={a('stop')}
               onPress={() => setLoading(false)}
               style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center' }}
             >
@@ -184,7 +191,7 @@ export default function K18_Ask(): React.JSX.Element {
             <Pressable
               testID="ask-send"
               accessibilityRole="button"
-              accessibilityLabel="Send"
+              accessibilityLabel={a('send')}
               accessibilityState={{ disabled: !text.trim() }}
               onPress={send}
               style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: text.trim() ? colors.primary : colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center' }}

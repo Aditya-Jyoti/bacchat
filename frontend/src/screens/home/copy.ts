@@ -1,22 +1,40 @@
-/** Home copy that the design hard-codes (the rest comes from src/data). Rupee sign as escape. */
+/**
+ * Home copy that the design hard-codes (the rest comes from src/data). The text lives in the
+ * shared i18n bundle under `homeUi`; strings here are read through t() on every access.
+ * Amounts that are sample data keep their rupee escapes in the bundle.
+ */
+import { t } from '../../lib/i18n';
+
+const h = (key: string): string => t(`homeUi.${key}`);
+
 export const homeCopy = {
-  today: 'Sat, 24 Oct',
-  greeting: 'Good evening, Rahul',
-  initial: 'R',
-  ask: 'Ask',
-  netWorth: 'Net worth',
-  since: 'since 1 Sep',
-  own: 'You own',
-  owe: 'You owe',
+  get today() { return h('today'); },
+  get greeting() { return h('greeting'); },
+  get initial() { return h('initial'); },
+  get ask() { return h('ask'); },
+  get netWorth() { return h('netWorth'); },
+  get since() { return h('since'); },
+  get own() { return h('own'); },
+  get owe() { return h('owe'); },
   ranges: ['1M', '6M', '1Y', 'All'] as const,
-  privacy: 'Kept on this phone \u00B7 fund prices updated 9:30 am',
-  insight: 'Two card bills (\u20B920,000) are due in 12 days. HDFC Savings covers both with room to spare.',
-  spendable: { name: 'Spendable money', sub: 'Banks + cash \u2212 card dues', amount: '\u20B95,23,150', icon: 'account_balance_wallet' },
-  dues: { name: 'Card dues', sub: '2 cards \u00B7 next on 31 Oct', amount: '\u20B920,000', icon: 'credit_card' },
-  spentSuffix: 'spent',
-  budgetLeft: '\u20B913,760 left of \u20B945,000',
-  daysLeft: '7 days left',
+  get privacy() { return h('privacy'); },
+  get insight() { return h('insight'); },
+  spendable: {
+    get name() { return h('spendableName'); },
+    get sub() { return h('spendableSub'); },
+    amount: '\u20B95,23,150',
+    icon: 'account_balance_wallet',
+  },
+  dues: {
+    get name() { return h('duesName'); },
+    get sub() { return h('duesSub'); },
+    amount: '\u20B920,000',
+    icon: 'credit_card',
+  },
+  get spentSuffix() { return h('spentSuffix'); },
+  get budgetLeft() { return h('budgetLeft'); },
+  get daysLeft() { return h('daysLeft'); },
   budgetFill: 0.69,
   budgetToday: 0.77,
-  addEntry: 'Add entry',
+  get addEntry() { return h('addEntry'); },
 };

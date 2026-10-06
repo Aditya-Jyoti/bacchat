@@ -1,6 +1,8 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 import { budgets, budgetSummary } from '../../data';
+import { persistStorage, registerPersisted } from '../../lib/persistence';
 
 export type NudgeAt = '80' | '90' | '100';
 
@@ -29,11 +31,37 @@ const initial = (): State => ({
   cautionDismissed: false,
 });
 
-/** Budget settings shared by k15 (view) and k16 (edit). In memory until the local database lands. */
-export const useBudget = create<State & Actions>((set) => ({
-  ...initial(),
-  save: (next) => set({ ...next, cautionDismissed: false }),
-  setLimit: (name, paise) => set((s) => ({ limits: { ...s.limits, [name]: paise } })),
-  dismissCaution: () => set({ cautionDismissed: true }),
-  reset: () => set(initial()),
-}));
+/** Budget settings shared by k15 (view) and k16 (edit). Kept on this phone. */
+export const useBudget = registerPersisted(
+  create<State & Actions>()(
+    persist(
+      (set) => ({
+        ...initial(),
+        save: (next) => {
+          set({ ...next, cautionDismissed: false });
+        },
+        setLimit: (name, paise) => {
+          set((s) => ({ limits: { ...s.limits, [name]: paise } }));
+        },
+        dismissCaution: () => {
+          set({ cautionDismissed: true });
+        },
+        reset: () => {
+          set(initial());
+        },
+      }),
+      {
+        name: 'bacchat.budget',
+        version: 1,
+        storage: persistStorage<State>(),
+        partialize: (s): State => ({
+          totalPaise: s.totalPaise,
+          limits: s.limits,
+          nudge: s.nudge,
+          rollover: s.rollover,
+          cautionDismissed: s.cautionDismissed,
+        }),
+      },
+    ),
+  ),
+);

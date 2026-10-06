@@ -10,6 +10,7 @@ import { useTheme } from '../../theme';
 import { useScreenNav } from '../shared/useScreenNav';
 import { GoalRow } from './sections/GoalRow';
 import { isReached, useGoals } from './goalsStore';
+import { t } from '../../lib/i18n';
 
 export default function K12_Goals(): React.JSX.Element {
   const { colors, typography, shapes } = useTheme();
@@ -24,28 +25,28 @@ export default function K12_Goals(): React.JSX.Element {
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
       <ScreenScaffold testID="screen-k12" contentStyle={{ paddingBottom: 96 }}>
         <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text accessibilityRole="header" style={[typography.headlineSmall, { color: colors.onSurface }]}>Goals</Text>
+          <Text accessibilityRole="header" style={[typography.headlineSmall, { color: colors.onSurface }]}>{t('goalsUi.title')}</Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="More options"
+            accessibilityLabel={t('goalsUi.moreOptions')}
             style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}
           >
             <Glyph name="more_vert" color={colors.onSurfaceVariant} />
           </Pressable>
         </View>
-        <Text style={[typography.bodySmall, { fontSize: 13, color: colors.onSurfaceVariant }]}>Set aside so far</Text>
+        <Text style={[typography.bodySmall, { fontSize: 13, color: colors.onSurfaceVariant }]}>{t('goalsUi.setAsideSoFar')}</Text>
         <Text testID="goals-total" style={[typography.headlineSmall, { fontSize: 30, lineHeight: 35, color: colors.onSurface }]}>
           {formatRupees(total)}
         </Text>
         <View style={{ marginTop: 14 }}>
           <SegmentedChoice
             testID="goals-tab"
-            accessibilityLabel="Goal status"
+            accessibilityLabel={t('goalsUi.statusLabel')}
             value={tab}
             onChange={setTab}
             options={[
-              { id: 'active', label: `Active \u00B7 ${active.length}` },
-              { id: 'done', label: `Done \u00B7 ${done.length}` },
+              { id: 'active', label: t('goalsUi.active', { n: active.length }) },
+              { id: 'done', label: t('goalsUi.done', { n: done.length }) },
             ]}
           />
         </View>
@@ -68,7 +69,7 @@ export default function K12_Goals(): React.JSX.Element {
           >
             <Glyph name="auto_awesome" size={18} color={colors.onTertiaryContainer} />
             <Text style={[typography.bodyMedium, { flex: 1, color: colors.onTertiaryContainer }]}>
-              {`Diwali gifts needs ${formatRupees(300000)} more in 15 days. SBI can cover it today.`}
+              {t('goalsUi.diwaliInsight', { amount: formatRupees(300000) })}
             </Text>
           </View>
         ) : null}
@@ -76,7 +77,7 @@ export default function K12_Goals(): React.JSX.Element {
       <Pressable
         testID="new-goal"
         accessibilityRole="button"
-        accessibilityLabel="New goal"
+        accessibilityLabel={t('goalsUi.newGoal')}
         onPress={() => nav.go('k14')}
         style={{
           position: 'absolute',

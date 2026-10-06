@@ -3,6 +3,7 @@ import { Animated, View } from 'react-native';
 
 import { useReduceMotion } from '../../../components/useReduceMotion';
 import { useTheme } from '../../../theme';
+import { t } from '../../../lib/i18n';
 
 const BASE = [1, 0.6, 0.3];
 
@@ -34,7 +35,7 @@ export function ThinkingDots(): React.JSX.Element {
     <View
       testID="thinking-dots"
       accessible
-      accessibilityLabel="Bacchat is thinking"
+      accessibilityLabel={t('askUi.thinking')}
       accessibilityLiveRegion="polite"
       style={{ flexDirection: 'row', gap: 5, paddingVertical: 4, paddingHorizontal: 2 }}
     >

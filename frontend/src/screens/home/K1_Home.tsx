@@ -1,13 +1,15 @@
 /** k1: Home. Net worth hero, then the sections chosen in k2 (useHomeConfig). */
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AllocationBar } from '../../components/AllocationBar';
 import { Glyph } from '../../components/Glyph';
 import { NetWorthChart } from '../../components/NetWorthChart';
+import { useTabScrollToTop } from '../../components/useTabScrollToTop';
 import { allocation, colorKeyToRole, netWorth, netWorthSeries, useHomeConfig, visibleSections } from '../../data';
 import { formatRupeesCompact } from '../../lib/format';
+import { t } from '../../lib/i18n';
 import { useTheme } from '../../theme';
 import { useGo } from '../useGo';
 import { homeCopy as c } from './copy';
@@ -20,6 +22,8 @@ const RANGE_POINTS: Record<Range, number> = { '1M': 2, '6M': 7, '1Y': 12, All: 1
 export default function K1_Home(): React.JSX.Element {
   const { colors, typography, spacing } = useTheme();
   const { go } = useGo();
+  const scrollRef = useRef<ScrollView>(null);
+  useTabScrollToTop(scrollRef);
   const config = useHomeConfig((s) => s.config);
   const [range, setRange] = useState<Range>('1Y');
   const count = RANGE_POINTS[range];
@@ -35,7 +39,7 @@ export default function K1_Home(): React.JSX.Element {
 
   return (
     <SafeAreaView testID="screen-k1" edges={['top', 'left', 'right']} style={{ flex: 1, backgroundColor: colors.surface }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.screenMargin, paddingTop: 4, paddingBottom: 96 }}>
+      <ScrollView ref={scrollRef} contentContainerStyle={{ paddingHorizontal: spacing.screenMargin, paddingTop: 4, paddingBottom: 96 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 52 }}>
           <View>
             <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{c.today}</Text>
@@ -45,7 +49,7 @@ export default function K1_Home(): React.JSX.Element {
             <Pressable
               testID="ask-pill"
               accessibilityRole="button"
-              accessibilityLabel="Ask Bacchat"
+              accessibilityLabel={t('homeUi.askBacchat')}
               onPress={() => go('k18')}
               style={{ minHeight: spacing.touchTarget, justifyContent: 'center' }}
             >
@@ -67,7 +71,7 @@ export default function K1_Home(): React.JSX.Element {
               </View>
             </Pressable>
             <View
-              accessibilityLabel="Profile"
+              accessibilityLabel={t('homeUi.profile')}
               style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primaryContainer, alignItems: 'center', justifyContent: 'center' }}
             >
               <Text style={[typography.labelLarge, { color: colors.onPrimaryContainer }]}>{c.initial}</Text>

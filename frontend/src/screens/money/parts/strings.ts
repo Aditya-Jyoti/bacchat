@@ -1,108 +1,23 @@
 /**
- * UI text for the Money tab screens (k3 to k9, k19, k27, k28). Kept next to the screens until
- * the lead merges these keys into the shared i18n bundle. Hindi-ready: no idioms. The rupee
- * sign is written as an escape.
+ * UI text for the Money tab screens (k3 to k9, k19, k27, k28). The text itself lives in the
+ * shared i18n bundle under `moneyUi`; S reads it through t() on every access, so it follows
+ * the current locale. The rupee sign is written as an escape.
  */
+import { en, t } from '../../../lib/i18n';
+
 export const R = '\u20B9';
 
-export const S = {
-  money: 'Money',
-  prevMonth: 'Previous month',
-  nextMonth: 'Next month',
-  month: 'October',
-  spentSoFar: 'Spent so far',
-  inLabel: 'In',
-  lessThanSept: '\u20B92,180 less than Sept',
-  inAmount: '\u20B91,26,000',
-  daysToGo: '{n} days to go',
-  axisStart: '1 Oct',
-  axisToday: 'today',
-  axisEnd: '31',
-  seeEntries: 'See entries',
-  byCategory: 'By category',
-  vsSept: 'vs Sept',
-  paidWith: 'Paid with',
-  topMerchants: 'Top merchants',
-  entriesCount: '{n} entries',
-  vsAverage: '{amount} {dir} average',
-  above: 'above',
-  below: 'below',
-  barSummary: 'Spent {amount} on {day}, {vs}',
-  chartSummary: 'Daily spend for October, {total} so far, {avg} a day on average. Tap a bar to see that day.',
-  searchEntries: 'Search entries',
-  filter: 'Filter',
-  all: 'All',
-  toReview: 'To review',
-  sms: 'SMS',
-  email: 'Email',
-  screenshot: 'Screenshot',
-  byHand: 'By hand',
-  fromScreenshot: 'From screenshot',
-  noEntries: 'Nothing here yet.',
-  newEntry: 'New entry',
-  close: 'Close',
-  back: 'Back',
-  save: 'Save',
-  spent: 'Spent',
-  got: 'Got',
-  moved: 'Moved',
-  tapAmount: 'Tap amount to edit',
-  paidTo: 'Paid to',
-  date: 'Date',
-  time: 'Time',
-  note: 'Note (optional)',
-  splitTitle: 'Split with friends',
-  splitSub: 'Track who owes you',
-  addAsNew: 'Add \u201C{name}\u201D as new',
-  done: 'Done',
-  selectDate: 'Select date',
-  today: 'Today',
-  yesterday: 'Yesterday',
-  twoDaysAgo: '2 days ago',
-  cancel: 'Cancel',
-  ok: 'OK',
-  readingTitle: 'Reading screenshot',
-  readingLine: 'Reading line {n} of {total}\u2026',
-  onThisPhone: 'on this phone',
-  shotCaption: 'GPay history \u00B7 24 Oct \u00B7 10 payments',
-  found: 'Found {n} entries',
-  statNew: 'new',
-  statHave: 'already have',
-  statConflict: 'conflict',
-  checkedAgainst: 'Checked against 2 entries from today\u2019s SMS and email.',
-  pick: 'Pick',
-  pickCategory: 'Pick a category',
-  resolveToContinue: 'Resolve 1 conflict to continue',
-  addEntries: 'Add {n} entries',
-  conflictTitle: 'Which Amazon payment is right?',
-  conflictSub: '\u20B950 apart \u00B7 1 minute apart \u00B7 same card',
-  emailEvidence: 'Order total: \u20B91,299.00 \u00B7 Amazon.in',
-  shotEvidence: 'Paid to Amazon Pay \u00B7 ICICI \u2022\u20227731',
-  trustRule: 'Next time, trust the screenshot for Amazon',
-  use: 'Use {label}',
-  sorted: 'Sorted \u00B7 using {label}',
-  recent: 'RECENT',
-  anyAmount: 'Any amount',
-  source: 'Source',
-  results: '{n} entries',
-  clear: 'Clear',
-  edit: 'Edit',
-  changeCategory: 'Change category',
-  splitWithFriends: 'Split with friends',
-  addToGoal: 'Add to goal',
-  copyAmount: 'Copy amount',
-  select: 'Select',
-  delete: 'Delete',
-  selected: '{n} selected',
-  total: '{amount} total',
-  swipeActions: 'SWIPE ACTIONS',
-  looksRight: 'Looks right',
-  deleted: '{name} deleted',
-  deletedMany: '{n} deleted',
-  undo: 'Undo',
-  duplicate: 'Duplicate?',
-  fromSms: 'From SMS',
-} as const;
+type MoneyUiKey = keyof typeof en.moneyUi;
+
+function view(): { readonly [K in MoneyUiKey]: string } {
+  const out = {} as { [K in MoneyUiKey]: string };
+  for (const key of Object.keys(en.moneyUi) as MoneyUiKey[]) {
+    Object.defineProperty(out, key, { enumerable: true, get: () => t(`moneyUi.${key}`) });
+  }
+  return out;
+}
+
+export const S = view();
 
 /** Fill {name} placeholders. */
 export function fmt(template: string, params: Record<string, string | number>): string {

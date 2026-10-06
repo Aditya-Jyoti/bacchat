@@ -23,6 +23,7 @@ import {
   monthsFor,
 } from './sections/goalPlan';
 import { useGoals, type GoalAlloc } from './goalsStore';
+import { t } from '../../lib/i18n';
 
 const ACCOUNTS = [
   { name: 'HDFC Savings', icon: 'account_balance', color: 'p' },
@@ -64,7 +65,7 @@ export default function K14_NewGoal(): React.JSX.Element {
       icon,
       savedPaise: total,
       targetPaise: num(target) * 100,
-      by: `by ${dateShort(months)}`,
+      by: t('goalsUi.byDate', { date: dateShort(months) }),
       allocations,
     });
     nav.go('k13', { id });
@@ -73,45 +74,45 @@ export default function K14_NewGoal(): React.JSX.Element {
   return (
     <StackScreen
       testID="screen-k14"
-      title="New goal"
+      title={t('goalsUi.newGoal')}
       leading="close"
       onLeading={nav.back}
-      footer={<PillButton testID="create-goal" label="Create goal" height={52} disabled={!valid} onPress={create} style={{ width: '100%' }} />}
+      footer={<PillButton testID="create-goal" label={t('goalsUi.createGoal')} height={52} disabled={!valid} onPress={create} style={{ width: '100%' }} />}
     >
-      <Text style={label}>PICK AN ICON</Text>
+      <Text style={label}>{t('goalsUi.pickIcon')}</Text>
       <IconPicker value={icon} onChange={setIcon} />
       <View style={{ gap: 16, marginTop: 22 }}>
-        <OutlinedField testID="goal-name" label="What are you saving for?" value={name} onChangeText={setName} />
+        <OutlinedField testID="goal-name" label={t('goalsUi.saveFor')} value={name} onChangeText={setName} />
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <View style={{ flex: 1 }}>
             <OutlinedField
               testID="goal-target"
-              label="Target"
+              label={t('goalsUi.target')}
               prefix={'\u20B9'}
               keyboardType="number-pad"
               value={group(target)}
-              onChangeText={(t) => setTarget(digits(t))}
+              onChangeText={(v) => setTarget(digits(v))}
             />
           </View>
           <View style={{ flex: 1 }}>
-            <OutlinedField testID="goal-date" label="By" leadingIcon="calendar_today" value={dateLong(months)} onPress={() => setMonths((m) => Math.min(60, m + 1))} />
+            <OutlinedField testID="goal-date" label={t('goalsUi.by')} leadingIcon="calendar_today" value={dateLong(months)} onPress={() => setMonths((m) => Math.min(60, m + 1))} />
           </View>
         </View>
         <OutlinedField
           testID="goal-saved"
-          label="Already saved"
+          label={t('goalsUi.alreadySaved')}
           prefix={'\u20B9'}
           keyboardType="number-pad"
           value={group(saved)}
-          onChangeText={(t) => setSaved(digits(t))}
-          helper="Optional. Counted from today."
+          onChangeText={(v) => setSaved(digits(v))}
+          helper={t('goalsUi.savedHelper')}
         />
       </View>
-      <Text style={label}>SET ASIDE EACH MONTH</Text>
+      <Text style={label}>{t('goalsUi.setAsideMonthly')}</Text>
       <View style={{ paddingTop: 22 }}>
         <ValueSlider
           testID="monthly-slider"
-          label="Set aside each month"
+          label={t('goalsUi.setAsideEach')}
           min={MONTHLY_MIN}
           max={MONTHLY_MAX}
           step={MONTHLY_STEP}
@@ -129,9 +130,9 @@ export default function K14_NewGoal(): React.JSX.Element {
         <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{formatRupees(MONTHLY_MAX * 100)}</Text>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-        <Text style={[typography.bodyMedium, { color: colors.onSurface }]}>Months to go</Text>
+        <Text style={[typography.bodyMedium, { color: colors.onSurface }]}>{t('goalsUi.monthsToGo')}</Text>
         <NumberStepper
-          label="Months to go"
+          label={t('goalsUi.monthsToGo')}
           value={months}
           min={1}
           max={60}
@@ -142,11 +143,11 @@ export default function K14_NewGoal(): React.JSX.Element {
         />
       </View>
       <Text testID="plan-line" style={[typography.bodyMedium, { color: colors.onSurface, marginTop: 8 }]}>
-        {'That gets you there by '}
+        {t('goalsUi.planStart')}
         <Text style={{ fontWeight: '700' }}>{dateShort(months)}</Text>
-        {`, with ${formatRupees((FREE_BASE - monthly) * 100)} a month still free.`}
+        {t('goalsUi.planEnd', { amount: formatRupees((FREE_BASE - monthly) * 100) })}
       </Text>
-      <Text style={label}>TAKE IT FROM</Text>
+      <Text style={label}>{t('goalsUi.takeFrom')}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {ACCOUNTS.map((a) => (
           <FilterChip

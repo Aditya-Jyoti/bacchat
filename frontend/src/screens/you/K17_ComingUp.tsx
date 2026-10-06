@@ -10,6 +10,7 @@ import { calendarStrip, cashFlow, upcoming } from '../../data';
 import { useTheme } from '../../theme';
 import { AppBar } from './parts/AppBar';
 import { useKidNav } from './parts/useKidNav';
+import { t } from '../../lib/i18n';
 
 const DOT = '\u00B7';
 /** 28 day numbers: Oct 18..31 then Nov 1..14. */
@@ -44,11 +45,11 @@ export default function K17_ComingUp(): React.JSX.Element {
   );
   return (
     <ScreenScaffold testID="screen-k17" edges={['top', 'left', 'right', 'bottom']}>
-      <AppBar title="Coming up" onBack={back} />
+      <AppBar title={t('budgetUi.comingUp')} onBack={back} />
       <MonthStrip days={DAYS} todayIndex={calendarStrip.todayIndex} dots={calendarStrip.dots} visibleKinds={kinds} />
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
-        {chip('bill', 'Bills & card dues', colors.primary)}
-        {chip('sip', 'SIPs & NPS', colors.chart2)}
+        {chip('bill', t('budgetUi.billsDues'), colors.primary)}
+        {chip('sip', t('budgetUi.sipsNps'), colors.chart2)}
       </View>
       <View style={{ marginTop: 6 }}>
         {items.map((u) => (
@@ -70,8 +71,8 @@ export default function K17_ComingUp(): React.JSX.Element {
         ))}
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 22, marginBottom: 6 }}>
-        <Text accessibilityRole="header" style={[typography.titleMedium, { color: colors.onSurface }]}>Cash flow</Text>
-        <Text style={[typography.bodyMedium, { fontSize: 13, color: colors.onSurfaceVariant }]}>last 6 months</Text>
+        <Text accessibilityRole="header" style={[typography.titleMedium, { color: colors.onSurface }]}>{t('budgetUi.cashFlow')}</Text>
+        <Text style={[typography.bodyMedium, { fontSize: 13, color: colors.onSurfaceVariant }]}>{t('budgetUi.last6')}</Text>
       </View>
       <PairedBarChart months={cashFlow.months} income={cashFlow.inRupees.map(toPaise)} spend={cashFlow.outRupees.map(toPaise)} />
     </ScreenScaffold>

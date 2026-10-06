@@ -3,6 +3,7 @@ import { Text, View } from 'react-native';
 
 import { formatRupees } from '../../../lib/format';
 import { useTheme } from '../../../theme';
+import { t } from '../../../lib/i18n';
 
 export type YoursToSpendProps = { banksPaise: number; duesPaise: number };
 
@@ -21,21 +22,21 @@ export function YoursToSpend({ banksPaise, duesPaise }: YoursToSpendProps): Reac
   const share = Math.max(0, Math.min(1, (banksPaise - duesPaise) / banksPaise));
   return (
     <View testID="yours-to-spend" style={{ marginTop: 14, padding: 14, borderRadius: shapes.card, backgroundColor: colors.surfaceContainer, gap: 10 }}>
-      <Text style={[typography.labelMedium, { color: colors.onSurfaceVariant, fontWeight: '600' }]}>MONEY YOU CAN ACTUALLY SPEND</Text>
+      <Text style={[typography.labelMedium, { color: colors.onSurfaceVariant, fontWeight: '600' }]}>{t('accountsUi.moneyToSpend')}</Text>
       <View
         accessible
         accessibilityRole="image"
-        accessibilityLabel={`${formatRupees(banksPaise - duesPaise)} of ${formatRupees(banksPaise)} is yours to spend`}
+        accessibilityLabel={t('accountsUi.spendLabel', { amount: formatRupees(banksPaise - duesPaise), total: formatRupees(banksPaise) })}
         style={{ flexDirection: 'row', gap: 3, height: 10 }}
       >
         <View style={{ flex: share, borderRadius: 5, backgroundColor: colors.primary }} />
         <View style={{ flex: 1 - share, borderRadius: 5, backgroundColor: colors.chart3 }} />
       </View>
       <View style={{ gap: 4 }}>
-        {dotRow(colors.primary, 'Banks + cash', formatRupees(banksPaise))}
-        {dotRow(colors.chart3, 'Card dues', `\u2212 ${formatRupees(duesPaise)}`)}
+        {dotRow(colors.primary, t('accountsUi.banksCash'), formatRupees(banksPaise))}
+        {dotRow(colors.chart3, t('accountsUi.cardDues'), `\u2212 ${formatRupees(duesPaise)}`)}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: colors.outlineVariant, paddingTop: 6 }}>
-          <Text style={[typography.labelLarge, { fontWeight: '700', color: colors.onSurface }]}>Yours to spend</Text>
+          <Text style={[typography.labelLarge, { fontWeight: '700', color: colors.onSurface }]}>{t('accountsUi.yoursToSpend')}</Text>
           <Text testID="yours-to-spend-amount" style={[typography.labelLarge, { fontWeight: '700', color: colors.onSurface }]}>
             {formatRupees(banksPaise - duesPaise)}
           </Text>

@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { ScrollView, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTheme } from '../theme';
+import { useTabScrollToTop } from './useTabScrollToTop';
 
 export type ScreenScaffoldProps = {
   children: React.ReactNode;
@@ -26,6 +27,8 @@ export function ScreenScaffold({
   testID,
 }: ScreenScaffoldProps): React.JSX.Element {
   const { colors, typography, spacing } = useTheme();
+  const scrollRef = useRef<ScrollView>(null);
+  useTabScrollToTop(scrollRef);
   const body = (
     <>
       {title ? (
@@ -41,6 +44,7 @@ export function ScreenScaffold({
     <SafeAreaView testID={testID} edges={edges} style={{ flex: 1, backgroundColor: colors.surface }}>
       {scroll ? (
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={[padding, { paddingBottom: spacing.xxl }, contentStyle]}
           keyboardShouldPersistTaps="handled"
         >

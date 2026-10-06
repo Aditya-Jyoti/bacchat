@@ -7,6 +7,7 @@ import { colorKeyToRole } from '../../../data';
 import { formatRupees } from '../../../lib/format';
 import { useTheme } from '../../../theme';
 import type { GoalAlloc } from '../goalsStore';
+import { t } from '../../../lib/i18n';
 
 export type WhereItSitsProps = { allocations: readonly GoalAlloc[]; onEdit: () => void };
 
@@ -16,7 +17,7 @@ export function WhereItSits({ allocations, onEdit }: WhereItSitsProps): React.JS
   const total = allocations.reduce((a, x) => a + x.paise, 0) || 1;
   return (
     <View>
-      <SectionHeader title="Where it sits" action="Edit" onAction={onEdit} />
+      <SectionHeader title={t('goalsUi.whereItSits')} action={t('goalsUi.edit')} onAction={onEdit} />
       {allocations.map((a) => (
         <View
           key={a.from}

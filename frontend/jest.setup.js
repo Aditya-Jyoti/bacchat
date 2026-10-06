@@ -16,3 +16,15 @@ jest.mock('@expo/vector-icons/MaterialIcons', () => {
 jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
 jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
 require('react-native-gesture-handler/jestSetup');
+
+// Key-value storage: use the official in-memory mock so persisted stores never touch native code.
+jest.mock('@react-native-async-storage/async-storage', () => require('@react-native-async-storage/async-storage/jest'));
+
+// react-native-paper renders its icons with MaterialCommunityIcons; same synchronous stand-in.
+jest.mock('@expo/vector-icons/MaterialCommunityIcons', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  const Icon = (props) => React.createElement(Text, { testID: props.testID }, props.name);
+  Icon.glyphMap = {};
+  return { __esModule: true, default: Icon };
+});

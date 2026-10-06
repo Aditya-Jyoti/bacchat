@@ -11,8 +11,7 @@ import { AccountRow } from './sections/AccountRow';
 import { GroupHeader } from './sections/GroupHeader';
 import { UpiRow } from './sections/UpiRow';
 import { YoursToSpend } from './sections/YoursToSpend';
-
-const MINUS = '\u2212';
+import { t } from '../../lib/i18n';
 
 export default function K10_Accounts(): React.JSX.Element {
   const { colors, typography } = useTheme();
@@ -23,24 +22,24 @@ export default function K10_Accounts(): React.JSX.Element {
   return (
     <StackScreen
       testID="screen-k10"
-      title="Accounts"
+      title={t('youUi.accounts')}
       leading="back"
       onLeading={nav.back}
-      trailing={<TopBarAction icon="add" label="Add account" testID="add-account" onPress={() => nav.go('k11')} />}
+      trailing={<TopBarAction icon="add" label={t('youUi.addAccount')} testID="add-account" onPress={() => nav.go('k11')} />}
     >
-      <Text style={muted}>Net worth</Text>
+      <Text style={muted}>{t('youUi.netWorth')}</Text>
       <Text testID="net-worth" style={[typography.headlineSmall, { fontSize: 32, lineHeight: 35, color: colors.onSurface }]}>
         {netWorth.net.text}
       </Text>
       <Text testID="net-equation" style={[muted, { marginTop: 4 }]}>
-        {`${netWorth.own.text} owned ${MINUS} ${netWorth.owe.text} owed`}
+        {t('youUi.equation', { own: netWorth.own.text, owe: netWorth.owe.text })}
       </Text>
       <YoursToSpend banksPaise={cashAndBanks} duesPaise={dues} />
-      <GroupHeader title="What you own" total={netWorth.own.text} />
+      <GroupHeader title={t('youUi.whatOwn')} total={netWorth.own.text} />
       {own.map((a) => (
         <AccountRow key={a.name} name={a.name} kind={a.kind} icon={a.icon} amount={a.amount.text} />
       ))}
-      <GroupHeader title="What you owe" total={netWorth.owe.text} />
+      <GroupHeader title={t('youUi.whatOwe')} total={netWorth.owe.text} />
       {owe.map((d) => (
         <AccountRow
           key={d.name}
@@ -51,7 +50,7 @@ export default function K10_Accounts(): React.JSX.Element {
           owe={{ used: d.used, limitText: d.limitText }}
         />
       ))}
-      <GroupHeader title="UPI IDs" />
+      <GroupHeader title={t('youUi.upiIds')} />
       {upi.map((u) => (
         <UpiRow key={u.id} item={u} />
       ))}

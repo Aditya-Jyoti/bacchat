@@ -14,6 +14,7 @@ import { useScreenNav } from '../shared/useScreenNav';
 import { ReachedMoment } from './sections/ReachedMoment';
 import { WhereItSits } from './sections/WhereItSits';
 import { isReached, useGoals, type GoalAlloc } from './goalsStore';
+import { t } from '../../lib/i18n';
 
 const MONTHLY_PAISE = 550000;
 
@@ -35,12 +36,12 @@ export default function K13_GoalDetail(): React.JSX.Element {
       testID="screen-k13"
       leading="back"
       onLeading={nav.back}
-      trailing={<TopBarAction icon="more_vert" label="More options" />}
+      trailing={<TopBarAction icon="more_vert" label={t('goalsUi.moreOptions')} />}
       footer={
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <PillButton
             testID="take-out"
-            label="Take out"
+            label={t('goalsUi.takeOut')}
             variant="outlined"
             height={52}
             style={{ flex: 1 }}
@@ -49,7 +50,7 @@ export default function K13_GoalDetail(): React.JSX.Element {
           />
           <PillButton
             testID="set-aside-more"
-            label="Set aside more"
+            label={t('goalsUi.setAsideMore')}
             height={52}
             style={{ flex: 1 }}
             disabled={reached}
@@ -63,30 +64,30 @@ export default function K13_GoalDetail(): React.JSX.Element {
         {goal.name}
       </Text>
       <Text testID="goal-summary" style={[typography.bodyMedium, { color: colors.onSurfaceVariant, marginTop: 2 }]}>
-        {`${formatRupees(goal.savedPaise)} of ${formatRupees(goal.targetPaise)} \u00B7 ${goal.by}`}
+        {t('goalsUi.summary', { saved: formatRupees(goal.savedPaise), target: formatRupees(goal.targetPaise), by: goal.by })}
       </Text>
       <View style={{ marginTop: 14 }}>
-        <SegmentedProgress fraction={fraction} height={10} accessibilityLabel={`${goal.name} progress`} />
+        <SegmentedProgress fraction={fraction} height={10} accessibilityLabel={t('goalsUi.progress', { name: goal.name })} />
       </View>
       {reached ? (
         <ReachedMoment name={goal.name} />
       ) : (
         <Text testID="pace-line" style={[typography.bodyMedium, { color: colors.onSurface, marginTop: 12, lineHeight: 21 }]}>
-          On track.{' '}
+          {t('goalsUi.onTrack')}{' '}
           {isGoa ? (
             <>
-              <Text style={{ fontWeight: '700' }}>{`${formatRupees(MONTHLY_PAISE)} a month`}</Text>
-              {' gets you there by 20 Dec with a little to spare.'}
+              <Text style={{ fontWeight: '700' }}>{t('goalsUi.perMonth', { amount: formatRupees(MONTHLY_PAISE) })}</Text>
+              {t('goalsUi.goaPace')}
             </>
           ) : (
-            `${formatRupees(remaining)} more to go.`
+            t('goalsUi.moreToGo', { amount: formatRupees(remaining) })
           )}
         </Text>
       )}
       <WhereItSits allocations={goal.allocations} onEdit={() => setDraft(goal.allocations.map((a) => ({ ...a })))} />
       <AllocationSheet
         visible={draft !== null}
-        title="Where it sits"
+        title={t('goalsUi.whereItSits')}
         rows={(draft ?? []).map((a) => ({ key: a.from, name: a.from, icon: a.icon, paise: a.paise }))}
         maxPaise={goal.targetPaise}
         targetPaise={goal.targetPaise}

@@ -5,32 +5,31 @@ import { Button, Dialog, Portal, SegmentedButtons, Switch } from 'react-native-p
 
 import { ScreenScaffold } from '../../components';
 import { t } from '../../lib/i18n';
+import { usePreferences } from '../../lib/preferences';
 import { useTheme } from '../../theme';
 import { AppBar } from './parts/AppBar';
 import { GroupCaption, YouRow } from './parts/YouRow';
 import { useKidNav } from './parts/useKidNav';
 
-const R = '\u20B9';
-const DOT = '\u00B7';
-
 type ThemeChoice = 'system' | 'light' | 'dark';
 type SwitchId = 'wallpaper' | 'sms' | 'email' | 'upi' | 'nudges' | 'reminders' | 'lock' | 'hide';
 
 const SWITCHES: Record<SwitchId, { icon: string; title: string; sub: string }> = {
-  wallpaper: { icon: 'palette', title: 'Colours from wallpaper', sub: 'Material You dynamic colour' },
-  sms: { icon: 'sms', title: 'Read bank SMS', sub: 'On this phone only. Never uploaded.' },
-  email: { icon: 'mail', title: 'Read payment emails', sub: 'rahul.sharma@gmail.com' },
-  upi: { icon: 'notifications_active', title: 'Read UPI app notifications', sub: 'GPay, PhonePe, Paytm' },
-  nudges: { icon: 'spa', title: 'Gentle budget nudges', sub: 'At 90% of a category' },
-  reminders: { icon: 'event', title: 'Bill & SIP reminders', sub: '1 day before' },
-  lock: { icon: 'fingerprint', title: 'App lock', sub: 'Fingerprint or PIN' },
-  hide: { icon: 'visibility_off', title: 'Hide amounts on open', sub: 'Tap to reveal' },
+  wallpaper: { icon: 'palette', title: 'settingsUi.wallpaperTitle', sub: 'settingsUi.wallpaperSub' },
+  sms: { icon: 'sms', title: 'settingsUi.smsTitle', sub: 'settingsUi.smsSub' },
+  email: { icon: 'mail', title: 'settingsUi.emailTitle', sub: 'rahul.sharma@gmail.com' },
+  upi: { icon: 'notifications_active', title: 'settingsUi.upiTitle', sub: 'settingsUi.upiSub' },
+  nudges: { icon: 'spa', title: 'settingsUi.nudgesTitle', sub: 'settingsUi.nudgesSub' },
+  reminders: { icon: 'event', title: 'settingsUi.remindersTitle', sub: 'settingsUi.remindersSub' },
+  lock: { icon: 'fingerprint', title: 'settingsUi.lockTitle', sub: 'settingsUi.lockSub' },
+  hide: { icon: 'visibility_off', title: 'settingsUi.hideTitle', sub: 'settingsUi.hideSub' },
 };
 
 export default function K24_Settings(): React.JSX.Element {
   const { colors, typography, colorSource } = useTheme();
   const { go, back } = useKidNav();
-  const [choice, setChoice] = useState<ThemeChoice>('system');
+  const choice = usePreferences((s) => s.theme);
+  const setChoice = usePreferences((s) => s.setTheme);
   const [on, setOn] = useState<Record<SwitchId, boolean>>({
     wallpaper: true, sms: true, email: true, upi: false, nudges: true, reminders: true, lock: true, hide: false,
   });
@@ -38,20 +37,22 @@ export default function K24_Settings(): React.JSX.Element {
 
   const sw = (id: SwitchId) => {
     const row = SWITCHES[id];
-    const sub = id === 'wallpaper' && !on.wallpaper ? 'Using the warm Khata palette' : row.sub;
+    const title = t(row.title);
+    // The email row shows the account address as is; every other subtitle is a bundle key.
+    const sub = id === 'wallpaper' && !on.wallpaper ? t('settingsUi.wallpaperOff') : id === 'email' ? row.sub : t(row.sub);
     return (
       <YouRow
         key={id}
         testID={`settings-row-${id}`}
         icon={row.icon}
-        title={row.title}
+        title={title}
         subtitle={sub}
         trailing={
           <Switch
             testID={`settings-switch-${id}`}
             value={on[id]}
             onValueChange={(v) => setOn((s) => ({ ...s, [id]: v }))}
-            accessibilityLabel={row.title}
+            accessibilityLabel={title}
           />
         }
       />
@@ -60,43 +61,43 @@ export default function K24_Settings(): React.JSX.Element {
 
   return (
     <ScreenScaffold testID="screen-k24" edges={['top', 'left', 'right']}>
-      <AppBar title="Settings" onBack={back} />
-      <GroupCaption>LOOK</GroupCaption>
+      <AppBar title={t('settingsUi.title')} onBack={back} />
+      <GroupCaption>{t('settingsUi.look')}</GroupCaption>
       <View style={{ paddingTop: 4, paddingBottom: 10 }}>
         <SegmentedButtons
           value={choice}
           onValueChange={(v) => setChoice(v as ThemeChoice)}
           buttons={[
-            { value: 'system', label: 'System', testID: 'theme-system', showSelectedCheck: true },
-            { value: 'light', label: 'Light', testID: 'theme-light', showSelectedCheck: true },
-            { value: 'dark', label: 'Dark', testID: 'theme-dark', showSelectedCheck: true },
+            { value: 'system', label: t('settingsUi.themeSystem'), testID: 'theme-system', showSelectedCheck: true },
+            { value: 'light', label: t('settingsUi.themeLight'), testID: 'theme-light', showSelectedCheck: true },
+            { value: 'dark', label: t('settingsUi.themeDark'), testID: 'theme-dark', showSelectedCheck: true },
           ]}
         />
       </View>
       {sw('wallpaper')}
       <Text testID="settings-colour-source" style={[typography.bodySmall, { color: colors.onSurfaceVariant, paddingVertical: 6 }]}>
-        {colorSource === 'dynamic' && on.wallpaper ? 'Colours now come from your wallpaper.' : 'Colours now use the warm Khata palette.'}
+        {colorSource === 'dynamic' && on.wallpaper ? t('settingsUi.coloursDynamic') : t('settingsUi.coloursKhata')}
       </Text>
-      <YouRow icon="currency_rupee" title="Number format" subtitle={`${R}12,34,567 ${DOT} Indian`} onPress={() => undefined} />
-      <GroupCaption>AUTO-ADD</GroupCaption>
+      <YouRow icon="currency_rupee" title={t('settingsUi.numberFormat')} subtitle={t('settingsUi.numberFormatSub')} onPress={() => undefined} />
+      <GroupCaption>{t('settingsUi.autoAdd')}</GroupCaption>
       {(['sms', 'email', 'upi'] as const).map(sw)}
-      <GroupCaption>NUDGES</GroupCaption>
+      <GroupCaption>{t('settingsUi.nudges')}</GroupCaption>
       {(['nudges', 'reminders'] as const).map(sw)}
-      <GroupCaption>PRIVACY & SECURITY</GroupCaption>
+      <GroupCaption>{t('settingsUi.privacySecurity')}</GroupCaption>
       {(['lock', 'hide'] as const).map(sw)}
       <YouRow
         testID="settings-row-backup"
         icon="cloud_sync"
-        title="Backup & sync"
-        subtitle={`On ${DOT} Google Drive`}
+        title={t('settingsUi.backupSync')}
+        subtitle={t('settingsUi.backupSub')}
         onPress={() => go('k25')}
       />
       <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant, paddingTop: 8 }]}>
-        {`${t('privacy.onDevice')} Reading SMS and email is your choice and stays on this phone.`}
+        {`${t('privacy.onDevice')} ${t('settingsUi.smsChoice')}`}
       </Text>
-      <GroupCaption>DATA</GroupCaption>
-      <YouRow icon="ios_share" title="Export" subtitle="CSV or JSON" onPress={() => undefined} />
-      <YouRow icon="upload_file" title="Import" subtitle="From CSV, Walnut, Money Manager" onPress={() => undefined} />
+      <GroupCaption>{t('settingsUi.data')}</GroupCaption>
+      <YouRow icon="ios_share" title={t('settingsUi.export')} subtitle={t('settingsUi.exportSub')} onPress={() => undefined} />
+      <YouRow icon="upload_file" title={t('settingsUi.import_')} subtitle={t('settingsUi.importSub')} onPress={() => undefined} />
       <View style={{ paddingVertical: 16 }}>
         <Button
           testID="settings-delete"
@@ -107,20 +108,20 @@ export default function K24_Settings(): React.JSX.Element {
           contentStyle={{ height: 48 }}
           onPress={() => setConfirmDelete(true)}
         >
-          Delete all data
+          {t('settingsUi.deleteAll')}
         </Button>
       </View>
       <Portal>
         <Dialog visible={confirmDelete} onDismiss={() => setConfirmDelete(false)} style={{ borderRadius: 28 }}>
-          <Dialog.Title>Delete all data?</Dialog.Title>
+          <Dialog.Title>{t('settingsUi.deleteTitle')}</Dialog.Title>
           <Dialog.Content>
             <Text style={[typography.bodyMedium, { color: colors.onSurfaceVariant }]}>
-              Every entry, account and goal on this phone will be removed. Backups you made stay where they are.
+              {t('settingsUi.deleteBody')}
             </Text>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button testID="settings-delete-keep" onPress={() => setConfirmDelete(false)}>Keep</Button>
-            <Button testID="settings-delete-confirm" textColor={colors.error} onPress={() => setConfirmDelete(false)}>Delete</Button>
+            <Button testID="settings-delete-keep" onPress={() => setConfirmDelete(false)}>{t('settingsUi.keep')}</Button>
+            <Button testID="settings-delete-confirm" textColor={colors.error} onPress={() => setConfirmDelete(false)}>{t('settingsUi.delete')}</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>

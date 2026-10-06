@@ -12,6 +12,7 @@ import { useScreenNav } from '../shared/useScreenNav';
 import { useBudget } from './budgetStore';
 import { BudgetRow } from './sections/BudgetRow';
 import { CautionBanner } from './sections/CautionBanner';
+import { t } from '../../lib/i18n';
 
 const DAYS_IN_MONTH = 31;
 const RAISE_TO = 700000;
@@ -31,33 +32,33 @@ export default function K15_Budget(): React.JSX.Element {
   return (
     <StackScreen
       testID="screen-k15"
-      title="October budget"
+      title={t('budgetUi.title')}
       leading="back"
       onLeading={nav.back}
-      trailing={<TopBarAction icon="edit" label="Edit budget" testID="edit-budget" onPress={() => nav.go('k16')} />}
+      trailing={<TopBarAction icon="edit" label={t('budgetUi.edit')} testID="edit-budget" onPress={() => nav.go('k16')} />}
     >
       <Text testID="budget-left" style={[typography.headlineSmall, { fontSize: 34, lineHeight: 39, color: colors.onSurface }]}>
-        {`${formatRupees(left)} left`}
+        {t('budgetUi.left', { amount: formatRupees(left) })}
       </Text>
-      <Text style={[muted, { marginTop: 2 }]}>{`for ${budgetSummary.daysLeft} days \u00B7 about ${formatRupees(perDay)} a day`}</Text>
+      <Text style={[muted, { marginTop: 2 }]}>{t('budgetUi.forDays', { days: budgetSummary.daysLeft, amount: formatRupees(perDay) })}</Text>
       <View style={{ marginTop: 16 }}>
         <PaceBar
           fraction={spent / totalPaise}
           todayFraction={todayFraction}
-          accessibilityLabel={`${pct} percent of the budget spent, ${Math.round(todayFraction * 100)} percent of the month gone`}
+          accessibilityLabel={t('budgetUi.paceLabel', { pct, month: Math.round(todayFraction * 100) })}
         />
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-        <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{`${formatRupees(spent)} of ${formatRupees(totalPaise)}`}</Text>
-        <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{'today \u2191'}</Text>
+        <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{t('budgetUi.ofTotal', { spent: formatRupees(spent), total: formatRupees(totalPaise) })}</Text>
+        <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{t('budgetUi.today')}</Text>
       </View>
       {overRow && !cautionDismissed ? (
         <CautionBanner
-          lead={`${overRow.b.name} went ${formatRupees(overRow.b.spent.paise - overRow.limit)} past its budget.`}
-          body="Nothing to worry about. A couple of home dinners this week evens it out."
-          primaryLabel={`Raise to ${formatRupees(RAISE_TO)}`}
+          lead={t('budgetUi.over', { name: overRow.b.name, amount: formatRupees(overRow.b.spent.paise - overRow.limit) })}
+          body={t('budgetUi.overBody')}
+          primaryLabel={t('budgetUi.raiseTo', { amount: formatRupees(RAISE_TO) })}
           onPrimary={() => setLimit(overRow.b.name, RAISE_TO)}
-          secondaryLabel="Okay"
+          secondaryLabel={t('budgetUi.okay')}
           onSecondary={dismissCaution}
         />
       ) : null}

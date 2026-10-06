@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useTheme } from '../../../theme';
+import { t } from '../../../lib/i18n';
 
 export type HomeSectionProps = {
   title: string;
@@ -22,8 +23,8 @@ export function HomeSection({ title, trailing, onPress, onLongPress, testID, chi
     <Pressable
       testID={testID}
       accessibilityLabel={title}
-      accessibilityHint="Long press to arrange Home"
-      accessibilityActions={[{ name: 'longpress', label: 'Arrange Home' }]}
+      accessibilityHint={t('homeUi.arrangeHint')}
+      accessibilityActions={[{ name: 'longpress', label: t('homeUi.arrangeHome') }]}
       onAccessibilityAction={() => onLongPress()}
       onPress={onPress}
       onLongPress={onLongPress}

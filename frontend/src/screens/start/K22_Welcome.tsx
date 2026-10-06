@@ -9,10 +9,11 @@ import { useTheme } from '../../theme';
 import { useGo } from '../useGo';
 import { ChaiIllustration } from './ChaiIllustration';
 import { useFirstRun } from './firstRun';
+import { t } from '../../lib/i18n';
 
 const points = [
-  { icon: 'phonelink_lock', text: 'Works offline. No account needed.' },
-  { icon: 'code', text: 'Open source. Read every line.' },
+  { icon: 'phonelink_lock', textKey: 'startUi.point0' },
+  { icon: 'code', textKey: 'startUi.point1' },
 ];
 
 export default function K22_Welcome(): React.JSX.Element {
@@ -33,10 +34,10 @@ export default function K22_Welcome(): React.JSX.Element {
           <ChaiIllustration ink={colors.onSurface} blob={colors.primaryContainer} height={200} />
         </View>
         <Text accessibilityRole="header" style={[typography.headlineSmall, { fontSize: 30, lineHeight: 34, color: colors.onSurface, marginTop: 26 }]}>
-          {'Write money down.\nWorry less.'}
+          {t('startUi.hero')}
         </Text>
         <Text style={[typography.bodyLarge, { color: colors.onSurfaceVariant, lineHeight: 23, marginTop: 12 }]}>
-          {'Bacchat keeps track of what you have, what you owe and what\u2019s coming up. It all lives on this phone unless you choose to back it up.'}
+          {t('startUi.intro')}
         </Text>
         <View style={{ gap: 10, marginTop: 20 }}>
           {points.map((p) => (
@@ -46,17 +47,17 @@ export default function K22_Welcome(): React.JSX.Element {
               >
                 <Glyph name={p.icon} size={18} color={colors.onSecondaryContainer} />
               </View>
-              <Text style={[typography.bodyMedium, { color: colors.onSurface }]}>{p.text}</Text>
+              <Text style={[typography.bodyMedium, { color: colors.onSurface }]}>{t(p.textKey)}</Text>
             </View>
           ))}
         </View>
       </View>
       <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 28, gap: 10 }}>
         <Button mode="contained" onPress={() => finish('k1')} contentStyle={{ height: 52 }}>
-          Start fresh
+          {t('startUi.startFresh')}
         </Button>
         <Button mode="outlined" icon={({ color }) => <Glyph name="cloud_download" size={18} color={color} />} onPress={() => finish('k25')} contentStyle={{ height: 52 }}>
-          Restore from backup
+          {t('startUi.restore')}
         </Button>
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 4 }} accessibilityElementsHidden>
           <View style={{ width: 18, height: 6, borderRadius: 3, backgroundColor: colors.primary }} />

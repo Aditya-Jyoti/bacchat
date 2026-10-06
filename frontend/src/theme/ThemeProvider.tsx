@@ -29,6 +29,8 @@ export type ThemeProviderProps = {
   children: React.ReactNode;
   /** Force a mode (tests, previews). Defaults to the OS colour scheme. */
   mode?: ColorMode;
+  /** User choice from Settings: 'system' follows the OS. An explicit `mode` prop wins. */
+  preference?: 'system' | ColorMode;
   dynamicScheme?: DynamicSchemeSource | null;
   seedHue?: number;
 };
@@ -54,11 +56,13 @@ export function buildTheme(
 export function ThemeProvider({
   children,
   mode,
+  preference = 'system',
   dynamicScheme = stubDynamicScheme,
   seedHue = DEFAULT_SEED_HUE,
 }: ThemeProviderProps): React.JSX.Element {
   const os = useColorScheme();
-  const resolvedMode: ColorMode = mode ?? (os === 'dark' ? 'dark' : 'light');
+  const resolvedMode: ColorMode =
+    mode ?? (preference !== 'system' ? preference : os === 'dark' ? 'dark' : 'light');
   const theme = useMemo(
     () => buildTheme(resolvedMode, dynamicScheme, seedHue),
     [resolvedMode, dynamicScheme, seedHue],

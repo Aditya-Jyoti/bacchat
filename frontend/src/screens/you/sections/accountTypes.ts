@@ -1,11 +1,13 @@
+import { t } from '../../../lib/i18n';
+
 export type AccountType = 'bank' | 'card' | 'cash' | 'invest' | 'loan';
 
 export const ACCOUNT_TYPES: readonly { id: AccountType; label: string; icon: string }[] = [
-  { id: 'bank', label: 'Bank', icon: 'account_balance' },
-  { id: 'card', label: 'Credit card', icon: 'credit_card' },
-  { id: 'cash', label: 'Cash', icon: 'payments' },
-  { id: 'invest', label: 'Investment', icon: 'trending_up' },
-  { id: 'loan', label: 'Loan', icon: 'request_quote' },
+  { id: 'bank', get label() { return t('accountsUi.typeBank'); }, icon: 'account_balance' },
+  { id: 'card', get label() { return t('accountsUi.typeCard'); }, icon: 'credit_card' },
+  { id: 'cash', get label() { return t('accountsUi.typeCash'); }, icon: 'payments' },
+  { id: 'invest', get label() { return t('accountsUi.typeInvest'); }, icon: 'trending_up' },
+  { id: 'loan', get label() { return t('accountsUi.typeLoan'); }, icon: 'request_quote' },
 ];
 
 export const BANKS = ['HDFC Bank', 'SBI', 'ICICI Bank', 'Axis Bank', 'Kotak Bank', 'Other'] as const;
@@ -18,9 +20,9 @@ export const DAYS: readonly string[] = Array.from({ length: 28 }, (_, i) => {
 });
 
 export const BALANCE_LABEL: Record<AccountType, string> = {
-  bank: 'Balance',
-  card: 'Owed today',
-  cash: 'Cash in hand',
-  invest: 'Current value',
-  loan: 'Owed today',
+  get bank() { return t('accountsUi.balBank'); },
+  get card() { return t('accountsUi.balOwed'); },
+  get cash() { return t('accountsUi.balCash'); },
+  get invest() { return t('accountsUi.balInvest'); },
+  get loan() { return t('accountsUi.balOwed'); },
 };

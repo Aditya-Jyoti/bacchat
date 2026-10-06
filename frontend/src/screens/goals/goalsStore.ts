@@ -1,7 +1,9 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 import { goalAllocation, goals as sampleGoals, colorKeyToRole, m } from '../../data';
 import type { ColorKey } from '../../data';
+import { persistStorage, registerPersisted } from '../../lib/persistence';
 
 /** One account's share of a goal, in paise. */
 export type GoalAlloc = { from: string; icon: string; paise: number; color: ColorKey };
@@ -65,37 +67,56 @@ type Store = {
   reset: () => void;
 };
 
-export const useGoals = create<Store>((set) => ({
-  goals: initialGoals(),
-  setAllocations: (id, allocations) =>
-    set((s) => ({
-      goals: s.goals.map((g) =>
-        g.id === id ? { ...g, allocations, savedPaise: allocations.reduce((a, x) => a + x.paise, 0) } : g,
-      ),
-    })),
-  adjust: (id, delta) =>
-    set((s) => ({
-      goals: s.goals.map((g) => {
-        if (g.id !== id) return g;
-        const allocations = g.allocations.map((a) => ({ ...a }));
-        if (delta >= 0) allocations[0].paise += delta;
-        else {
-          let left = -delta;
-          for (let i = allocations.length - 1; i >= 0 && left > 0; i--) {
-            const take = Math.min(left, allocations[i].paise);
-            allocations[i].paise -= take;
-            left -= take;
-          }
-        }
-        return { ...g, allocations, savedPaise: allocations.reduce((a, x) => a + x.paise, 0) };
+export const useGoals = registerPersisted(
+  create<Store>()(
+    persist(
+      (set) => ({
+        goals: initialGoals(),
+        setAllocations: (id, allocations) =>
+          set((s) => ({
+            goals: s.goals.map((g) =>
+              g.id === id ? { ...g, allocations, savedPaise: allocations.reduce((a, x) => a + x.paise, 0) } : g,
+            ),
+          })),
+        adjust: (id, delta) =>
+          set((s) => ({
+            goals: s.goals.map((g) => {
+              if (g.id !== id) return g;
+              const allocations = g.allocations.map((a) => ({ ...a }));
+              if (delta >= 0) allocations[0].paise += delta;
+              else {
+                let left = -delta;
+                for (let i = allocations.length - 1; i >= 0 && left > 0; i--) {
+                  const take = Math.min(left, allocations[i].paise);
+                  allocations[i].paise -= take;
+                  left -= take;
+                }
+              }
+              return { ...g, allocations, savedPaise: allocations.reduce((a, x) => a + x.paise, 0) };
+            }),
+          })),
+        addGoal: (g) => {
+          const id = `g${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
+          set((s) => ({ goals: [{ ...g, id }, ...s.goals] }));
+          return id;
+        },
+        reset: () => set({ goals: initialGoals() }),
       }),
-    })),
-  addGoal: (g) => {
-    const id = `g${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
-    set((s) => ({ goals: [{ ...g, id }, ...s.goals] }));
-    return id;
-  },
-  reset: () => set({ goals: initialGoals() }),
-}));
+      {
+        name: 'bacchat.goals',
+        version: 1,
+        storage: persistStorage<{ goals: GoalState[] }>(),
+        partialize: (s) => ({ goals: s.goals }),
+        merge: (persisted, current) => {
+          const goals = (persisted as { goals?: unknown } | undefined)?.goals;
+          return {
+            ...current,
+            goals: Array.isArray(goals) && goals.length > 0 ? (goals as GoalState[]) : current.goals,
+          };
+        },
+      },
+    ),
+  ),
+);
 
 export const roleOfColorKey = colorKeyToRole;

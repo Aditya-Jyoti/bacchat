@@ -13,6 +13,7 @@ import { useTheme } from '../../theme';
 import { useScreenNav } from '../shared/useScreenNav';
 import { useBudget, type NudgeAt } from './budgetStore';
 import { LimitRow } from './sections/LimitRow';
+import { t } from '../../lib/i18n';
 
 const MAX_CATEGORY = 20000;
 
@@ -41,15 +42,15 @@ export default function K16_EditBudget(): React.JSX.Element {
   return (
     <StackScreen
       testID="screen-k16"
-      title="Edit budget"
+      title={t('budgetUi.editTitle')}
       leading="close"
       onLeading={nav.back}
-      trailing={<TopBarAction text="Save" label="Save" testID="save-budget" onPress={onSave} />}
+      trailing={<TopBarAction text={t('budgetUi.save')} label={t('budgetUi.save')} testID="save-budget" onPress={onSave} />}
     >
       <View style={{ marginTop: 6 }}>
         <OutlinedField
           testID="budget-total"
-          label="Monthly budget"
+          label={t('budgetUi.monthly')}
           prefix={'\u20B9'}
           keyboardType="number-pad"
           value={total ? groupIndian(String(total)) : ''}
@@ -57,12 +58,12 @@ export default function K16_EditBudget(): React.JSX.Element {
         />
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
-        <Text style={[typography.bodyMedium, { fontSize: 13, color: colors.onSurfaceVariant }]}>Split across categories</Text>
+        <Text style={[typography.bodyMedium, { fontSize: 13, color: colors.onSurfaceVariant }]}>{t('budgetUi.split')}</Text>
         <Text testID="split-summary" style={[typography.bodyMedium, { fontSize: 13, color: colors.onSurfaceVariant }]}>
           <Text style={{ fontWeight: '700', color: colors.onSurface }}>{formatRupees(split * 100)}</Text>
           {unplanned >= 0
-            ? ` \u00B7 ${formatRupees(unplanned * 100)} unplanned`
-            : ` \u00B7 ${formatRupees(-unplanned * 100)} over the total`}
+            ? t('budgetUi.unplanned', { amount: formatRupees(unplanned * 100) })
+            : t('budgetUi.overTotal', { amount: formatRupees(-unplanned * 100) })}
         </Text>
       </View>
       <View style={{ marginTop: 8 }}>
@@ -77,10 +78,10 @@ export default function K16_EditBudget(): React.JSX.Element {
           />
         ))}
       </View>
-      <Text style={label}>NUDGE ME AT</Text>
+      <Text style={label}>{t('budgetUi.nudgeMe')}</Text>
       <SegmentedChoice
         testID="nudge"
-        accessibilityLabel="Nudge me at"
+        accessibilityLabel={t('budgetUi.nudgeLabel')}
         value={nudge}
         onChange={setNudge}
         options={[
@@ -91,10 +92,10 @@ export default function K16_EditBudget(): React.JSX.Element {
       />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16 }}>
         <View style={{ flex: 1 }}>
-          <Text style={[typography.bodyLarge, { fontSize: 15, color: colors.onSurface }]}>Roll leftovers into November</Text>
-          <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>Unspent money adds to next month</Text>
+          <Text style={[typography.bodyLarge, { fontSize: 15, color: colors.onSurface }]}>{t('budgetUi.rollover')}</Text>
+          <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{t('budgetUi.rolloverSub')}</Text>
         </View>
-        <Switch testID="rollover-switch" accessibilityLabel="Roll leftovers into November" value={rollover} onValueChange={setRollover} />
+        <Switch testID="rollover-switch" accessibilityLabel={t('budgetUi.rollover')} value={rollover} onValueChange={setRollover} />
       </View>
     </StackScreen>
   );

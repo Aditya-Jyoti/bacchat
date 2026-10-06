@@ -27,6 +27,15 @@ Append-only. Newest entries go at the bottom, above the template. Do not edit pa
 - Added `backend/demo` with `npm run demo`: 45 checks covering every backend feature, runs in-process or against `DEMO_URL`.
 - Started persistence, i18n, sync client, data layer, NAV parser, ingestion parsers and AI client work on the frontend.
 
+## 2026-10-06 (frontend wiring)
+
+- Persistence: AsyncStorage-backed key-value layer, zustand persist for home config, first run, Money segment, goals, budget and preferences, hydration gate in App.tsx, theme preference in Settings.
+- i18n: screen strings moved into src/lib/i18n.ts bundles, Hindi skeleton bundle, locale preference applied on next launch.
+- Re-tapping the current tab scrolls to top (useTabScrollToTop).
+- Sync client: libsodium XChaCha20-Poly1305 and Argon2id, keyring with recovery key, typed backend client, three-way merge sync engine with conflict objects for k9, progress events for k26; tested against a real backend process (32 tests).
+- Not wired into screens yet: sync engine (K25, K26, K9), local database, AI client.
+- Tests: frontend 564 pass, typecheck and lint clean.
+
 ---
 
 ## Template

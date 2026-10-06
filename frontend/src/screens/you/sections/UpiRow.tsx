@@ -3,6 +3,7 @@ import { Text, View } from 'react-native';
 
 import type { UpiItem } from '../../../data';
 import { useTheme } from '../../../theme';
+import { t } from '../../../lib/i18n';
 
 /** One UPI ID: id and bank, then came-in and went-out bars (primary and chart2) with amounts. */
 export function UpiRow({ item }: { item: UpiItem }): React.JSX.Element {
@@ -28,8 +29,8 @@ export function UpiRow({ item }: { item: UpiItem }): React.JSX.Element {
         <Text style={[typography.bodyMedium, { color: colors.onSurface }]}>{item.id}</Text>
         <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{item.bank}</Text>
       </View>
-      {bar('Came in', item.inn.text, item.inW, colors.primary)}
-      {bar('Went out', item.out.text, item.outW, colors.chart2)}
+      {bar(t('accountsUi.cameIn'), item.inn.text, item.inW, colors.primary)}
+      {bar(t('accountsUi.wentOut'), item.out.text, item.outW, colors.chart2)}
     </View>
   );
 }

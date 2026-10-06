@@ -6,6 +6,7 @@ import { SegmentedProgress } from '../../../components/SegmentedProgress';
 import { formatRupees } from '../../../lib/format';
 import { useTheme } from '../../../theme';
 import type { GoalState } from '../goalsStore';
+import { t } from '../../../lib/i18n';
 
 export const pctOf = (g: GoalState): number => Math.min(100, Math.round((g.savedPaise / g.targetPaise) * 100));
 
@@ -19,7 +20,7 @@ export function GoalRow({ goal, onPress }: { goal: GoalState; onPress: () => voi
     <Pressable
       testID={`goal-row-${goal.id}`}
       accessibilityRole="button"
-      accessibilityLabel={`${goal.name}, ${pct} percent, ${saved} of ${target}, ${goal.by}`}
+      accessibilityLabel={t('goalsUi.rowLabel', { name: goal.name, pct, saved, target, by: goal.by })}
       onPress={onPress}
       style={{
         flexDirection: 'row',
@@ -37,7 +38,7 @@ export function GoalRow({ goal, onPress }: { goal: GoalState; onPress: () => voi
           <Text style={[typography.bodyLarge, { fontSize: 15, color: colors.onSurface }]}>{`${pct}%`}</Text>
         </View>
         <View style={{ marginVertical: 8 }}>
-          <SegmentedProgress fraction={pct / 100} height={6} segments={4} accessibilityLabel={`${goal.name} progress`} />
+          <SegmentedProgress fraction={pct / 100} height={6} segments={4} accessibilityLabel={t('goalsUi.progress', { name: goal.name })} />
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
           <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{`${saved} of ${target}`}</Text>

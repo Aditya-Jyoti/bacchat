@@ -10,6 +10,7 @@ import { HomeSection } from './HomeSection';
 import { Row } from './Rows';
 import type { HomeSectionId } from '../../../data/types';
 import type { KId } from '../../../navigation/screenManifest';
+import { t } from '../../../lib/i18n';
 
 export type SectionsProps = { go: (kid: KId) => void; arrange: () => void };
 
@@ -19,7 +20,7 @@ function Insight({ arrange }: SectionsProps): React.JSX.Element {
   return (
     <Pressable
       testID="section-insight"
-      accessibilityActions={[{ name: 'longpress', label: 'Arrange Home' }]}
+      accessibilityActions={[{ name: 'longpress', label: t('homeUi.arrangeHome') }]}
       onAccessibilityAction={() => arrange()}
       onLongPress={arrange}
       style={{ marginTop: 18 }}

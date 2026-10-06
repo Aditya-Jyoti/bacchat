@@ -5,6 +5,7 @@ import { CategoryIcon } from '../../../components/CategoryIcon';
 import { Glyph } from '../../../components/Glyph';
 import { categoryIcons } from '../../../data';
 import { useTheme } from '../../../theme';
+import { t } from '../../../lib/i18n';
 
 const QUICK = ['beach_access', 'flight', 'laptop_mac', 'two_wheeler', 'redeem'] as const;
 
@@ -32,7 +33,7 @@ export function IconPicker({ value, onChange }: IconPickerProps): React.JSX.Elem
       <Pressable
         testID="icon-more"
         accessibilityRole="button"
-        accessibilityLabel={more ? 'Fewer icons' : 'More icons'}
+        accessibilityLabel={more ? t('goalsUi.fewerIcons') : t('goalsUi.moreIcons')}
         onPress={() => setMore((m) => !m)}
         style={{ width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceContainer }}
       >
