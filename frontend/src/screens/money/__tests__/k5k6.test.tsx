@@ -1,6 +1,6 @@
 /** k5 Add entry and k6 Date picker. */
 import { NavigationContext, NavigationRouteContext } from '@react-navigation/native';
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
 import { ThemeProvider, khataPalette } from '../../../theme';
@@ -8,7 +8,8 @@ import K5 from '../K5_AddEntry';
 import K6 from '../K6_DatePicker';
 import { suggest } from '../parts/payees';
 import { fromIso, toIso, entryDateLabel } from '../parts/dates';
-import { flat, mockNav, renderScreen, R } from './helpers';
+import { AppServicesProvider, createTestServices } from '../../../services';
+import { flat, mockNav, renderLive, renderScreen, R } from './helpers';
 
 describe('payee suggestions and dates', () => {
   it('suggests prefix matches first and respects the limit', () => {
@@ -29,39 +30,55 @@ describe('payee suggestions and dates', () => {
 describe.each(['light', 'dark'] as const)('k5 Add entry (%s)', (mode) => {
   const c = khataPalette(45, mode);
 
-  it('shows the design state: Spent, amount, Paid to with suggestions, fields', () => {
-    const { getByText, getByTestId, getByDisplayValue } = renderScreen(<K5 />, mode);
+  /** Type the payee and the amount like a person would. */
+  async function fill(r: Awaited<ReturnType<typeof renderLive>>, payee: string, keys: string[]): Promise<void> {
+    fireEvent.changeText(r.getByTestId('payee-input'), payee);
+    fireEvent.press(r.getByTestId('amount'));
+    for (const k of keys) fireEvent.press(r.getByTestId(`key-${k}`));
+    fireEvent.press(r.getByTestId('keypad-done'));
+  }
+
+  it('starts empty: Spent, amount 0, Paid to, today and the current time', async () => {
+    const { getByText, getByTestId, findByText } = await renderLive(<K5 />, mode);
     expect(getByTestId('screen-k5')).toBeTruthy();
     expect(getByText('New entry')).toBeTruthy();
     expect(getByText('Save')).toBeTruthy();
     for (const l of ['Spent', 'Got', 'Moved']) expect(getByText(l)).toBeTruthy();
-    expect(getByText('280')).toBeTruthy();
+    expect(getByTestId('amount-text').props.children).toBe('0');
     expect(getByText('Tap amount to edit')).toBeTruthy();
-    expect(getByDisplayValue('Third Wa')).toBeTruthy();
+    expect(getByTestId('payee-input').props.value).toBe('');
     expect(getByText('Paid to')).toBeTruthy();
     expect(getByText('Paid with')).toBeTruthy();
-    expect(getByText('UPI \u00B7 rahul@okhdfc')).toBeTruthy();
+    expect(await findByText('UPI \u00B7 rahul@okhdfc')).toBeTruthy();
     expect(getByText('Today, 24 Oct')).toBeTruthy();
-    expect(getByText('5:30 pm')).toBeTruthy();
+    expect(getByText('9:30 pm')).toBeTruthy();
     expect(getByText('Split with friends')).toBeTruthy();
     expect(getByText('Track who owes you')).toBeTruthy();
-    expect(getByText('Tea & coffee \u00B7 6 times')).toBeTruthy();
-    expect(getByText('Tea & coffee \u00B7 once')).toBeTruthy();
-    expect(getByText('Add \u201CThird Wa\u201D as new')).toBeTruthy();
-    expect(flat(getByTestId('payee-menu').props.style).backgroundColor).toBe(c.surfaceContainer);
-    expect(flat(getByTestId('payee-option-0').props.style).backgroundColor).toBe(c.surfaceContainerHigh);
   });
 
-  it('picking a suggestion fills the payee and its usual category', () => {
-    const { getByTestId, getByDisplayValue, queryByTestId } = renderScreen(<K5 />, mode);
-    fireEvent.press(getByTestId('payee-option-1'));
-    expect(getByDisplayValue('Third Wave, Indiranagar')).toBeTruthy();
-    expect(getByTestId('payee-category').props.children).toBe('Tea & coffee');
-    expect(queryByTestId('payee-menu')).toBeNull();
+  it('suggests past payees with their usual category and offers Add as new', async () => {
+    const r = await renderLive(<K5 />, mode);
+    await r.findByText('UPI \u00B7 rahul@okhdfc');
+    fireEvent.changeText(r.getByTestId('payee-input'), 'Third Wa');
+    expect(await r.findByText('Tea & coffee \u00B7 once')).toBeTruthy();
+    expect(r.getByText('Add \u201CThird Wa\u201D as new')).toBeTruthy();
+    expect(flat(r.getByTestId('payee-menu').props.style).backgroundColor).toBe(c.surfaceContainer);
+    expect(flat(r.getByTestId('payee-option-0').props.style).backgroundColor).toBe(c.surfaceContainerHigh);
   });
 
-  it('typing filters suggestions, clear empties the field, Add as new closes the menu', () => {
-    const { getByTestId, queryByTestId, getByText } = renderScreen(<K5 />, mode);
+  it('picking a suggestion fills the payee and its usual category', async () => {
+    const r = await renderLive(<K5 />, mode);
+    await r.findByText('UPI \u00B7 rahul@okhdfc');
+    fireEvent.changeText(r.getByTestId('payee-input'), 'Third Wa');
+    fireEvent.press(await r.findByTestId('payee-option-0'));
+    expect(r.getByDisplayValue('Third Wave Coffee')).toBeTruthy();
+    expect(r.getByTestId('payee-category').props.children).toBe('Tea & coffee');
+    expect(r.queryByTestId('payee-menu')).toBeNull();
+  });
+
+  it('typing filters suggestions, clear empties the field, Add as new closes the menu', async () => {
+    const { getByTestId, queryByTestId, getByText, findByText } = await renderLive(<K5 />, mode);
+    await findByText('UPI \u00B7 rahul@okhdfc');
     fireEvent.changeText(getByTestId('payee-input'), 'Zepto');
     expect(queryByTestId('payee-option-0')).toBeNull();
     fireEvent.press(getByTestId('payee-add-new'));
@@ -72,13 +89,13 @@ describe.each(['light', 'dark'] as const)('k5 Add entry (%s)', (mode) => {
     expect(getByTestId('payee-input').props.value).toBe('');
   });
 
-  it('opens the keypad from the amount and edits it', () => {
-    const { getByTestId, queryByTestId, getByText } = renderScreen(<K5 />, mode);
+  it('opens the keypad from the amount and edits it', async () => {
+    const { getByTestId, queryByTestId, getByText } = await renderLive(<K5 />, mode);
     expect(queryByTestId('keypad-panel')).toBeNull();
     fireEvent.press(getByTestId('amount'));
     expect(getByTestId('keypad-panel')).toBeTruthy();
+    for (const k of ['2', '8', '9', '0']) fireEvent.press(getByTestId(`key-${k}`));
     fireEvent.press(getByTestId('key-backspace'));
-    fireEvent.press(getByTestId('key-9'));
     fireEvent.press(getByTestId('key-0'));
     expect(getByText('2,890')).toBeTruthy();
     fireEvent.press(getByTestId('quick-add-1000'));
@@ -88,55 +105,111 @@ describe.each(['light', 'dark'] as const)('k5 Add entry (%s)', (mode) => {
     expect(getByTestId('amount').props.accessibilityLabel).toContain('3,890');
   });
 
-  it('switches Spent / Got / Moved and relabels the payee field', () => {
-    const { getByTestId, getByText } = renderScreen(<K5 />, mode);
+  it('switches Spent / Got / Moved and relabels the payee field', async () => {
+    const { getByTestId, getByText } = await renderLive(<K5 />, mode);
     fireEvent.press(getByTestId('kind-got'));
     expect(getByText('Got from')).toBeTruthy();
     fireEvent.press(getByTestId('kind-moved'));
     expect(getByText('Moved to')).toBeTruthy();
   });
 
-  it('chooses Paid with from a menu and toggles the split switch and note', () => {
-    const { getByTestId, getByText, queryByTestId } = renderScreen(<K5 />, mode);
-    fireEvent.press(getByTestId('method-field'));
+  it('chooses Paid with from the accounts you have and toggles the split switch and note', async () => {
+    const { getByTestId, getByText, queryByTestId, findByTestId } = await renderLive(<K5 />, mode);
+    fireEvent.press(await findByTestId('method-field'));
+    for (const label of ['UPI \u00B7 rahul@okhdfc', 'ICICI Amazon Pay', 'HDFC Savings debit card', 'HDFC Savings', 'Cash']) {
+      expect(getByTestId(`method-${label}`)).toBeTruthy();
+    }
     fireEvent.press(getByTestId('method-Cash'));
     expect(getByText('Cash')).toBeTruthy();
-    expect(queryByTestId('method-ICICI credit card')).toBeNull();
+    expect(queryByTestId('method-ICICI Amazon Pay')).toBeNull();
     fireEvent(getByTestId('split-switch'), 'valueChange', true);
     expect(getByTestId('split-switch').props.value).toBe(true);
     fireEvent.changeText(getByTestId('note-input'), 'with Ria');
     expect(getByTestId('note-input').props.value).toBe('with Ria');
   });
 
-  it('Date and Time fields open k6; results from k6 arrive as params', () => {
-    const { getByTestId, nav, rerender } = renderScreen(<K5 />, mode);
+  it('Date and Time fields open k6; results from k6 arrive as params', async () => {
+    const { getByTestId, nav } = await renderLive(<K5 />, mode);
     fireEvent.press(getByTestId('date-field'));
     expect(nav.navigate).toHaveBeenLastCalledWith('money/date', { date: '2026-10-24', mode: 'date' });
     fireEvent.press(getByTestId('time-field'));
-    expect(nav.navigate).toHaveBeenLastCalledWith('money/date', { date: '2026-10-24', mode: 'time', time: '5:30 pm' });
-    void rerender;
+    expect(nav.navigate).toHaveBeenLastCalledWith('money/date', { date: '2026-10-24', mode: 'time', time: '9:30 pm' });
   });
 
-  it('shows the date and time handed back by k6', () => {
-    const { getByText } = renderScreen(<K5 />, mode, { date: '2026-10-22', time: '8:05 am' });
+  it('shows the date and time handed back by k6', async () => {
+    const { getByText } = await renderLive(<K5 />, mode, { date: '2026-10-22', time: '8:05 am' });
     expect(getByText('Thu, 22 Oct')).toBeTruthy();
     expect(getByText('8:05 am')).toBeTruthy();
   });
 
-  it('Save returns to Entries; an empty payee shows the field error and stays', () => {
-    const { getByText, getByTestId, nav } = renderScreen(<K5 />, mode);
-    fireEvent.press(getByText('Save'));
-    expect(nav.navigate).toHaveBeenLastCalledWith('main', { screen: 'money', params: { screen: 'money/entries' } });
-    nav.navigate.mockClear();
-    fireEvent.press(getByTestId('payee-clear'));
-    fireEvent.press(getByText('Save'));
-    expect(nav.navigate).not.toHaveBeenCalled();
-    expect(getByText('Paid to').props.style).toBeTruthy();
-    expect(flat(getByText('Paid to').props.style).color).toBe(c.error);
+  it('Save writes a by-hand entry with the right account and method, learns the payee and returns to Entries', async () => {
+    const r = await renderLive(<K5 />, mode);
+    await r.findByText('UPI \u00B7 rahul@okhdfc');
+    await fill(r, 'Chai Point', ['4', '0', '.', '5']);
+    fireEvent.changeText(r.getByTestId('note-input'), 'with Ria');
+    fireEvent.press(r.getByText('Save'));
+    await waitFor(() => expect(r.nav.navigate).toHaveBeenLastCalledWith('main', { screen: 'money', params: { screen: 'money/entries' } }));
+    const saved = (await r.services.db.entries.list()).find((e) => e.merchant === 'Chai Point');
+    expect(saved).toMatchObject({
+      amountPaise: 4050,
+      direction: 'out',
+      method: 'upi',
+      upiId: 'upi-okhdfc',
+      accountId: 'acc-hdfc',
+      note: 'with Ria',
+      status: 'confirmed',
+      aiAdded: false,
+      sources: [{ kind: 'hand' }],
+    });
+    expect(saved?.at).toBe(new Date(2026, 9, 24, 21, 30).getTime());
+    expect((await r.services.db.merchants.byName('Chai Point'))?.count).toBe(1);
   });
 
-  it('close goes back', () => {
-    const { getByTestId, nav } = renderScreen(<K5 />, mode);
+  it('a known payee brings its category; Got saves money in; the card account follows the method', async () => {
+    const r = await renderLive(<K5 />, mode);
+    await r.findByText('UPI \u00B7 rahul@okhdfc');
+    fireEvent.press(r.getByTestId('kind-got'));
+    await fill(r, 'Blinkit', ['5', '0', '0']);
+    expect(r.getByTestId('payee-category').props.children).toBe('Groceries');
+    fireEvent.press(r.getByTestId('method-field'));
+    fireEvent.press(r.getByTestId('method-ICICI Amazon Pay'));
+    fireEvent.press(r.getByText('Save'));
+    await waitFor(async () => expect((await r.services.db.entries.list()).filter((e) => e.merchant === 'Blinkit')).toHaveLength(2));
+    const saved = (await r.services.db.entries.list()).find((e) => e.merchant === 'Blinkit' && e.id !== 'e-blinkit');
+    expect(saved).toMatchObject({ direction: 'in', categoryId: 'groceries', method: 'card', accountId: 'acc-icici', upiId: null, amountPaise: 50000 });
+    // Money in does not teach the payee history.
+    expect((await r.services.db.merchants.byName('Blinkit'))?.count).toBe(1);
+  });
+
+  it('an empty payee or amount shows the field error and writes nothing', async () => {
+    const { getByText, getByTestId, nav, services } = await renderLive(<K5 />, mode);
+    fireEvent.press(getByText('Save'));
+    expect(nav.navigate).not.toHaveBeenCalled();
+    expect(flat(getByText('Paid to').props.style).color).toBe(c.error);
+    fireEvent.changeText(getByTestId('payee-input'), 'Zepto');
+    fireEvent.press(getByText('Save'));
+    expect(nav.navigate).not.toHaveBeenCalled();
+    expect((await services.db.entries.list()).some((e) => e.merchant === 'Zepto')).toBe(false);
+  });
+
+  it('opened for an entry, it is filled in and Save updates the same entry', async () => {
+    const r = await renderLive(<K5 />, mode, { id: 'e-blinkit' });
+    await waitFor(() => expect(r.getByTestId('payee-input').props.value).toBe('Blinkit'));
+    expect(r.getByTestId('amount-text').props.children).toBe('518');
+    fireEvent.press(r.getByTestId('amount'));
+    fireEvent.press(r.getByTestId('key-backspace'));
+    fireEvent.press(r.getByTestId('key-9'));
+    fireEvent.press(r.getByTestId('keypad-done'));
+    fireEvent.press(r.getByText('Save'));
+    await waitFor(async () => expect((await r.services.db.entries.get('e-blinkit'))?.amountPaise).toBe(51900));
+    const after = await r.services.db.entries.get('e-blinkit');
+    expect(after?.sources).toEqual([{ kind: 'shot' }]);
+    expect((await r.services.db.entries.list()).filter((e) => e.merchant === 'Blinkit')).toHaveLength(1);
+    expect(r.nav.goBack).toHaveBeenCalled();
+  });
+
+  it('close goes back', async () => {
+    const { getByTestId, nav } = await renderLive(<K5 />, mode);
     fireEvent.press(getByTestId('topbar-icon'));
     expect(nav.goBack).toHaveBeenCalled();
   });
@@ -204,8 +277,8 @@ describe.each(['light', 'dark'] as const)('k6 Date picker (%s)', (mode) => {
     const { getByTestId, nav } = renderScreen(<K6 onConfirm={onConfirm} />, mode);
     fireEvent.press(getByTestId('day-21'));
     fireEvent.press(getByTestId('ok'));
-    expect(nav.navigate).toHaveBeenCalledWith({ name: 'money/add', params: { date: '2026-10-21', time: '5:30 pm' }, merge: true });
-    expect(onConfirm.mock.calls[0][0].time).toBe('5:30 pm');
+    expect(nav.navigate).toHaveBeenCalledWith({ name: 'money/add', params: { date: '2026-10-21', time: '9:30 pm' }, merge: true });
+    expect(onConfirm.mock.calls[0][0].time).toBe('9:30 pm');
     expect(toIso(onConfirm.mock.calls[0][0].date)).toBe('2026-10-21');
     fireEvent.press(getByTestId('cancel'));
     expect(nav.goBack).toHaveBeenCalled();
@@ -234,13 +307,16 @@ describe.each(['light', 'dark'] as const)('k6 Date picker (%s)', (mode) => {
 describe('k5 reacts to params arriving after mount', () => {
   it('updates the date and time when k6 returns', () => {
     const nav = mockNav();
+    const services = createTestServices({ now: () => new Date(2026, 9, 24, 21, 30).getTime() });
     const wrap = (params?: Record<string, unknown>) => (
       <ThemeProvider mode="light">
-        <NavigationContext.Provider value={nav as never}>
-          <NavigationRouteContext.Provider value={{ key: 'k', name: 'k5', params } as never}>
-            <K5 />
-          </NavigationRouteContext.Provider>
-        </NavigationContext.Provider>
+        <AppServicesProvider services={services}>
+          <NavigationContext.Provider value={nav as never}>
+            <NavigationRouteContext.Provider value={{ key: 'k', name: 'k5', params } as never}>
+              <K5 />
+            </NavigationRouteContext.Provider>
+          </NavigationContext.Provider>
+        </AppServicesProvider>
       </ThemeProvider>
     );
     const { getByText, rerender } = render(wrap(undefined));

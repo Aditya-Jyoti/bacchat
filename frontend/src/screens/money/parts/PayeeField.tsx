@@ -31,6 +31,7 @@ export function PayeeField({
   onChange,
   onPick,
   error,
+  payees = PAYEES,
 }: {
   label: string;
   value: string;
@@ -38,11 +39,13 @@ export function PayeeField({
   /** A payee from history was chosen (its usual category comes along). */
   onPick: (p: Payee) => void;
   error?: boolean;
+  /** Past payees to suggest from (default: the design's sample list). */
+  payees?: readonly Payee[];
 }): React.JSX.Element {
   const { colors, typography, shapes, spacing } = useTheme();
   const [focused, setFocused] = useState(true);
-  const options = focused ? suggest(value) : [];
-  const exact = PAYEES.some((p) => p.name.toLowerCase() === value.trim().toLowerCase());
+  const options = focused ? suggest(value, 3, payees) : [];
+  const exact = payees.some((p) => p.name.toLowerCase() === value.trim().toLowerCase());
   const showNew = focused && value.trim().length > 0 && !exact;
   const open = options.length > 0 || showNew;
   return (

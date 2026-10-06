@@ -6,35 +6,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Glyph } from '../../components/Glyph';
 import { useTheme } from '../../theme';
 import { useGo } from '../useGo';
-import { ThinkingDots } from './ask/ThinkingDots';
+import { AssistantMessage } from './ask/AssistantMessage';
+import { useAsk } from './ask/useAsk';
 import { t } from '../../lib/i18n';
 
 const a = (key: string): string => t(`askUi.${key}`);
 
-/** Ask sheet copy, read through t() on each render. */
-function getCopy() {
-  return {
-    title: a('title'),
-    badge: a('badge'),
-    placeholder: a('placeholder'),
-    privacy: a('privacy'),
-    q1: a('q1'),
-    q2: a('q2'),
-    tools: [a('tool0'), a('tool1'), a('tool2')],
-    a1: [0, 1, 2, 3, 4, 5, 6, 7, 8].map((n) => a(`a${n}`)),
-    actions: [a('action0'), a('action1')],
-  };
-}
-/** Indexes of the amounts that are set in bold. */
-const BOLD_AT = new Set([3, 5]);
-
 export default function K18_Ask(): React.JSX.Element {
-  const copy = getCopy();
   const { colors, typography, shapes, spacing } = useTheme();
-  const { back } = useGo();
-  const [questions, setQuestions] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { go, back } = useGo();
+  const ask = useAsk();
   const [text, setText] = useState('');
+  const loading = ask.busy;
+  const noKey = ask.hasKey === false;
 
   // Swipe down on the grabber area dismisses the sheet.
   const pan = useMemo(
@@ -50,10 +34,9 @@ export default function K18_Ask(): React.JSX.Element {
 
   const send = () => {
     const q = text.trim();
-    if (!q) return;
-    setQuestions((l) => [...l, q]);
+    if (!q || ask.busy || noKey) return;
+    ask.send(q);
     setText('');
-    setLoading(true);
   };
 
   const bubble = {
@@ -82,68 +65,46 @@ export default function K18_Ask(): React.JSX.Element {
         <View style={{ paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Glyph name="auto_awesome" size={22} color={colors.primary} />
           <Text accessibilityRole="header" style={[typography.titleMedium, { flex: 1, fontSize: 20, color: colors.onSurface }]}>
-            {copy.title}
+            {a('title')}
           </Text>
           <View
             style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, backgroundColor: colors.surfaceContainerHigh }}
           >
             <Glyph name="key" size={14} color={colors.onSurfaceVariant} />
-            <Text style={[typography.labelSmall, { fontWeight: '600', color: colors.onSurfaceVariant }]}>{copy.badge}</Text>
+            <Text style={[typography.labelSmall, { fontWeight: '600', color: colors.onSurfaceVariant }]}>{a('badge')}</Text>
           </View>
         </View>
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, gap: 12 }}>
-          <View style={bubble}>
-            <Text style={bubbleText}>{copy.q1}</Text>
-          </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            {copy.tools.map((tool) => (
-              <View
-                key={tool}
-                testID="tool-chip"
-                style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: shapes.chip, borderWidth: 1, borderColor: colors.outlineVariant }}
+          {noKey ? (
+            <View testID="ask-nokey" style={{ gap: 10 }}>
+              <Text style={[typography.bodyMedium, { color: colors.onSurface, lineHeight: 22 }]}>{a('noKeyLine')}</Text>
+              <Pressable
+                testID="ask-open-settings"
+                accessibilityRole="button"
+                onPress={() => go('k24')}
+                style={{ alignSelf: 'flex-start', minHeight: 48, paddingHorizontal: 18, borderRadius: 24, backgroundColor: colors.primary, justifyContent: 'center' }}
               >
-                <Text style={[typography.labelSmall, { fontWeight: '400', color: colors.onSurfaceVariant }]}>{tool}</Text>
-              </View>
-            ))}
-          </View>
-          <Text style={[typography.bodyMedium, { color: colors.onSurface, lineHeight: 22 }]}>
-            {copy.a1.map((part, i) => (
-              <Text key={i} style={BOLD_AT.has(i) ? { fontFamily: typography.labelLarge.fontFamily, fontWeight: '600' } : undefined}>
-                {part}
-              </Text>
-            ))}
-          </Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => undefined}
-              style={{ height: 36, paddingHorizontal: 14, borderRadius: 18, backgroundColor: colors.primary, justifyContent: 'center' }}
-            >
-              <Text style={[typography.labelLarge, { fontSize: 13, color: colors.onPrimary }]}>{copy.actions[0]}</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => undefined}
-              style={{ height: 36, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1, borderColor: colors.outline, justifyContent: 'center' }}
-            >
-              <Text style={[typography.labelLarge, { fontSize: 13, color: colors.primary }]}>{copy.actions[1]}</Text>
-            </Pressable>
-          </View>
-          <View style={bubble}>
-            <Text style={bubbleText}>{copy.q2}</Text>
-          </View>
-          {questions.map((q, i) => (
-            <View key={`${q}-${i}`} style={bubble}>
-              <Text style={bubbleText}>{q}</Text>
+                <Text style={[typography.labelLarge, { color: colors.onPrimary }]}>{a('openSettings')}</Text>
+              </Pressable>
             </View>
-          ))}
-          {loading ? <ThinkingDots /> : null}
+          ) : ask.messages.length === 0 && ask.hasKey ? (
+            <Text testID="ask-intro" style={[typography.bodyMedium, { color: colors.onSurfaceVariant, lineHeight: 22 }]}>{a('intro')}</Text>
+          ) : null}
+          {ask.messages.map((m) =>
+            m.role === 'user' ? (
+              <View key={m.id} style={bubble}>
+                <Text style={bubbleText}>{m.text}</Text>
+              </View>
+            ) : (
+              <AssistantMessage key={m.id} message={m} />
+            ),
+          )}
         </ScrollView>
 
         <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
           <Glyph name="lock" size={13} color={colors.onSurfaceVariant} />
-          <Text style={[typography.labelSmall, { fontWeight: '400', color: colors.onSurfaceVariant }]}>{copy.privacy}</Text>
+          <Text style={[typography.labelSmall, { fontWeight: '400', color: colors.onSurfaceVariant }]}>{a('privacy')}</Text>
         </View>
         <View
           style={{
@@ -164,10 +125,11 @@ export default function K18_Ask(): React.JSX.Element {
             testID="ask-input"
             value={text}
             onChangeText={setText}
+            editable={!noKey}
             onSubmitEditing={send}
-            placeholder={copy.placeholder}
+            placeholder={a('placeholder')}
             placeholderTextColor={colors.onSurfaceVariant}
-            accessibilityLabel={copy.placeholder}
+            accessibilityLabel={a('placeholder')}
             style={[typography.bodyMedium, { flex: 1, color: colors.onSurface, paddingVertical: 12 }]}
           />
           <Pressable
@@ -182,7 +144,7 @@ export default function K18_Ask(): React.JSX.Element {
               testID="ask-stop"
               accessibilityRole="button"
               accessibilityLabel={a('stop')}
-              onPress={() => setLoading(false)}
+              onPress={ask.stop}
               style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center' }}
             >
               <Glyph name="stop" size={20} color={colors.onSurfaceVariant} />
@@ -192,7 +154,7 @@ export default function K18_Ask(): React.JSX.Element {
               testID="ask-send"
               accessibilityRole="button"
               accessibilityLabel={a('send')}
-              accessibilityState={{ disabled: !text.trim() }}
+              accessibilityState={{ disabled: !text.trim() || noKey }}
               onPress={send}
               style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: text.trim() ? colors.primary : colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center' }}
             >

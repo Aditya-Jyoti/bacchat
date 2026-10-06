@@ -1,5 +1,5 @@
 /** k24: Settings. Grouped M3 list: theme segmented, switches, chevrons, Delete all data behind a dialog. */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { Button, Dialog, Portal, SegmentedButtons, Switch } from 'react-native-paper';
 
@@ -10,6 +10,9 @@ import { useTheme } from '../../theme';
 import { AppBar } from './parts/AppBar';
 import { GroupCaption, YouRow } from './parts/YouRow';
 import { useKidNav } from './parts/useKidNav';
+import { AdvisorSection } from './settings/AdvisorSection';
+import { ServerSection } from './settings/ServerSection';
+import { useServices } from '../../services';
 
 type ThemeChoice = 'system' | 'light' | 'dark';
 type SwitchId = 'wallpaper' | 'sms' | 'email' | 'upi' | 'nudges' | 'reminders' | 'lock' | 'hide';
@@ -34,6 +37,11 @@ export default function K24_Settings(): React.JSX.Element {
     wallpaper: true, sms: true, email: true, upi: false, nudges: true, reminders: true, lock: true, hide: false,
   });
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const { settings } = useServices();
+  const [syncOn, setSyncOn] = useState(settings.isSyncEnabled());
+  useEffect(() => {
+    return settings.subscribe(() => setSyncOn(settings.isSyncEnabled()));
+  }, [settings]);
 
   const sw = (id: SwitchId) => {
     const row = SWITCHES[id];
@@ -89,12 +97,14 @@ export default function K24_Settings(): React.JSX.Element {
         testID="settings-row-backup"
         icon="cloud_sync"
         title={t('settingsUi.backupSync')}
-        subtitle={t('settingsUi.backupSub')}
+        subtitle={syncOn ? t('settingsUi.backupOn') : t('settingsUi.backupOff')}
         onPress={() => go('k25')}
       />
       <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant, paddingTop: 8 }]}>
         {`${t('privacy.onDevice')} ${t('settingsUi.smsChoice')}`}
       </Text>
+      <AdvisorSection />
+      <ServerSection />
       <GroupCaption>{t('settingsUi.data')}</GroupCaption>
       <YouRow icon="ios_share" title={t('settingsUi.export')} subtitle={t('settingsUi.exportSub')} onPress={() => undefined} />
       <YouRow icon="upload_file" title={t('settingsUi.import_')} subtitle={t('settingsUi.importSub')} onPress={() => undefined} />

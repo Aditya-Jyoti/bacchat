@@ -7,10 +7,12 @@ import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useTheme } from '../../theme';
-import { formatDateLong } from '../../lib/format';
+import { startOfDay } from '../../data/db/dates';
+import { formatDateLong, formatTime } from '../../lib/format';
+import { useNow } from '../../services';
 import { MonthGrid } from './date/MonthGrid';
 import { TimePanel, formatClock, parseClock, type Clock } from './date/TimePanel';
-import { MONTH_NAMES, SAMPLE_TODAY, addDays, fromIso, sameDay, toIso } from './parts/dates';
+import { MONTH_NAMES, addDays, fromIso, sameDay, toIso } from './parts/dates';
 import { useMoneyNav } from './parts/nav';
 import { S } from './parts/strings';
 import { FilterChip, Icon, PillButton, useSerif } from './parts/ui';
@@ -29,12 +31,13 @@ export default function K6_DatePicker(props: DatePickerProps = {}): React.JSX.El
   const { colors, typography, shapes, spacing } = useTheme();
   const serif = useSerif();
   const nav = useMoneyNav();
-  const today = props.today ?? SAMPLE_TODAY;
+  const now = useNow();
+  const today = props.today ?? new Date(startOfDay(now));
   const mode = props.mode ?? (nav.params.mode === 'time' ? 'time' : 'date');
   const start = props.initialDate ?? fromIso(nav.params.date) ?? today;
   const [sel, setSel] = useState(start);
   const [shown, setShown] = useState({ y: start.getFullYear(), m: start.getMonth() });
-  const [clock, setClock] = useState<Clock>(parseClock(props.initialTime ?? (typeof nav.params.time === 'string' ? nav.params.time : '5:30 pm')));
+  const [clock, setClock] = useState<Clock>(parseClock(props.initialTime ?? (typeof nav.params.time === 'string' ? nav.params.time : formatTime(now))));
 
   const pick = (d: Date): void => {
     setSel(d);

@@ -5,22 +5,34 @@ import { Pressable, Text, View } from 'react-native';
 import { Glyph } from '../../components/Glyph';
 import { ScreenScaffold } from '../../components/ScreenScaffold';
 import { SegmentedChoice } from '../../components/SegmentedChoice';
+import { SkeletonRows } from '../../components/SkeletonLoader';
 import { formatRupees } from '../../lib/format';
 import { useTheme } from '../../theme';
 import { useScreenNav } from '../shared/useScreenNav';
 import { GoalRow } from './sections/GoalRow';
-import { isReached, useGoals } from './goalsStore';
+import { isReached } from './goalTypes';
+import { dueInsight } from './sections/dueInsight';
+import { useGoalsData } from './useGoalsData';
 import { t } from '../../lib/i18n';
 
 export default function K12_Goals(): React.JSX.Element {
   const { colors, typography, shapes } = useTheme();
   const nav = useScreenNav();
-  const goals = useGoals((s) => s.goals);
+  const { goals, loading, spendAccounts, free, now } = useGoalsData();
   const [tab, setTab] = useState<'active' | 'done'>('active');
   const active = goals.filter((g) => !isReached(g));
   const done = goals.filter(isReached);
   const shown = tab === 'active' ? active : done;
   const total = active.reduce((a, g) => a + g.savedPaise, 0);
+  const insight = dueInsight(goals, spendAccounts, free, now);
+  const insightText = insight
+    ? t(insight.days <= 0 ? 'goalsUi.dueInsightToday' : insight.days === 1 ? 'goalsUi.dueInsightOne' : 'goalsUi.dueInsight', {
+        name: insight.name,
+        amount: formatRupees(insight.remainingPaise),
+        days: insight.days,
+        account: insight.account,
+      })
+    : null;
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
       <ScreenScaffold testID="screen-k12" contentStyle={{ paddingBottom: 96 }}>
@@ -51,11 +63,18 @@ export default function K12_Goals(): React.JSX.Element {
           />
         </View>
         <View style={{ marginTop: 6 }}>
-          {shown.map((g) => (
-            <GoalRow key={g.id} goal={g} onPress={() => nav.go('k13', { id: g.id })} />
-          ))}
+          {loading ? (
+            <SkeletonRows count={4} />
+          ) : (
+            shown.map((g) => <GoalRow key={g.id} goal={g} onPress={() => nav.go('k13', { id: g.id })} />)
+          )}
+          {!loading && shown.length === 0 ? (
+            <Text testID="goals-empty" style={[typography.bodyMedium, { color: colors.onSurfaceVariant, paddingVertical: 24 }]}>
+              {t('goalsUi.noGoals')}
+            </Text>
+          ) : null}
         </View>
-        {tab === 'active' ? (
+        {tab === 'active' && insightText ? (
           <View
             style={{
               marginTop: 14,
@@ -69,7 +88,7 @@ export default function K12_Goals(): React.JSX.Element {
           >
             <Glyph name="auto_awesome" size={18} color={colors.onTertiaryContainer} />
             <Text style={[typography.bodyMedium, { flex: 1, color: colors.onTertiaryContainer }]}>
-              {t('goalsUi.diwaliInsight', { amount: formatRupees(300000) })}
+              {insightText}
             </Text>
           </View>
         ) : null}

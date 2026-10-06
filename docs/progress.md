@@ -1,6 +1,6 @@
 # Progress
 
-Last updated: 2026-10-06 (all screens built on sample data; M7-M9 remain). Update with every meaningful change, together with worklog.md.
+Last updated: 2026-10-06 (all screens wired to local data, sync and advisor; M8 native modules and M9 polish remain). Update with every meaningful change, together with worklog.md.
 
 ## Milestones
 
@@ -27,7 +27,7 @@ flowchart LR
 - [x] M4 Money screens: k3, k4, k5, k6, k7, k8, k9, k19, k27, k28 and the reconcile lib
 - [x] M5 Goals and You screens: k12, k13, k14, k23, k10, k11, k15, k16, k17, k24
 - [x] M6 Backend and Docker: API from backend.md, SQLite storage, cap, tests, Dockerfile, compose
-- [x] M7 Sync client (library done and tested; screens not wired yet): Argon2id and XChaCha20-Poly1305, push and pull with baseVersion, k25, k26, k9 conflict reuse
+- [x] M7 Sync client (done and wired into k25, k26): Argon2id and XChaCha20-Poly1305, push and pull with baseVersion, k25, k26, k9 conflict reuse
 - [ ] M8 Native Android modules: SMS and notification reader, share intent, Material You dynamic colour, keystore and biometrics, launcher shortcut
 - [ ] M9 Polish and accessibility: TalkBack summaries, 200% font scale, reduce motion, contrast audit, empty states, illustrations
 

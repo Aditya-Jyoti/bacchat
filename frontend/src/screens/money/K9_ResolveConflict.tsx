@@ -6,8 +6,11 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { conflictOptions, type ConflictOption } from '../../data';
+import { conflictOptions, sourceIcon, sourceName, type ConflictOption } from '../../data';
+import { formatRupees, formatTime } from '../../lib/format';
+import { t } from '../../lib/i18n';
 import { useTheme } from '../../theme';
+import { useImportSession } from './parts/importSession';
 import { useMoneyNav } from './parts/nav';
 import { S, fmt } from './parts/strings';
 import { Icon, PillButton, useSerif } from './parts/ui';
@@ -40,12 +43,27 @@ export default function K9_ResolveConflict(): React.JSX.Element {
   const { colors, typography, shapes, spacing } = useTheme();
   const serif = useSerif();
   const nav = useMoneyNav();
+  const session = useImportSession();
+  // The conflict k8 opened: the saved entry and the screenshot row. Without a session it shows the design's Amazon example.
+  const item = session.plan && session.active !== null ? session.plan.plan.items[session.active] : null;
+  const saved = item?.againstId ? session.plan?.against[item.againstId] : undefined;
+  const live = item && saved ? { item, saved } : null;
+  const merchant = live ? live.item.row.merchant : 'Amazon';
+  const savedAmount = live ? formatRupees(live.saved.amountPaise) : '\u20B91,299';
+  const shotAmount = live ? formatRupees(live.item.row.amountPaise) : '\u20B91,249';
+  const savedKind = live ? (live.saved.sources[0]?.kind ?? 'hand') : 'mail';
+  const gap = live ? Math.abs(live.saved.amountPaise - live.item.row.amountPaise) : 5000;
+  const minutes = live ? Math.round(Math.abs(live.saved.at - live.item.row.at) / 60000) : 1;
+  const useLabel: Record<Choice, string> = { ...USE_LABEL, mail: live ? `${sourceName[savedKind].toLowerCase()} amount` : USE_LABEL.mail };
+  const titleOf = (o: ConflictOption): string =>
+    !live ? o.title : o.id === 'shot' ? fmt(t('moneyLive.keepShot'), { amount: shotAmount }) : o.id === 'mail' ? fmt(t('moneyLive.keepSaved'), { amount: savedAmount, source: sourceName[savedKind] }) : o.title;
   const initial = conflictOptions.find((o) => o.id === nav.params.choice)?.id ?? 'shot';
   const [choice, setChoice] = useState<Choice>(initial);
   const [trust, setTrust] = useState(true);
   const [resolved, setResolved] = useState(false);
   const use = (): void => {
     setResolved(true);
+    if (session.active !== null) session.resolve(session.active, choice, trust && choice === 'shot');
     nav.returnTo('k8', { conflict: choice, trust: trust && choice !== 'both' });
   };
   return (
@@ -57,11 +75,25 @@ export default function K9_ResolveConflict(): React.JSX.Element {
       >
         <View style={{ width: 32, height: 4, borderRadius: 2, backgroundColor: colors.outline, alignSelf: 'center', marginTop: spacing.md }} />
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.screenMargin, paddingTop: spacing.lg, paddingBottom: spacing.sm }}>
-          <Text accessibilityRole="header" style={[serif(22), { color: colors.onSurface }]}>{S.conflictTitle}</Text>
-          <Text style={[typography.bodyMedium, { color: colors.onSurfaceVariant, marginTop: 4 }]}>{S.conflictSub}</Text>
+          <Text accessibilityRole="header" style={[serif(22), { color: colors.onSurface }]}>{live ? fmt(t('moneyLive.conflictTitleFor'), { name: merchant }) : S.conflictTitle}</Text>
+          <Text style={[typography.bodyMedium, { color: colors.onSurfaceVariant, marginTop: 4 }]}>
+            {live ? fmt(t('moneyLive.conflictSubLive'), { amount: formatRupees(gap), minutes }) : S.conflictSub}
+          </Text>
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-            <Evidence icon="mail" source="Email" amount={'\u20B91,299'} time="3:11 pm" raw={S.emailEvidence} />
-            <Evidence icon="screenshot_region" source="Screenshot" amount={'\u20B91,249'} time="3:12 pm" raw={S.shotEvidence} />
+            <Evidence
+              icon={live ? sourceIcon[savedKind] : 'mail'}
+              source={live ? sourceName[savedKind] : 'Email'}
+              amount={savedAmount}
+              time={live ? formatTime(live.saved.at) : '3:11 pm'}
+              raw={live ? live.saved.merchant : S.emailEvidence}
+            />
+            <Evidence
+              icon="screenshot_region"
+              source="Screenshot"
+              amount={shotAmount}
+              time={live ? (live.item.row.timeKnown ? formatTime(live.item.row.at) : '') : '3:12 pm'}
+              raw={live ? live.item.row.lines.join(' ') : S.shotEvidence}
+            />
           </View>
           <View accessibilityRole="radiogroup" style={{ gap: spacing.sm, marginTop: 14 }}>
             {conflictOptions.map((o) => {
@@ -72,7 +104,7 @@ export default function K9_ResolveConflict(): React.JSX.Element {
                   testID={`option-${o.id}`}
                   accessibilityRole="radio"
                   accessibilityState={{ checked: on }}
-                  accessibilityLabel={`${o.title}. ${o.subtitle}`}
+                  accessibilityLabel={`${titleOf(o)}. ${o.subtitle}`}
                   onPress={() => setChoice(o.id)}
                   style={{
                     flexDirection: 'row',
@@ -91,7 +123,7 @@ export default function K9_ResolveConflict(): React.JSX.Element {
                     <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: on ? colors.primary : 'transparent' }} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[typography.labelLarge, { color: colors.onSurface }]}>{o.title}</Text>
+                    <Text style={[typography.labelLarge, { color: colors.onSurface }]}>{titleOf(o)}</Text>
                     <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{o.subtitle}</Text>
                   </View>
                 </Pressable>
@@ -108,14 +140,14 @@ export default function K9_ResolveConflict(): React.JSX.Element {
             <View style={{ width: 20, height: 20, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: trust ? colors.primary : 'transparent', borderWidth: trust ? 0 : 2, borderColor: colors.outline }}>
               {trust ? <Icon name="check" size={16} color={colors.onPrimary} /> : null}
             </View>
-            <Text style={[typography.bodyMedium, { color: colors.onSurface, flex: 1 }]}>{S.trustRule}</Text>
+            <Text style={[typography.bodyMedium, { color: colors.onSurface, flex: 1 }]}>{live ? fmt(t('moneyLive.trustRuleFor'), { name: merchant }) : S.trustRule}</Text>
           </Pressable>
         </ScrollView>
         <View style={{ paddingHorizontal: spacing.screenMargin, paddingTop: spacing.md, paddingBottom: spacing.xl }}>
           {resolved ? (
-            <PillButton testID="use-button" label={fmt(S.sorted, { label: USE_LABEL[choice] })} kind="container" icon="check_circle" height={52} style={{ width: '100%' }} />
+            <PillButton testID="use-button" label={fmt(S.sorted, { label: useLabel[choice] })} kind="container" icon="check_circle" height={52} style={{ width: '100%' }} />
           ) : (
-            <PillButton testID="use-button" label={fmt(S.use, { label: USE_LABEL[choice] })} height={52} onPress={use} style={{ width: '100%' }} />
+            <PillButton testID="use-button" label={fmt(S.use, { label: useLabel[choice] })} height={52} onPress={use} style={{ width: '100%' }} />
           )}
         </View>
       </View>

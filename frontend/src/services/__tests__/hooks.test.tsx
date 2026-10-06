@@ -147,7 +147,7 @@ describe('derived-query hooks on the seeded sample', () => {
     const up = await loaded(renderHook(() => useUpcoming(45), { wrapper }).result);
     expect(up.length).toBeGreaterThan(0);
     const upi = await loaded(renderHook(() => useUpiFlows(), { wrapper }).result);
-    expect(upi).toHaveLength(2);
+    expect(upi).toHaveLength(3);
   });
 
   it('accounts and debts (with names)', async () => {

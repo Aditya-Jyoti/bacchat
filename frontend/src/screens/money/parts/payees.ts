@@ -23,10 +23,10 @@ export function timesText(n: number): string {
 }
 
 /** Up to `limit` payees whose name contains the query (prefix matches first). */
-export function suggest(query: string, limit = 3): Payee[] {
+export function suggest<P extends Payee = Payee>(query: string, limit = 3, pool: readonly P[] = PAYEES as readonly P[]): P[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
-  const starts = PAYEES.filter((p) => p.name.toLowerCase().startsWith(q));
-  const has = PAYEES.filter((p) => !p.name.toLowerCase().startsWith(q) && p.name.toLowerCase().includes(q));
+  const starts = pool.filter((p) => p.name.toLowerCase().startsWith(q));
+  const has = pool.filter((p) => !p.name.toLowerCase().startsWith(q) && p.name.toLowerCase().includes(q));
   return [...starts, ...has].slice(0, limit);
 }

@@ -1,12 +1,15 @@
-/** k19: Search. Active bar with the cursor, filter chips (month, amount, source), results with a running total, recent searches. */
-import React, { useState } from 'react';
+/** k19: Search. Active bar with the cursor, filter chips (month, amount, source), results with a running total, recent searches. Searches the local entries. */
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { formatRupees } from '../../lib/format';
+import { t } from '../../lib/i18n';
+import { useEntries, useNow, useWriters } from '../../services';
 import { useTheme } from '../../theme';
 import { EntryRow } from './parts/EntryRow';
+import { EMPTY_LOOKUPS, monthWindow, rowFor, shortDayLabel, viaLabel, useLookups } from './parts/live';
 import { useMoneyNav } from './parts/nav';
-import { AMOUNT_RANGES, SOURCE_FILTERS, recentSearches, runSearch } from './parts/searchData';
+import { AMOUNT_RANGES, SOURCE_FILTERS, loadRecent, matchesQuery, pushRecent } from './parts/searchData';
 import { S, fmt } from './parts/strings';
 import { FilterChip, Icon, ScreenFrame, useSerif } from './parts/ui';
 
@@ -16,12 +19,40 @@ export default function K19_Search(): React.JSX.Element {
   const { colors, typography, spacing } = useTheme();
   const serif = useSerif();
   const nav = useMoneyNav();
-  const [query, setQuery] = useState('swiggy');
+  const db = useWriters();
+  const now = useNow();
+  const [query, setQuery] = useState('');
+  const [allTime, setAllTime] = useState(false);
+  const [recent, setRecent] = useState<string[]>([]);
+  useEffect(() => {
+    let live = true;
+    void loadRecent(db).then((r) => live && setRecent(r));
+    return () => {
+      live = false;
+    };
+  }, [db]);
   const [range, setRange] = useState(AMOUNT_RANGES[0]);
   const [source, setSource] = useState(SOURCE_FILTERS[0]);
   const [open, setOpen] = useState<Open>(null);
-  const results = runSearch(query, range, source.id);
-  const total = results.reduce((s, r) => s + (r.income ? 0 : Math.abs(r.amount.paise)), 0);
+  const win = monthWindow(now, 0);
+  const lookups = useLookups();
+  const lk = lookups.data ?? EMPTY_LOOKUPS;
+  const all = useEntries({
+    range: allTime ? undefined : { fromMs: win.fromMs, toMs: win.toMs },
+    filter: {
+      minPaise: range.min > 0 ? range.min : undefined,
+      maxPaise: range.max < Number.MAX_SAFE_INTEGER ? range.max : undefined,
+      source: source.id === 'all' ? undefined : source.id,
+    },
+  });
+  const results = useMemo(
+    () => (query.trim() ? (all.data ?? []).filter((e) => matchesQuery(e, query, lk)) : []),
+    [all.data, query, lk],
+  );
+  const total = results.reduce((s, e) => s + (e.direction === 'in' ? 0 : e.amountPaise), 0);
+  const submit = (): void => {
+    if (query.trim()) void pushRecent(db, query).then(setRecent);
+  };
   const toggle = (o: Exclude<Open, null>): void => setOpen((cur) => (cur === o ? null : o));
   return (
     <ScreenFrame testID="screen-k19">
@@ -37,6 +68,7 @@ export default function K19_Search(): React.JSX.Element {
             onChangeText={setQuery}
             autoFocus
             returnKeyType="search"
+            onSubmitEditing={submit}
             placeholder={S.searchEntries}
             placeholderTextColor={colors.onSurfaceVariant}
             selectionColor={colors.primary}
@@ -51,7 +83,7 @@ export default function K19_Search(): React.JSX.Element {
       </View>
       <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.screenMargin, paddingBottom: spacing.xxl }} keyboardShouldPersistTaps="handled">
         <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md }}>
-          <FilterChip testID="chip-month" label={S.month} icon="calendar_month" selected={false} />
+          <FilterChip testID="chip-month" label={allTime ? t('moneyLive.allTime') : win.name} icon="calendar_month" selected={allTime} onPress={() => setAllTime((v) => !v)} />
           <FilterChip testID="chip-amount" label={range.label} selected={range.id !== 'any'} trailingIcon="arrow_drop_down" onPress={() => toggle('amount')} />
           <FilterChip testID="chip-source" label={source.label} selected={source.id !== 'all'} trailingIcon="arrow_drop_down" onPress={() => toggle('source')} />
         </View>
@@ -73,19 +105,11 @@ export default function K19_Search(): React.JSX.Element {
         {results.length === 0 && query.trim() ? (
           <Text testID="search-empty" style={[typography.bodyMedium, { color: colors.onSurfaceVariant, paddingVertical: spacing.lg }]}>{S.noEntries}</Text>
         ) : null}
-        {results.map((r, i) => (
-          <EntryRow
-            key={`${r.name}-${r.when}-${i}`}
-            name={r.name}
-            icon={r.icon}
-            sub={`${r.when} \u00B7 ${r.via}`}
-            amountPaise={r.amount.paise}
-            income={r.income}
-            source={r.source}
-          />
+        {results.map((e) => (
+          <EntryRow key={e.id} {...rowFor(e, lk, { sub: `${shortDayLabel(e.at, now)} \u00B7 ${viaLabel(e, lk)}` })} />
         ))}
-        <Text style={[typography.labelMedium, { color: colors.onSurfaceVariant, letterSpacing: 0.4, marginTop: 18, marginBottom: spacing.sm }]}>{S.recent}</Text>
-        {recentSearches.map((r) => (
+        {recent.length > 0 ? <Text style={[typography.labelMedium, { color: colors.onSurfaceVariant, letterSpacing: 0.4, marginTop: 18, marginBottom: spacing.sm }]}>{S.recent}</Text> : null}
+        {recent.map((r) => (
           <Pressable key={r} testID={`recent-${r}`} accessibilityRole="button" accessibilityLabel={r} onPress={() => setQuery(r)} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 48 }}>
             <Icon name="history" size={20} color={colors.onSurfaceVariant} />
             <Text style={[typography.bodyMedium, { flex: 1, color: colors.onSurface }]}>{r}</Text>

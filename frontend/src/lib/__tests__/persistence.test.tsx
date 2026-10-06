@@ -1,6 +1,6 @@
 import { useHomeConfig, defaultHomeConfig } from '../../data';
 import { useMoneySegment } from '../../navigation/moneySegment';
-import { useGoals, initialGoals } from '../../screens/goals/goalsStore';
+import { useGoalPlans } from '../../screens/goals/goalPlanStore';
 import { useFirstRun } from '../../screens/start/firstRun';
 import { useBudget } from '../../screens/you/budgetStore';
 import React from 'react';
@@ -30,7 +30,7 @@ async function roundTrip(mutate: () => void, wipe: () => void) {
 beforeEach(async () => {
   setStorage(createMemoryStorage());
   useHomeConfig.getState().reset();
-  useGoals.getState().reset();
+  useGoalPlans.getState().reset();
   useBudget.getState().reset();
   useFirstRun.setState({ seen: false });
   useMoneySegment.setState({ last: 'summary' });
@@ -83,23 +83,20 @@ describe('persisted stores round-trip', () => {
     expect(useMoneySegment.getState().last).toBe('entries');
   });
 
-  it('goals', async () => {
-    let id = '';
+  it('goal plans', async () => {
     await roundTrip(
-      () => {
-        id = useGoals.getState().addGoal({ name: 'Bike', icon: 'flag', savedPaise: 0, targetPaise: 5000000, by: 'Dec', allocations: [] });
-      },
-      () => useGoals.setState({ goals: initialGoals() }),
+      () => useGoalPlans.getState().setMonthly('goal-bike', 250000),
+      () => useGoalPlans.getState().reset(),
     );
-    expect(useGoals.getState().goals[0]).toMatchObject({ id, name: 'Bike' });
+    expect(useGoalPlans.getState().monthly['goal-bike']).toBe(250000);
   });
 
   it('budget', async () => {
     await roundTrip(
-      () => useBudget.getState().save({ totalPaise: 123400, limits: { Food: 5000 }, nudge: '80', rollover: false }),
+      () => useBudget.getState().save({ totalPaise: 123400, nudge: '80', rollover: false }),
       () => useBudget.getState().reset(),
     );
-    expect(useBudget.getState()).toMatchObject({ totalPaise: 123400, limits: { Food: 5000 }, nudge: '80', rollover: false });
+    expect(useBudget.getState()).toMatchObject({ totalPaise: 123400, nudge: '80', rollover: false });
   });
 
   it('theme and language preference', async () => {

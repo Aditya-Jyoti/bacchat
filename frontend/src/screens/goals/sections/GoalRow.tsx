@@ -5,13 +5,13 @@ import { CategoryIcon } from '../../../components/CategoryIcon';
 import { SegmentedProgress } from '../../../components/SegmentedProgress';
 import { formatRupees } from '../../../lib/format';
 import { useTheme } from '../../../theme';
-import type { GoalState } from '../goalsStore';
+import type { GoalView } from '../goalTypes';
 import { t } from '../../../lib/i18n';
 
-export const pctOf = (g: GoalState): number => Math.min(100, Math.round((g.savedPaise / g.targetPaise) * 100));
+export const pctOf = (g: GoalView): number => (g.targetPaise > 0 ? Math.min(100, Math.round((g.savedPaise / g.targetPaise) * 100)) : 0);
 
 /** One goal on the list: 48dp icon circle, name and percent, bar, "saved of target" and the by text. */
-export function GoalRow({ goal, onPress }: { goal: GoalState; onPress: () => void }): React.JSX.Element {
+export function GoalRow({ goal, onPress }: { goal: GoalView; onPress: () => void }): React.JSX.Element {
   const { colors, typography } = useTheme();
   const pct = pctOf(goal);
   const saved = formatRupees(goal.savedPaise);

@@ -1,58 +1,98 @@
 /**
- * k28: Select mode. Contextual app bar with the count and a running total, bulk actions, and
- * swipe actions (swipe right to confirm an AI entry, left to delete with an undo snackbar).
+ * k28: Select mode. Contextual app bar with the count and a running total, bulk actions (change
+ * category, delete with undo), and swipe actions (swipe right to confirm an AI entry, left to
+ * delete with an undo snackbar). Route params: ids (entry ids to start selected) or name.
+ * Works on the entries of one day, newest day by default.
  */
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { Amount } from '../../components/Amount';
 import { CategoryIcon } from '../../components/CategoryIcon';
 import { SwipeRow } from '../../components/SwipeRow';
-import { entryDays } from '../../data';
+import type { Entry } from '../../data/db';
+import { dateKey } from '../../data/db/dates';
 import { formatRupees } from '../../lib/format';
+import { useDbQuery, useWriters } from '../../services';
 import { useTheme } from '../../theme';
+import { CategoryChoices } from './parts/CategoryChoices';
 import { EntryRow } from './parts/EntryRow';
+import { Snackbar } from './parts/Snackbar';
+import { EMPTY_LOOKUPS, categoryName, dayHeading, groupByDay, rowFor, useLookups } from './parts/live';
 import { useMoneyNav } from './parts/nav';
 import { S, fmt } from './parts/strings';
 import { Icon, ScreenFrame } from './parts/ui';
 
-const today = entryDays[0];
-const LIST = [today.items[0], today.items[1], today.items[2], today.items[3]];
-const PRESELECTED = new Set(['Blinkit', 'Medplus', 'Third Wave Coffee']);
+type Removed = { entries: Entry[]; label: string };
 
-type Removed = { names: string[]; label: string };
+/** Entries sharing merchant, amount and day with an earlier one: likely the same payment twice. */
+export function isLikelyDuplicate(e: Entry, others: readonly Entry[]): boolean {
+  return others.some((o) => o.id !== e.id && o.merchant === e.merchant && o.amountPaise === e.amountPaise && dateKey(o.at) === dateKey(e.at) && o.at <= e.at);
+}
 
 export default function K28_SelectMode(): React.JSX.Element {
-  const { colors, typography, spacing, shapes } = useTheme();
+  const { colors, typography, spacing } = useTheme();
   const nav = useMoneyNav();
-  const [selected, setSelected] = useState<Set<string>>(() => {
-    const first = typeof nav.params.name === 'string' ? nav.params.name : null;
-    return first && !PRESELECTED.has(first) ? new Set([first]) : new Set(PRESELECTED);
-  });
-  const [gone, setGone] = useState<string[]>([]);
-  const [confirmed, setConfirmed] = useState(false);
+  const db = useWriters();
+  const lookups = useLookups();
+  const lk = lookups.data ?? EMPTY_LOOKUPS;
+  const startIds = Array.isArray(nav.params.ids) ? (nav.params.ids as unknown[]).filter((x): x is string => typeof x === 'string') : [];
+  const startName = typeof nav.params.name === 'string' ? nav.params.name : null;
+  const day = useDbQuery(
+    async (d, now) => {
+      const all = await d.entries.between(0, Number.MAX_SAFE_INTEGER);
+      const first = startIds.length ? all.find((e) => e.id === startIds[0]) : startName ? all.find((e) => e.merchant === startName) : undefined;
+      const key = dateKey((first ?? all[0])?.at ?? now);
+      const entries = all.filter((e) => dateKey(e.at) === key);
+      return { entries, now };
+    },
+    [startIds.join(','), startName],
+  );
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(startIds));
+  const [named, setNamed] = useState(false);
+  // A name param selects the newest entry with that merchant once the day has loaded.
+  if (!named && day.data) {
+    setNamed(true);
+    if (startIds.length === 0 && startName) {
+      const hit = day.data.entries.find((e) => e.merchant === startName);
+      if (hit) setSelected(new Set([hit.id]));
+    }
+  }
+  const [picking, setPicking] = useState(false);
   const [snack, setSnack] = useState<Removed | null>(null);
-
-  const visible = LIST.filter((e) => !gone.includes(e.name));
-  const chosen = visible.filter((e) => selected.has(e.name));
-  const total = chosen.reduce((s, e) => s + e.amount.paise, 0);
-  const toggle = (name: string): void =>
+  const list = day.data?.entries ?? [];
+  const group = useMemo(() => (day.data ? groupByDay(day.data.entries, day.data.now)[0] : null), [day.data]);
+  const chosen = list.filter((e) => selected.has(e.id));
+  const total = chosen.reduce((s, e) => s + (e.direction === 'out' ? e.amountPaise : 0), 0);
+  const cats = useMemo(() => [...lk.cats.values()].sort((a, b) => a.name.localeCompare(b.name)), [lk]);
+  const toggle = (id: string): void =>
     setSelected((cur) => {
       const next = new Set(cur);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
-  const remove = (names: string[], label: string): void => {
-    setGone((g) => [...g, ...names]);
-    setSnack({ names, label });
+  const remove = (entries: Entry[], label: string): void => {
+    void Promise.all(entries.map((e) => db.entries.remove(e.id)));
+    setSelected((cur) => new Set([...cur].filter((id) => !entries.some((e) => e.id === id))));
+    setSnack({ entries, label });
+  };
+  const undo = (): void => {
+    if (!snack) return;
+    void Promise.all(snack.entries.map((e) => db.entries.put(e)));
+    setSnack(null);
+  };
+  const recategorise = (categoryId: string): void => {
+    void Promise.all(chosen.map((e) => db.entries.put({ ...e, categoryId }).then(() => db.merchants.record(e.merchant, categoryId, e.amountPaise, e.at))));
+    setPicking(false);
   };
   const bulk = (icon: string, label: string, onPress: () => void): React.JSX.Element => (
     <Pressable key={icon} testID={`bulk-${icon}`} accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}>
       <Icon name={icon} size={22} color={colors.onSecondaryContainer} />
     </Pressable>
   );
-  const swipeRemoved = gone.includes('Chai Point');
+  const reviewEntry = list.find((e) => e.status === 'toReview');
+  const swipeDelete = list.find((e) => e.id !== reviewEntry?.id);
   return (
     <ScreenFrame testID="screen-k28">
       <View style={{ height: 64, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingLeft: 4, paddingRight: spacing.sm, backgroundColor: colors.secondaryContainer }}>
@@ -65,72 +105,66 @@ export default function K28_SelectMode(): React.JSX.Element {
           </Text>
           <Text testID="selected-total" style={[typography.bodySmall, { color: colors.onSecondaryContainer }]}>{fmt(S.total, { amount: formatRupees(total) })}</Text>
         </View>
-        {bulk('category', S.changeCategory, () => undefined)}
+        {bulk('category', S.changeCategory, () => chosen.length > 0 && setPicking((p) => !p))}
         {bulk('call_split', S.splitWithFriends, () => undefined)}
-        {bulk('delete', S.delete, () => chosen.length && remove(chosen.map((e) => e.name), fmt(S.deletedMany, { n: chosen.length })))}
+        {bulk('delete', S.delete, () => chosen.length > 0 && remove(chosen, fmt(S.deletedMany, { n: chosen.length })))}
       </View>
       <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.screenMargin, paddingBottom: spacing.xxl }}>
-        <Text style={[typography.labelMedium, { color: colors.onSurfaceVariant, marginTop: spacing.md, marginBottom: 2 }]}>{`${today.day} \u00B7 ${today.date}`}</Text>
-        {visible.map((e) => (
+        {group ? <Text style={[typography.labelMedium, { color: colors.onSurfaceVariant, marginTop: spacing.md, marginBottom: 2 }]}>{dayHeading(group)}</Text> : null}
+        {picking ? (
+          <View style={{ marginTop: spacing.sm }}>
+            <CategoryChoices categories={cats} onPick={(c) => recategorise(c.id)} />
+          </View>
+        ) : null}
+        {list.map((e) => (
           <EntryRow
-            key={e.name}
-            testID={`row-${e.name}`}
-            name={e.name}
-            icon={e.icon}
-            sub={e.category}
-            amountPaise={e.amount.paise}
-            selected={selected.has(e.name)}
-            onPress={() => toggle(e.name)}
+            key={e.id}
+            testID={`row-${e.merchant}`}
+            name={e.merchant}
+            icon={rowFor(e, lk).icon}
+            sub={categoryName(e, lk)}
+            amountPaise={e.amountPaise}
+            income={e.direction === 'in'}
+            selected={selected.has(e.id)}
+            onPress={() => toggle(e.id)}
           />
         ))}
-        <Text style={[typography.labelMedium, { color: colors.onSurfaceVariant, marginTop: 22, marginBottom: spacing.sm }]}>{S.swipeActions}</Text>
-        <SwipeRow
-          testID="swipe-confirm"
-          accessibilityLabel={`Swiggy, ${S.fromSms}${confirmed ? ', confirmed' : ''}`}
-          peek={132}
-          rightSwipe={{ label: S.looksRight, icon: 'check_circle', onTrigger: () => setConfirmed(true) }}
-        >
-          <CategoryIcon name="restaurant" />
-          <View style={{ flex: 1 }}>
-            <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>Swiggy</Text>
-            <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{confirmed ? S.looksRight : S.fromSms}</Text>
-          </View>
-          {confirmed ? <Icon name="check_circle" size={20} color={colors.primary} /> : null}
-        </SwipeRow>
-        {swipeRemoved ? null : (
+        {reviewEntry || swipeDelete ? (
+          <Text style={[typography.labelMedium, { color: colors.onSurfaceVariant, marginTop: 22, marginBottom: spacing.sm }]}>{S.swipeActions}</Text>
+        ) : null}
+        {reviewEntry ? (
+          <SwipeRow
+            testID="swipe-confirm"
+            accessibilityLabel={`${reviewEntry.merchant}, ${S.fromSms}`}
+            peek={132}
+            rightSwipe={{ label: S.looksRight, icon: 'check_circle', onTrigger: () => void db.entries.confirm(reviewEntry.id) }}
+          >
+            <CategoryIcon name={rowFor(reviewEntry, lk).icon} />
+            <View style={{ flex: 1 }}>
+              <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>{reviewEntry.merchant}</Text>
+              <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{S.fromSms}</Text>
+            </View>
+          </SwipeRow>
+        ) : null}
+        {swipeDelete ? (
           <View style={{ marginTop: 10 }}>
             <SwipeRow
               testID="swipe-delete"
-              accessibilityLabel={`Chai Point, ${S.duplicate}`}
+              accessibilityLabel={`${swipeDelete.merchant}, ${isLikelyDuplicate(swipeDelete, list) ? S.duplicate : categoryName(swipeDelete, lk)}`}
               peek={-110}
-              leftSwipe={{ label: S.delete, icon: 'delete', destructive: true, onTrigger: () => remove(['Chai Point'], fmt(S.deleted, { name: 'Chai Point' })) }}
+              leftSwipe={{ label: S.delete, icon: 'delete', destructive: true, onTrigger: () => remove([swipeDelete], fmt(S.deleted, { name: swipeDelete.merchant })) }}
             >
-              <CategoryIcon name="local_cafe" />
+              <CategoryIcon name={rowFor(swipeDelete, lk).icon} />
               <View style={{ flex: 1 }}>
-                <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>Chai Point</Text>
-                <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{S.duplicate}</Text>
+                <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>{swipeDelete.merchant}</Text>
+                <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{isLikelyDuplicate(swipeDelete, list) ? S.duplicate : categoryName(swipeDelete, lk)}</Text>
               </View>
-              <Amount paise={4000} />
+              <Amount paise={swipeDelete.amountPaise} />
             </SwipeRow>
           </View>
-        )}
+        ) : null}
       </ScrollView>
-      {snack ? (
-        <View testID="snackbar" accessibilityLiveRegion="polite" style={{ marginHorizontal: spacing.lg, marginBottom: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, minHeight: 48, borderRadius: shapes.field, backgroundColor: colors.inverseSurface }}>
-          <Text style={[typography.bodyMedium, { flex: 1, color: colors.inverseOnSurface }]}>{snack.label}</Text>
-          <Pressable
-            testID="undo"
-            accessibilityRole="button"
-            onPress={() => {
-              setGone((g) => g.filter((n) => !snack.names.includes(n)));
-              setSnack(null);
-            }}
-            style={{ minHeight: 48, justifyContent: 'center' }}
-          >
-            <Text style={[typography.labelLarge, { color: colors.primaryContainer, fontWeight: '700' }]}>{S.undo}</Text>
-          </Pressable>
-        </View>
-      ) : null}
+      {snack ? <Snackbar label={snack.label} onUndo={undo} /> : null}
     </ScreenFrame>
   );
 }

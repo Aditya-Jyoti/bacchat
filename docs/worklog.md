@@ -53,6 +53,16 @@ Append-only. Newest entries go at the bottom, above the template. Do not edit pa
 - Docs updated: decisions.md 15, progress.md.
 - Follow-ups: swap src/services/sodium.ts for react-native-libsodium before a release build; enable SQLCipher in app.json; wire screens to the hooks.
 
+## 2026-10-06 (screens wired to live data)
+
+- App services (db provider, query hooks, sync and advisor factories) added; App.tsx gates on them.
+- Home, Money, Goals, You, Ask, Settings and Sync screens now read and write the local database; the screenshot import flow (k7-k9) runs end to end with an injectable OCR engine (stub by default).
+- Ask streams real answers from the user's own key; Sync screens drive the real engine; conflicts render in the k9 pattern.
+- Seed reworked to reproduce the design's category spend, deltas, budgets, goals (4 active, 2 done), UPI ingress, cash flow May-Sep and profile counts (1,284 entries, 9 recurring).
+- Known seed gaps (the design data contradicts itself): October cash-flow out is 31,240 not 74,000; UPI outflow totals are sized to the By method row; daily series scaled to fit the 31,240 month total.
+- Tests: frontend 1045 pass in 59 suites, backend 37 pass; typecheck and lint clean.
+- Open: real OCR engine, Material You module, SMS and share-intent native modules, SQLCipher enablement, Google Drive and WebDAV/S3 sync targets, real Bacchat Cloud address, account balances do not follow entries.
+
 ---
 
 ## Template

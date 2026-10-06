@@ -96,7 +96,7 @@ describe('tool loop', () => {
     expect(second[2].role).toBe('user');
     expect(second[2].content[0]).toMatchObject({ type: 'tool_result', tool_use_id: 'tu1' });
     const payload = JSON.parse(second[2].content[0].content);
-    expect(payload.goals.length).toBe(4);
+    expect(payload.goals.length).toBe(6);
     expect(payload.goals[0]).toMatchObject({ name: 'Goa with friends', targetRupees: 60000, savedRupees: 38000, percent: 63 });
   });
 
@@ -180,8 +180,8 @@ describe('tool outputs', () => {
 
   it('goals', async () => {
     const v = await val('goals');
-    expect(v.count).toBe(4);
-    expect(v.totalSavedRupees).toBe(38000 + 240000 + 9000 + 22500);
+    expect(v.count).toBe(6);
+    expect(v.totalSavedRupees).toBe(38000 + 240000 + 9000 + 22500 + 24000 + 18000);
   });
 
   it('card_dues anonymises cards and orders by due date', async () => {

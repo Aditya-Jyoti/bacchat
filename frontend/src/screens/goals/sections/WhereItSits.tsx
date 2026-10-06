@@ -6,7 +6,7 @@ import { SectionHeader } from '../../../components/SectionHeader';
 import { colorKeyToRole } from '../../../data';
 import { formatRupees } from '../../../lib/format';
 import { useTheme } from '../../../theme';
-import type { GoalAlloc } from '../goalsStore';
+import type { GoalAlloc } from '../goalTypes';
 import { t } from '../../../lib/i18n';
 
 export type WhereItSitsProps = { allocations: readonly GoalAlloc[]; onEdit: () => void };
@@ -20,7 +20,7 @@ export function WhereItSits({ allocations, onEdit }: WhereItSitsProps): React.JS
       <SectionHeader title={t('goalsUi.whereItSits')} action={t('goalsUi.edit')} onAction={onEdit} />
       {allocations.map((a) => (
         <View
-          key={a.from}
+          key={a.accountId}
           testID={`alloc-row-${a.from}`}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: colors.outlineVariant }}
         >

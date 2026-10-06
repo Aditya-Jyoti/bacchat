@@ -7,12 +7,15 @@ import { OutlinedField } from '../../components/OutlinedField';
 import { SegmentedChoice } from '../../components/SegmentedChoice';
 import { StackScreen } from '../../components/StackScreen';
 import { TopBarAction } from '../../components/TopBar';
-import { budgets } from '../../data';
+import { SkeletonRows } from '../../components/SkeletonLoader';
 import { formatRupees, groupIndian } from '../../lib/format';
+import { useNow, useWriters } from '../../services';
 import { useTheme } from '../../theme';
 import { useScreenNav } from '../shared/useScreenNav';
 import { useBudget, type NudgeAt } from './budgetStore';
+import { monthName } from './parts/monthName';
 import { LimitRow } from './sections/LimitRow';
+import { useEditableBudgets } from './useBudgetData';
 import { t } from '../../lib/i18n';
 
 const MAX_CATEGORY = 20000;
@@ -20,23 +23,26 @@ const MAX_CATEGORY = 20000;
 export default function K16_EditBudget(): React.JSX.Element {
   const { colors, typography } = useTheme();
   const nav = useScreenNav();
+  const db = useWriters();
+  const now = useNow();
   const saved = useBudget();
-  const [total, setTotal] = useState(saved.totalPaise / 100);
-  const [limits, setLimits] = useState<Record<string, number>>(() =>
-    Object.fromEntries(budgets.map((b) => [b.name, (saved.limits[b.name] ?? b.limit.paise) / 100])),
-  );
+  const { loading, budgets } = useEditableBudgets();
+  // Edits sit on top of what is stored; untouched fields keep following the database.
+  const [totalEdit, setTotalEdit] = useState<number | null>(null);
+  const [edits, setEdits] = useState<Record<string, number>>({});
   const [nudge, setNudge] = useState<NudgeAt>(saved.nudge);
   const [rollover, setRollover] = useState(saved.rollover);
-  const split = Object.values(limits).reduce((a, v) => a + v, 0);
+  const total = totalEdit ?? saved.totalPaise / 100;
+  const limitOf = (b: { id: string; monthlyPaise: number }): number => edits[b.id] ?? b.monthlyPaise / 100;
+  const split = budgets.reduce((a, b) => a + limitOf(b), 0);
   const unplanned = total - split;
   const label: TextStyle = { ...typography.labelSmall, color: colors.onSurfaceVariant, fontWeight: '600', letterSpacing: 0.4, marginTop: 18, marginBottom: 8 };
-  const onSave = () => {
-    saved.save({
-      totalPaise: total * 100,
-      limits: Object.fromEntries(Object.entries(limits).map(([k, v]) => [k, v * 100])),
-      nudge,
-      rollover,
-    });
+  const onSave = async () => {
+    saved.save({ totalPaise: total * 100, nudge, rollover });
+    for (const b of budgets) {
+      const v = edits[b.id];
+      if (v !== undefined && v * 100 !== b.monthlyPaise) await db.budgets.put({ id: b.id, categoryId: b.categoryId, monthlyPaise: v * 100 });
+    }
     nav.go('k15');
   };
   return (
@@ -45,7 +51,7 @@ export default function K16_EditBudget(): React.JSX.Element {
       title={t('budgetUi.editTitle')}
       leading="close"
       onLeading={nav.back}
-      trailing={<TopBarAction text={t('budgetUi.save')} label={t('budgetUi.save')} testID="save-budget" onPress={onSave} />}
+      trailing={<TopBarAction text={t('budgetUi.save')} label={t('budgetUi.save')} testID="save-budget" onPress={() => void onSave()} />}
     >
       <View style={{ marginTop: 6 }}>
         <OutlinedField
@@ -54,7 +60,7 @@ export default function K16_EditBudget(): React.JSX.Element {
           prefix={'\u20B9'}
           keyboardType="number-pad"
           value={total ? groupIndian(String(total)) : ''}
-          onChangeText={(x) => setTotal(parseInt(x.replace(/[^0-9]/g, '').slice(0, 9) || '0', 10))}
+          onChangeText={(x) => setTotalEdit(parseInt(x.replace(/[^0-9]/g, '').slice(0, 9) || '0', 10))}
         />
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
@@ -67,14 +73,15 @@ export default function K16_EditBudget(): React.JSX.Element {
         </Text>
       </View>
       <View style={{ marginTop: 8 }}>
+        {loading ? <SkeletonRows count={5} /> : null}
         {budgets.map((b) => (
           <LimitRow
-            key={b.name}
+            key={b.id}
             name={b.name}
             icon={b.icon}
-            rupees={limits[b.name]}
-            maxRupees={MAX_CATEGORY}
-            onChange={(v) => setLimits((l) => ({ ...l, [b.name]: v }))}
+            rupees={limitOf(b)}
+            maxRupees={Math.max(MAX_CATEGORY, limitOf(b))}
+            onChange={(v) => setEdits((l) => ({ ...l, [b.id]: v }))}
           />
         ))}
       </View>
@@ -92,10 +99,10 @@ export default function K16_EditBudget(): React.JSX.Element {
       />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16 }}>
         <View style={{ flex: 1 }}>
-          <Text style={[typography.bodyLarge, { fontSize: 15, color: colors.onSurface }]}>{t('budgetUi.rollover')}</Text>
+          <Text style={[typography.bodyLarge, { fontSize: 15, color: colors.onSurface }]}>{t('budgetUi.rollover', { month: monthName(now, 1) })}</Text>
           <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{t('budgetUi.rolloverSub')}</Text>
         </View>
-        <Switch testID="rollover-switch" accessibilityLabel={t('budgetUi.rollover')} value={rollover} onValueChange={setRollover} />
+        <Switch testID="rollover-switch" accessibilityLabel={t('budgetUi.rollover', { month: monthName(now, 1) })} value={rollover} onValueChange={setRollover} />
       </View>
     </StackScreen>
   );

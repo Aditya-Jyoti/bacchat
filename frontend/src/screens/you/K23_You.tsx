@@ -3,21 +3,28 @@ import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { ScreenScaffold } from '../../components';
+import { formatRupees } from '../../lib/format';
+import { useNow } from '../../services';
 import { useTheme } from '../../theme';
 import { Glyph } from './parts/Glyph';
 import { GroupCaption, YouRow } from './parts/YouRow';
 import { useKidNav } from './parts/useKidNav';
+import { useBudget } from './budgetStore';
+import { grouped, monthsSince, profileLine, useBackupCard, useYouCounts } from './useYouData';
 import { t } from '../../lib/i18n';
-
-const STATS = [
-  { value: '8', labelKey: 'youUi.statMonths' },
-  { value: '1,284', labelKey: 'youUi.statEntries' },
-  { value: '2', labelKey: 'youUi.statGoals' },
-];
 
 export default function K23_You(): React.JSX.Element {
   const { colors, typography, shapes } = useTheme();
   const { go } = useKidNav();
+  const counts = useYouCounts();
+  const now = useNow();
+  const budgetTotal = useBudget((b) => b.totalPaise);
+  const backup = useBackupCard();
+  const stats = [
+    { value: counts ? String(monthsSince(counts.firstAt, now)) : '', labelKey: 'youUi.statMonths' },
+    { value: counts ? grouped(counts.entries) : '', labelKey: 'youUi.statEntries' },
+    { value: counts ? String(counts.goalsReached) : '', labelKey: 'youUi.statGoals' },
+  ];
   return (
     <ScreenScaffold testID="screen-k23" edges={['top', 'left', 'right']}>
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', height: 48, alignItems: 'center' }}>
@@ -57,7 +64,7 @@ export default function K23_You(): React.JSX.Element {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={[typography.headlineSmall, { color: colors.onSurface }]}>{t('youUi.name')}</Text>
-          <Text style={[typography.bodyMedium, { fontSize: 13, color: colors.onSurfaceVariant }]}>{t('youUi.since')}</Text>
+          <Text style={[typography.bodyMedium, { fontSize: 13, color: colors.onSurfaceVariant }]}>{profileLine(counts)}</Text>
         </View>
       </View>
       <View
@@ -69,7 +76,7 @@ export default function K23_You(): React.JSX.Element {
           borderColor: colors.outlineVariant,
         }}
       >
-        {STATS.map((s, i) => (
+        {stats.map((s, i) => (
           <View
             key={s.labelKey}
             testID={`you-stat-${i}`}
@@ -89,7 +96,7 @@ export default function K23_You(): React.JSX.Element {
       <Pressable
         testID="you-backup-card"
         accessibilityRole="button"
-        accessibilityLabel={t('youUi.backedUpLabel')}
+        accessibilityLabel={t('youUi.backedUpLabel', { title: backup.title })}
         onPress={() => go('k25')}
         style={{
           marginTop: 14,
@@ -105,19 +112,19 @@ export default function K23_You(): React.JSX.Element {
         <View
           style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primaryContainer, alignItems: 'center', justifyContent: 'center' }}
         >
-          <Glyph name="cloud_done" size={20} color={colors.onPrimaryContainer} />
+          <Glyph name={backup.icon} size={20} color={colors.onPrimaryContainer} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={[typography.labelLarge, { fontSize: 15, color: colors.onSurface }]}>{t('youUi.backedUp')}</Text>
-          <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{t('youUi.encryptedFirst')}</Text>
+          <Text style={[typography.labelLarge, { fontSize: 15, color: colors.onSurface }]}>{backup.title}</Text>
+          <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{backup.subtitle}</Text>
         </View>
         <Glyph name="chevron_right" color={colors.onSurface} />
       </Pressable>
       <GroupCaption>{t('youUi.yourMoney')}</GroupCaption>
-      <YouRow testID="you-row-accounts" icon="account_balance" title={t('youUi.accountsUpi')} subtitle={t('youUi.accountsSub')} onPress={() => go('k10')} />
+      <YouRow testID="you-row-accounts" icon="account_balance" title={t('youUi.accountsUpi')} subtitle={counts ? t('youUi.accountsSub', { accounts: counts.accounts, cards: counts.cards, upi: counts.upiIds }) : undefined} onPress={() => go('k10')} />
       <YouRow icon="category" title={t('youUi.categories')} subtitle={t('youUi.categoriesSub')} onPress={() => undefined} />
-      <YouRow testID="you-row-budgets" icon="account_balance_wallet" title={t('youUi.budgets')} subtitle={t('youUi.budgetsSub')} onPress={() => go('k15')} />
-      <YouRow testID="you-row-recurring" icon="event_repeat" title={t('youUi.recurring')} subtitle={t('youUi.recurringSub')} onPress={() => go('k17')} />
+      <YouRow testID="you-row-budgets" icon="account_balance_wallet" title={t('youUi.budgets')} subtitle={t('youUi.budgetsSub', { amount: formatRupees(budgetTotal) })} onPress={() => go('k15')} />
+      <YouRow testID="you-row-recurring" icon="event_repeat" title={t('youUi.recurring')} subtitle={counts ? t('youUi.recurringSub', { n: counts.recurring }) : undefined} onPress={() => go('k17')} />
       <GroupCaption>{t('youUi.bacchat')}</GroupCaption>
       <YouRow testID="you-row-ask" icon="auto_awesome" title={t('youUi.askBacchat')} subtitle={t('youUi.yourKey')} onPress={() => go('k18')} />
       <YouRow testID="you-row-arrange" icon="dashboard_customize" title={t('youUi.arrangeHome')} onPress={() => go('k2')} />

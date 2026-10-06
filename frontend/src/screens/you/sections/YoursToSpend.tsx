@@ -19,7 +19,7 @@ export function YoursToSpend({ banksPaise, duesPaise }: YoursToSpendProps): Reac
       <Text style={[typography.bodyMedium, { fontSize: 13, color: colors.onSurface }]}>{value}</Text>
     </View>
   );
-  const share = Math.max(0, Math.min(1, (banksPaise - duesPaise) / banksPaise));
+  const share = Math.max(0, Math.min(1, banksPaise > 0 ? (banksPaise - duesPaise) / banksPaise : 0));
   return (
     <View testID="yours-to-spend" style={{ marginTop: 14, padding: 14, borderRadius: shapes.card, backgroundColor: colors.surfaceContainer, gap: 10 }}>
       <Text style={[typography.labelMedium, { color: colors.onSurfaceVariant, fontWeight: '600' }]}>{t('accountsUi.moneyToSpend')}</Text>

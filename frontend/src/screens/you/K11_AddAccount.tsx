@@ -10,8 +10,10 @@ import { OutlinedField } from '../../components/OutlinedField';
 import { PillButton } from '../../components/PillButton';
 import { StackScreen } from '../../components/StackScreen';
 import { groupIndian } from '../../lib/format';
+import { useWriters } from '../../services';
 import { useTheme } from '../../theme';
 import { useScreenNav } from '../shared/useScreenNav';
+import { addAccount } from './accountWrites';
 import { ACCOUNT_TYPES, BALANCE_LABEL, BANKS, DAYS, type AccountType } from './sections/accountTypes';
 import { t } from '../../lib/i18n';
 
@@ -23,6 +25,7 @@ type Picking = 'bank' | 'bill' | 'due' | null;
 export default function K11_AddAccount(): React.JSX.Element {
   const { colors, typography } = useTheme();
   const nav = useScreenNav();
+  const db = useWriters();
   const [type, setType] = useState<AccountType>('card');
   const [name, setName] = useState('HDFC Millennia');
   const [bank, setBank] = useState('HDFC Bank');
@@ -33,9 +36,30 @@ export default function K11_AddAccount(): React.JSX.Element {
   const [due, setDue] = useState('5th');
   const [remind, setRemind] = useState(true);
   const [picking, setPicking] = useState<Picking>(null);
+  const [saving, setSaving] = useState(false);
   const isCard = type === 'card';
   const hasBank = type === 'bank' || isCard;
   const last4Bad = hasBank && last4.length !== 4;
+  const limitBad = isCard && !(parseInt(limit || '0', 10) > 0);
+  const submit = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await addAccount(db, {
+        type,
+        name,
+        bank,
+        last4,
+        limitPaise: parseInt(limit || '0', 10) * 100,
+        amountPaise: parseInt(owed || '0', 10) * 100,
+        bill,
+        due,
+      });
+      nav.go('k10');
+    } finally {
+      setSaving(false);
+    }
+  };
   const label: TextStyle = { ...typography.labelSmall, color: colors.onSurfaceVariant, fontWeight: '600', letterSpacing: 0.4, marginTop: 18, marginBottom: 8 };
   const picker = {
     bank: { title: t('accountsUi.bank'), options: BANKS as readonly string[], value: bank, set: setBank },
@@ -43,9 +67,9 @@ export default function K11_AddAccount(): React.JSX.Element {
     due: { title: t('accountsUi.dueOn'), options: DAYS, value: due, set: setDue },
   };
   const cur = picking ? picker[picking] : null;
-  const money = (id: string, text: string, v: string, set: (s: string) => void) => (
+  const money = (id: string, text: string, v: string, set: (s: string) => void, error?: string) => (
     <View style={{ flex: 1 }}>
-      <OutlinedField testID={id} label={text} prefix={RUPEE} keyboardType="number-pad" value={group(v)} onChangeText={(x) => set(digits(x))} />
+      <OutlinedField testID={id} label={text} prefix={RUPEE} keyboardType="number-pad" value={group(v)} onChangeText={(x) => set(digits(x))} error={error} />
     </View>
   );
   return (
@@ -59,8 +83,8 @@ export default function K11_AddAccount(): React.JSX.Element {
           testID="add-account-submit"
           label={isCard ? t('accountsUi.addCard') : t('accountsUi.addAccount')}
           height={52}
-          disabled={name.trim().length === 0 || last4Bad}
-          onPress={() => nav.go('k10')}
+          disabled={name.trim().length === 0 || last4Bad || limitBad || saving}
+          onPress={() => void submit()}
           style={{ width: '100%' }}
         />
       }
@@ -98,7 +122,7 @@ export default function K11_AddAccount(): React.JSX.Element {
           </View>
         ) : null}
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          {isCard ? money('acct-limit', t('accountsUi.creditLimit'), limit, setLimit) : null}
+          {isCard ? money('acct-limit', t('accountsUi.creditLimit'), limit, setLimit, limitBad ? t('accountsUi.enterLimit') : undefined) : null}
           {money('acct-owed', BALANCE_LABEL[type], owed, setOwed)}
         </View>
         {isCard || type === 'loan' ? (

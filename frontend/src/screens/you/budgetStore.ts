@@ -1,50 +1,33 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import { budgets, budgetSummary } from '../../data';
 import { persistStorage, registerPersisted } from '../../lib/persistence';
 
 export type NudgeAt = '80' | '90' | '100';
 
 type State = {
+  /** The overall monthly budget in paise. Category limits live in the database (Budget rows). */
   totalPaise: number;
-  /** Limit per category name, in paise. */
-  limits: Record<string, number>;
   nudge: NudgeAt;
   rollover: boolean;
-  /** True after "Okay" on the Eating out caution. */
-  cautionDismissed: boolean;
 };
 
 type Actions = {
-  save: (next: Pick<State, 'totalPaise' | 'limits' | 'nudge' | 'rollover'>) => void;
-  setLimit: (name: string, paise: number) => void;
-  dismissCaution: () => void;
+  save: (next: State) => void;
   reset: () => void;
 };
 
-const initial = (): State => ({
-  totalPaise: budgetSummary.total.paise,
-  limits: Object.fromEntries(budgets.map((b) => [b.name, b.limit.paise])),
-  nudge: '90',
-  rollover: true,
-  cautionDismissed: false,
-});
+/** The design's sample monthly budget: Rs 45,000. */
+const initial = (): State => ({ totalPaise: 4500000, nudge: '90', rollover: true });
 
-/** Budget settings shared by k15 (view) and k16 (edit). Kept on this phone. */
+/** Budget preferences shared by k15 (view) and k16 (edit). Kept on this phone. */
 export const useBudget = registerPersisted(
   create<State & Actions>()(
     persist(
       (set) => ({
         ...initial(),
         save: (next) => {
-          set({ ...next, cautionDismissed: false });
-        },
-        setLimit: (name, paise) => {
-          set((s) => ({ limits: { ...s.limits, [name]: paise } }));
-        },
-        dismissCaution: () => {
-          set({ cautionDismissed: true });
+          set(next);
         },
         reset: () => {
           set(initial());
@@ -52,15 +35,13 @@ export const useBudget = registerPersisted(
       }),
       {
         name: 'bacchat.budget',
-        version: 1,
+        version: 2,
         storage: persistStorage<State>(),
-        partialize: (s): State => ({
-          totalPaise: s.totalPaise,
-          limits: s.limits,
-          nudge: s.nudge,
-          rollover: s.rollover,
-          cautionDismissed: s.cautionDismissed,
-        }),
+        partialize: (s): State => ({ totalPaise: s.totalPaise, nudge: s.nudge, rollover: s.rollover }),
+        migrate: (persisted) => {
+          const p = (persisted ?? {}) as Partial<State>;
+          return { ...initial(), totalPaise: p.totalPaise ?? 4500000, nudge: p.nudge ?? '90', rollover: p.rollover ?? true };
+        },
       },
     ),
   ),

@@ -1,4 +1,5 @@
-import { entryDays, recentSearches, searchResults, type EntrySourceKey, type SearchResult } from '../../../data';
+import type { BacchatDb, Entry, EntrySourceKind } from '../../../data/db';
+import { categoryName, type Lookups } from './live';
 
 export type AmountRange = { id: 'any' | 'under500' | 'mid' | 'over2000'; label: string; min: number; max: number };
 
@@ -9,7 +10,7 @@ export const AMOUNT_RANGES: readonly AmountRange[] = [
   { id: 'over2000', label: 'Over \u20B92,000', min: 200001, max: Number.MAX_SAFE_INTEGER },
 ];
 
-export const SOURCE_FILTERS: readonly { id: EntrySourceKey | 'all'; label: string }[] = [
+export const SOURCE_FILTERS: readonly { id: EntrySourceKind | 'all'; label: string }[] = [
   { id: 'all', label: 'Source' },
   { id: 'sms', label: 'SMS' },
   { id: 'mail', label: 'Email' },
@@ -17,28 +18,31 @@ export const SOURCE_FILTERS: readonly { id: EntrySourceKey | 'all'; label: strin
   { id: 'hand', label: 'Added by you' },
 ];
 
-/** Search pool: the design's sample results plus every entry on the Entries list (deduplicated). */
-export function searchPool(): SearchResult[] {
-  const pool = [...searchResults];
-  for (const d of entryDays) {
-    for (const e of d.items) {
-      if (pool.some((p) => p.name === e.name && p.amount.paise === e.amount.paise)) continue;
-      pool.push({ name: e.name, icon: e.icon, amount: e.amount, category: e.category, via: e.via, source: e.source, income: e.income, when: d.day });
-    }
-  }
-  return pool;
-}
-
-export function runSearch(query: string, range: AmountRange, source: EntrySourceKey | 'all'): SearchResult[] {
+/** True when the text is in the merchant, the note or the category name (case-insensitive). */
+export function matchesQuery(e: Entry, query: string, lk: Lookups): boolean {
   const q = query.trim().toLowerCase();
-  if (!q) return [];
-  return searchPool().filter(
-    (r) =>
-      (r.name.toLowerCase().includes(q) || r.category.toLowerCase().includes(q)) &&
-      Math.abs(r.amount.paise) >= range.min &&
-      Math.abs(r.amount.paise) <= range.max &&
-      (source === 'all' || r.source === source),
-  );
+  if (!q) return false;
+  return `${e.merchant} ${e.note ?? ''} ${categoryName(e, lk)}`.toLowerCase().includes(q);
 }
 
-export { recentSearches };
+const RECENT_KEY = 'search.recent.v1';
+const RECENT_MAX = 5;
+
+export async function loadRecent(db: Pick<BacchatDb, 'meta'>): Promise<string[]> {
+  try {
+    const raw = await db.meta.get(RECENT_KEY);
+    const list = raw ? (JSON.parse(raw) as unknown) : [];
+    return Array.isArray(list) ? list.filter((x): x is string => typeof x === 'string').slice(0, RECENT_MAX) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Remember a search (newest first, no repeats, at most five). Returns the new list. */
+export async function pushRecent(db: Pick<BacchatDb, 'meta'>, query: string): Promise<string[]> {
+  const q = query.trim();
+  if (!q) return loadRecent(db);
+  const next = [q, ...(await loadRecent(db)).filter((r) => r.toLowerCase() !== q.toLowerCase())].slice(0, RECENT_MAX);
+  await db.meta.set(RECENT_KEY, JSON.stringify(next));
+  return next;
+}

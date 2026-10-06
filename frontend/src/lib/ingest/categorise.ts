@@ -16,7 +16,7 @@ export type CategoryGuess = {
  */
 export const KEYWORD_RULES: readonly (readonly [RegExp, string])[] = [
   [/\b(swiggy|zomato|dominos|pizza|kfc|mcdonald|burger|restaurant|cafe|biryani|dhaba)\b/, 'eating-out'],
-  [/\b(chai|coffee|starbucks|third wave|tea)\b/, 'tea-coffee'],
+  [/\b(chai|coffee|starbucks|third wave|tea)\b/, 'tea-and-coffee'],
   [/\b(bigbasket|zepto|blinkit|instamart|dmart|grocer|supermarket|kirana)\b/, 'groceries'],
   [/\b(metro|uber|ola|rapido|irctc|redbus|auto|cab|taxi|fastag|petrol|fuel)\b/, 'transport'],
   [/\b(bescom|electricity|power|airtel|jio|vodafone|broadband|gas|water|recharge)\b/, 'bills'],

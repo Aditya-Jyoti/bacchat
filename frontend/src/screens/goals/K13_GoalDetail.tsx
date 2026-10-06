@@ -8,12 +8,17 @@ import { SegmentedProgress } from '../../components/SegmentedProgress';
 import { StackScreen } from '../../components/StackScreen';
 import { TopBarAction } from '../../components/TopBar';
 import { BeachChairIllustration } from '../../components/illustrations';
+import { SkeletonLoader } from '../../components/SkeletonLoader';
 import { formatRupees } from '../../lib/format';
+import { useWriters } from '../../services';
 import { useTheme } from '../../theme';
 import { useScreenNav } from '../shared/useScreenNav';
 import { ReachedMoment } from './sections/ReachedMoment';
 import { WhereItSits } from './sections/WhereItSits';
-import { isReached, useGoals, type GoalAlloc } from './goalsStore';
+import { isReached } from './goalTypes';
+import { adjustAllocation, saveAllocations } from './goalWrites';
+import { useGoalPlans } from './goalPlanStore';
+import { useGoalsData } from './useGoalsData';
 import { t } from '../../lib/i18n';
 
 const MONTHLY_PAISE = 550000;
@@ -21,16 +26,24 @@ const MONTHLY_PAISE = 550000;
 export default function K13_GoalDetail(): React.JSX.Element {
   const { colors, typography } = useTheme();
   const nav = useScreenNav();
-  const goals = useGoals((s) => s.goals);
-  const adjust = useGoals((s) => s.adjust);
-  const setAllocations = useGoals((s) => s.setAllocations);
+  const db = useWriters();
+  const { goals, loading, spendAccounts } = useGoalsData();
+  const plans = useGoalPlans((s) => s.monthly);
   const id = typeof nav.params.id === 'string' ? nav.params.id : undefined;
   const goal = goals.find((g) => g.id === id) ?? goals[0];
-  const [draft, setDraft] = useState<GoalAlloc[] | null>(null);
+  const [draft, setDraft] = useState<Record<string, number> | null>(null);
+  if (!goal) {
+    return (
+      <StackScreen testID="screen-k13" leading="back" onLeading={nav.back}>
+        {loading ? <SkeletonLoader width="60%" height={26} /> : <Text style={[typography.bodyMedium, { color: colors.onSurfaceVariant }]}>{t('goalsUi.noGoals')}</Text>}
+      </StackScreen>
+    );
+  }
   const reached = isReached(goal);
   const remaining = Math.max(0, goal.targetPaise - goal.savedPaise);
-  const fraction = goal.savedPaise / goal.targetPaise;
-  const isGoa = goal.id === 'g0';
+  const fraction = goal.targetPaise > 0 ? goal.savedPaise / goal.targetPaise : 0;
+  const monthly = plans[goal.id];
+  const openEdit = () => setDraft(Object.fromEntries(spendAccounts.map((a) => [a.id, goal.allocations.find((x) => x.accountId === a.id)?.paise ?? 0])));
   return (
     <StackScreen
       testID="screen-k13"
@@ -46,7 +59,7 @@ export default function K13_GoalDetail(): React.JSX.Element {
             height={52}
             style={{ flex: 1 }}
             disabled={goal.savedPaise <= 0}
-            onPress={() => adjust(goal.id, -Math.min(MONTHLY_PAISE, goal.savedPaise))}
+            onPress={() => void adjustAllocation(db, goal.id, -Math.min(MONTHLY_PAISE, goal.savedPaise))}
           />
           <PillButton
             testID="set-aside-more"
@@ -54,7 +67,7 @@ export default function K13_GoalDetail(): React.JSX.Element {
             height={52}
             style={{ flex: 1 }}
             disabled={reached}
-            onPress={() => adjust(goal.id, Math.min(MONTHLY_PAISE, remaining))}
+            onPress={() => void adjustAllocation(db, goal.id, Math.min(MONTHLY_PAISE, remaining))}
           />
         </View>
       }
@@ -74,27 +87,28 @@ export default function K13_GoalDetail(): React.JSX.Element {
       ) : (
         <Text testID="pace-line" style={[typography.bodyMedium, { color: colors.onSurface, marginTop: 12, lineHeight: 21 }]}>
           {t('goalsUi.onTrack')}{' '}
-          {isGoa ? (
+          {monthly ? (
             <>
-              <Text style={{ fontWeight: '700' }}>{t('goalsUi.perMonth', { amount: formatRupees(MONTHLY_PAISE) })}</Text>
-              {t('goalsUi.goaPace')}
+              <Text style={{ fontWeight: '700' }}>{t('goalsUi.perMonth', { amount: formatRupees(monthly) })}</Text>
+              {t('goalsUi.goaPace', { by: goal.by })}
             </>
           ) : (
             t('goalsUi.moreToGo', { amount: formatRupees(remaining) })
           )}
         </Text>
       )}
-      <WhereItSits allocations={goal.allocations} onEdit={() => setDraft(goal.allocations.map((a) => ({ ...a })))} />
+      <WhereItSits allocations={goal.allocations} onEdit={openEdit} />
       <AllocationSheet
         visible={draft !== null}
         title={t('goalsUi.whereItSits')}
-        rows={(draft ?? []).map((a) => ({ key: a.from, name: a.from, icon: a.icon, paise: a.paise }))}
+        rows={spendAccounts.map((a) => ({ key: a.id, name: a.name, icon: a.icon, paise: draft?.[a.id] ?? 0 }))}
         maxPaise={goal.targetPaise}
         targetPaise={goal.targetPaise}
-        onChangeRow={(key, paise) => setDraft((d) => d && d.map((a) => (a.from === key ? { ...a, paise } : a)))}
+        onChangeRow={(key, paise) => setDraft((d) => (d ? { ...d, [key]: paise } : d))}
         onSave={() => {
-          if (draft) setAllocations(goal.id, draft);
+          const rows = draft ? Object.entries(draft).map(([accountId, paise]) => ({ accountId, paise })) : [];
           setDraft(null);
+          void saveAllocations(db, goal.id, rows);
         }}
         onClose={() => setDraft(null)}
       />

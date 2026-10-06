@@ -7,7 +7,7 @@ import { createMemoryDb, openBacchatDb, seedIfEmpty, SAMPLE_TODAY, SEED_FLAG, da
 import { createAdvisor, type Advisor } from '../lib/ai';
 import { usePreferences } from '../lib/preferences';
 import { createNavClient, refreshHoldingNavs, type NavClient, type NavFetch, type RefreshResult } from '../lib/nav';
-import { BlobCipher, SyncClient, SyncEngine, runSyncWithStatus } from '../lib/sync';
+import { BlobCipher, SyncClient, SyncEngine, runSyncWithStatus, useSyncStatus } from '../lib/sync';
 import type { FetchLike } from '../lib/sync/client';
 import type { SodiumLike } from '../lib/sync/crypto';
 import type { NetworkProbe, SyncResult } from '../lib/sync/engine';
@@ -165,6 +165,7 @@ function build(raw: BacchatDb, opts: ServicesOptions, state: BuildState): Servic
         state: createSyncStateStore(),
         options: () => settings.getSyncOptions(),
         probe: opts.probe,
+        onProgress: (p) => useSyncStatus.getState().setProgress(p),
       });
       sync = { client, engine, cipher, config, run: () => runSyncWithStatus(engine, client) };
       syncKey = k;

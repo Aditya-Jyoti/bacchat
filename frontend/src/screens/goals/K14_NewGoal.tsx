@@ -9,6 +9,7 @@ import { PillButton } from '../../components/PillButton';
 import { StackScreen } from '../../components/StackScreen';
 import { ValueSlider } from '../../components/ValueSlider';
 import { formatRupees, groupIndian } from '../../lib/format';
+import { useWriters } from '../../services';
 import { useTheme } from '../../theme';
 import { useScreenNav } from '../shared/useScreenNav';
 import { IconPicker } from './sections/IconPicker';
@@ -17,19 +18,16 @@ import {
   MONTHLY_MAX,
   MONTHLY_MIN,
   MONTHLY_STEP,
+  dateKeyFor,
   dateLong,
   dateShort,
   monthlyFor,
   monthsFor,
 } from './sections/goalPlan';
-import { useGoals, type GoalAlloc } from './goalsStore';
+import { createGoal } from './goalWrites';
+import { useGoalPlans } from './goalPlanStore';
+import { useGoalsData } from './useGoalsData';
 import { t } from '../../lib/i18n';
-
-const ACCOUNTS = [
-  { name: 'HDFC Savings', icon: 'account_balance', color: 'p' },
-  { name: 'SBI Salary', icon: 'account_balance', color: 'k2' },
-  { name: 'Cash', icon: 'payments', color: 'k3' },
-] as const;
 
 const digits = (s: string): string => s.replace(/[^0-9]/g, '').slice(0, 9);
 const num = (s: string): number => (s ? parseInt(s, 10) : 0);
@@ -38,37 +36,42 @@ const group = (s: string): string => (s ? groupIndian(String(num(s))) : '');
 export default function K14_NewGoal(): React.JSX.Element {
   const { colors, typography } = useTheme();
   const nav = useScreenNav();
-  const addGoal = useGoals((s) => s.addGoal);
+  const db = useWriters();
+  const { spendAccounts } = useGoalsData();
+  const setMonthlyPlan = useGoalPlans((s) => s.setMonthly);
   const [icon, setIcon] = useState('beach_access');
   const [name, setName] = useState('Goa with friends');
   const [target, setTarget] = useState('60000');
   const [saved, setSaved] = useState('38000');
   const [monthly, setMonthly] = useState(5500);
   const [months, setMonths] = useState(2);
-  const [from, setFrom] = useState<string[]>(['HDFC Savings', 'SBI Salary']);
+  // Account ids the user switched on or off. Until they touch it, the first two bank accounts are on.
+  const [picked, setPicked] = useState<string[] | null>(null);
+  const [saving, setSaving] = useState(false);
+  const from = picked ?? spendAccounts.filter((a) => a.kind === 'bank').slice(0, 2).map((a) => a.id);
   const valid = name.trim().length > 0 && num(target) > 0;
   const label: TextStyle = { ...typography.labelSmall, color: colors.onSurfaceVariant, fontWeight: '600', letterSpacing: 0.4, marginTop: 18, marginBottom: 8 };
 
-  const create = () => {
-    const picked = ACCOUNTS.filter((a) => from.includes(a.name));
-    const accts = picked.length ? picked : [ACCOUNTS[0]];
+  const create = async () => {
+    if (saving) return;
+    setSaving(true);
+    const accts = from.length ? from : spendAccounts.slice(0, 1).map((a) => a.id);
     const total = num(saved) * 100;
-    const each = Math.floor(total / accts.length / 100) * 100;
-    const allocations: GoalAlloc[] = accts.map((a, i) => ({
-      from: a.name,
-      icon: a.icon,
-      color: a.color,
-      paise: each + (i === 0 ? total - each * accts.length : 0),
-    }));
-    const id = addGoal({
-      name: name.trim(),
-      icon,
-      savedPaise: total,
-      targetPaise: num(target) * 100,
-      by: t('goalsUi.byDate', { date: dateShort(months) }),
-      allocations,
-    });
-    nav.go('k13', { id });
+    const each = Math.floor(total / Math.max(1, accts.length) / 100) * 100;
+    const allocations = accts.map((accountId, i) => ({ accountId, paise: each + (i === 0 ? total - each * accts.length : 0) }));
+    try {
+      const id = await createGoal(db, {
+        name: name.trim(),
+        icon,
+        targetPaise: num(target) * 100,
+        targetDate: dateKeyFor(months),
+        allocations: accts.length ? allocations : [],
+      });
+      setMonthlyPlan(id, monthly * 100);
+      nav.go('k13', { id });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -77,7 +80,7 @@ export default function K14_NewGoal(): React.JSX.Element {
       title={t('goalsUi.newGoal')}
       leading="close"
       onLeading={nav.back}
-      footer={<PillButton testID="create-goal" label={t('goalsUi.createGoal')} height={52} disabled={!valid} onPress={create} style={{ width: '100%' }} />}
+      footer={<PillButton testID="create-goal" label={t('goalsUi.createGoal')} height={52} disabled={!valid || saving} onPress={() => void create()} style={{ width: '100%' }} />}
     >
       <Text style={label}>{t('goalsUi.pickIcon')}</Text>
       <IconPicker value={icon} onChange={setIcon} />
@@ -149,15 +152,18 @@ export default function K14_NewGoal(): React.JSX.Element {
       </Text>
       <Text style={label}>{t('goalsUi.takeFrom')}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {ACCOUNTS.map((a) => (
-          <FilterChip
-            key={a.name}
-            testID={`from-${a.name}`}
-            label={a.name === 'Cash' ? 'Cash' : a.name}
-            selected={from.includes(a.name)}
-            onPress={() => setFrom((f) => (f.includes(a.name) ? f.filter((x) => x !== a.name) : [...f, a.name]))}
-          />
-        ))}
+        {spendAccounts.map((a) => {
+          const label = a.kind === 'cash' ? t('goalsUi.cashChip') : a.name;
+          return (
+            <FilterChip
+              key={a.id}
+              testID={`from-${label}`}
+              label={label}
+              selected={from.includes(a.id)}
+              onPress={() => setPicked(from.includes(a.id) ? from.filter((x) => x !== a.id) : [...from, a.id])}
+            />
+          );
+        })}
       </View>
     </StackScreen>
   );

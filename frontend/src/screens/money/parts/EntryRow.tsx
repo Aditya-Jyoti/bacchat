@@ -20,6 +20,8 @@ export type EntryRowProps = {
   matched?: boolean;
   resolved?: boolean;
   toReview?: boolean;
+  /** AI or parser added and not yet confirmed: drawn with a dashed outline. */
+  pending?: boolean;
   /** Select mode: shows a check circle when selected and a tinted row. */
   selected?: boolean;
   onPress?: () => void;
@@ -62,8 +64,11 @@ export function EntryRow(p: EntryRowProps): React.JSX.Element {
         gap: spacing.md,
         paddingVertical: spacing.sm,
         minHeight: spacing.rowMin,
-        borderBottomWidth: selMode ? 0 : 1,
+        borderBottomWidth: selMode || p.pending ? 0 : 1,
         borderBottomColor: colors.outlineVariant,
+        ...(p.pending
+          ? { borderWidth: 1, borderStyle: 'dashed' as const, borderColor: colors.outline, borderRadius: shapes.field, paddingHorizontal: 8, marginVertical: 2 }
+          : null),
         ...(selMode ? { marginHorizontal: -8, paddingHorizontal: 8, borderRadius: shapes.field, backgroundColor: p.selected ? colors.surfaceContainer : 'transparent' } : null),
       }}
     >

@@ -18,8 +18,9 @@ function withNav(ui: React.ReactElement, nav: ReturnType<typeof fakeNav>) {
 beforeEach(() => act(() => useHomeConfig.getState().reset()));
 
 describe.each(['light', 'dark'] as const)('k1 Home (%s)', (mode) => {
-  it('shows the hero, own/owe, allocation, privacy line and default sections', () => {
-    const { getByText, getAllByText, getByTestId, queryByTestId } = renderWithTheme(<K1_Home />, mode);
+  it('shows the hero, own/owe, allocation, privacy line and default sections', async () => {
+    const { getByText, getAllByText, getByTestId, queryByTestId, findByText } = renderWithTheme(<K1_Home />, mode);
+    expect(await findByText(netWorth.net.text)).toBeTruthy();
     expect(getByText('Good evening, Rahul')).toBeTruthy();
     expect(getByText(netWorth.net.text)).toBeTruthy();
     expect(getByText(netWorth.delta.text)).toBeTruthy();
@@ -31,10 +32,11 @@ describe.each(['light', 'dark'] as const)('k1 Home (%s)', (mode) => {
     expect(getByText(/Two card bills/)).toBeTruthy();
     for (const id of ['accounts', 'spend', 'upcoming', 'goals', 'budget']) expect(getByTestId(`section-${id}`)).toBeTruthy();
     expect(queryByTestId('section-none')).toBeNull();
-    expect(getByText('Spendable money')).toBeTruthy();
-    expect(getByText('\u20B913,760 left of \u20B945,000')).toBeTruthy();
-    expect(getByText('Goa with friends')).toBeTruthy();
-    expect(getByText('Axis Bluechip SIP')).toBeTruthy();
+    expect(await findByText('Spendable money')).toBeTruthy();
+    // The budget line is computed from the seeded budgets and this month's entries.
+    expect(await findByText(/^\u20B9[\d,]+ left of \u20B9[\d,]+$/)).toBeTruthy();
+    expect(await findByText('Goa with friends')).toBeTruthy();
+    expect(await findByText('Axis Bluechip SIP')).toBeTruthy();
   });
 
   it('range chips switch selection', () => {
@@ -51,9 +53,10 @@ describe.each(['light', 'dark'] as const)('k1 Home (%s)', (mode) => {
     expect(queryByTestId('section-budget')).toBeNull();
   });
 
-  it('navigates: Ask pill, FAB, sections, goals, long-press arrange', () => {
+  it('navigates: Ask pill, FAB, sections, goals, long-press arrange', async () => {
     const nav = fakeNav();
-    const { getByTestId, getByText } = renderWithTheme(withNav(<K1_Home />, nav), mode);
+    const { getByTestId, getByText, findByText } = renderWithTheme(withNav(<K1_Home />, nav), mode);
+    await findByText('Goa with friends');
     fireEvent.press(getByTestId('ask-pill'));
     expect(nav.navigate).toHaveBeenLastCalledWith(ROUTES.k18);
     fireEvent.press(getByTestId('fab-add'));

@@ -2,14 +2,18 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { ThemeProvider } from '../../theme';
+import { AppServicesProvider, createTestServices } from '../../services';
 import { AppNavigation } from '../AppNavigator';
 import { useFirstRun } from '../../screens/start/firstRun';
 import { useMoneySegment } from '../moneySegment';
 
 function renderApp() {
+  const services = createTestServices();
   return render(
     <ThemeProvider mode="light">
-      <AppNavigation />
+      <AppServicesProvider services={services}>
+        <AppNavigation />
+      </AppServicesProvider>
     </ThemeProvider>,
   );
 }
