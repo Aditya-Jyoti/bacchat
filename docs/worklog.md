@@ -65,6 +65,15 @@ Append-only. Newest entries go at the bottom, above the template. Do not edit pa
 
 ---
 
+## 2026-10-06 (sync targets)
+
+- Sync: `SyncTarget` abstraction; WebDAV (also Nextcloud), S3-compatible (own SigV4) and Google Drive appDataFolder targets with ETag concurrency; K25 WHERE options wired (cloud URL from app config, Drive sign-in, own server WebDAV or S3); "Coming soon" labels removed.
+- Local `screenshots` and `asks` tables (migration 2), sync mapping, Ask history persistence, screenshot metadata hook in the import flow, image-bytes sync behind "Original screenshots".
+- NPS NAV URL is now a preference with a documented default; live AMFI and NPS endpoints were not reachable from the sandbox.
+- Tests: new target contract tests over real in-process HTTP servers (WebDAV, S3 with SigV4 check), Drive fake, engine over both, K25 flows, history and NAV URL tests.
+- Docs updated: decisions.md (Google Cloud OAuth client TODO).
+- Follow-ups: create the Google Cloud OAuth client; config plugin for the Google redirect scheme; verify NPS and AMFI formats on a normal network.
+
 ## Template
 
 Copy this block above the line, fill it in, keep entries short.
@@ -77,3 +86,16 @@ Copy this block above the line, fill it in, keep entries short.
 - Docs updated (progress.md, screens.md, architecture.md, decisions.md).
 - Open issues or follow-ups.
 ```
+
+
+## AI engine: cloud key, on-device model, or both
+
+- Added the provider layer (`lib/ai/provider`): `LlmProvider`, `AnthropicProvider` (createAdvisor refactored on top of it, requests and events unchanged), `OpenAICompatibleProvider`, `OnDeviceProvider` (chat templates for chatml, llama3, gemma, phi3; grammar JSON when the engine supports it, else retry and validate; ReAct style JSON tool emulation with repair), `ModelRegistry`, `ModelDownloadManager` (Range resume, free space check, sha256 verify, pause and cancel) and a streaming `Sha256`.
+- Added `AiRouter` (off, cloud, device, auto, per-feature overrides, consent gate, fallbacks, routed advisor provider), AI preferences store, redactor, hybrid `extractTransaction`, `suggestCategory`, OCR name clean-up and insight text.
+- `services/aiService.ts` builds it all from Settings; `services.ai` is new, `createAdvisor` now uses the routed provider. `ingestService` takes an optional `extractor` (hooked up in `useNativeEntryPoints`). `Candidate.categoryHint` is new and optional.
+- Settings k24 has an AI engine section (modes, provider, presets, consent, overrides, model manager); Ask k18 shows which engine answered and works without a key in on-device mode.
+- `modules/bacchat-llm` wraps llama.rn 0.12.9 (added to package.json); the autolinking resolver finds `RNLlamaPackage`. A Jest fake and tests are included.
+- Tests: new suites for json, redaction, sha256, all three providers, templates, registry and downloads, router matrix, extraction golden cases with a fake model, the service, the ingest seam, the settings section and the Ask caption. Typecheck, lint and the full Jest run are green.
+- Docs: architecture.md section 13, decisions.md ADRs.
+- Not verified: anything native (llama.rn on a device), real file access in `services/modelFiles.ts` (expo-file-system and expo/fetch), real model URLs and checksums, Hindi wording (`aiUi.` is in HI_FALLBACK).
+- Follow-ups: pin model URLs and checksums; Hindi strings; call `ai.unloadDevice()` when the app goes to the background; GPU opt-in; a Wi-Fi-only download choice; run the on-device path on a low-RAM phone.

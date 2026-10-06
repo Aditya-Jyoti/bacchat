@@ -21,6 +21,17 @@ const config = {
   },
 };
 
+/** Link that opens the reading screen (k7) on a shared image: bacchat://import?uri=... */
+export function importLink(uri: string): string {
+  return `bacchat://import?uri=${encodeURIComponent(uri)}`;
+}
+
+/** Link for the "From SMS" notification: Entries (k4) filtered to To review. */
+export const REVIEW_ENTRIES_LINK = 'bacchat://entries?filter=review';
+
+/** Link for the launcher shortcut "Add entry" (k5). */
+export const ADD_ENTRY_LINK = 'bacchat://add';
+
 export const linking: LinkingOptions<ParamListBase> = {
   prefixes: ['bacchat://'],
   config: config as LinkingOptions<ParamListBase>['config'],

@@ -6,6 +6,7 @@ import { useTheme } from '../theme';
 import { CategoryIcon } from './CategoryIcon';
 import { PillButton } from './PillButton';
 import { ValueSlider } from './ValueSlider';
+import { t } from '../lib/i18n';
 
 export type AllocationRow = { key: string; name: string; icon: string; paise: number };
 
@@ -43,7 +44,7 @@ export function AllocationSheet({
       <Pressable
         testID="allocation-scrim"
         accessibilityRole="button"
-        accessibilityLabel="Close"
+        accessibilityLabel={t('componentsUi.close')}
         onPress={onClose}
         style={{ flex: 1, backgroundColor: colors.scrim }}
       />
@@ -86,8 +87,8 @@ export function AllocationSheet({
           </View>
         ))}
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-          <PillButton label="Cancel" variant="outlined" height={52} style={{ flex: 1 }} onPress={onClose} testID="allocation-cancel" />
-          <PillButton label="Save" height={52} style={{ flex: 1 }} onPress={onSave} testID="allocation-save" />
+          <PillButton label={t('componentsUi.cancel')} variant="outlined" height={52} style={{ flex: 1 }} onPress={onClose} testID="allocation-cancel" />
+          <PillButton label={t('componentsUi.save')} height={52} style={{ flex: 1 }} onPress={onSave} testID="allocation-save" />
         </View>
       </View>
     </Modal>

@@ -45,6 +45,7 @@ export async function addAccount(db: BacchatDb, input: NewAccountInput): Promise
     kind,
     icon,
     balancePaise: isDebt ? 0 : input.amountPaise,
+    openingBalancePaise: isDebt ? 0 : input.amountPaise,
     last4: hasBank ? input.last4 : null,
     note,
   });
@@ -54,6 +55,7 @@ export async function addAccount(db: BacchatDb, input: NewAccountInput): Promise
       accountId: id,
       dueDay: input.type === 'card' ? dayOf(input.due) : 1,
       outstandingPaise: input.amountPaise,
+      openingOutstandingPaise: input.amountPaise,
       limitPaise: input.type === 'card' ? input.limitPaise : input.amountPaise,
     });
   }

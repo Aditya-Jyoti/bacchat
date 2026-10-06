@@ -8,11 +8,26 @@
     "scheme": "bacchat",
     "newArchEnabled": true,
     "android": {
-      "package": "app.bacchat"
+      "package": "app.bacchat",
+      "permissions": [
+        "android.permission.READ_SMS",
+        "android.permission.RECEIVE_SMS",
+        "android.permission.POST_NOTIFICATIONS"
+      ]
+    },
+    "extra": {
+      "cloudUrl": "",
+      "googleClientId": "",
+      "npsNavUrl": ""
     },
     "plugins": [
       "expo-font",
-      "expo-secure-store"
+      "expo-secure-store",
+      ["expo-sqlite", { "useSQLCipher": true }],
+      "expo-local-authentication",
+      "react-native-libsodium",
+      "./plugins/withShareIntent",
+      "./plugins/withShortcuts"
     ]
   }
 }

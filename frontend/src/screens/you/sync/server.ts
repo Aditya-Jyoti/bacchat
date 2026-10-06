@@ -1,14 +1,19 @@
 /** Where Bacchat Cloud lives. The address is not secret; it is kept beside the other sync settings. */
+import { getCloudUrl } from '../../../lib/appConfig';
 import type { SecureStore } from '../../../services';
 
-export const DEFAULT_CLOUD_URL = 'https://cloud.bacchat.app';
+/**
+ * The Bacchat Cloud address the build ships with (app.json extra.cloudUrl). The documented default is
+ * empty, which means "enter your server address"; nothing is assumed about who runs the server.
+ */
+export const DEFAULT_CLOUD_URL = getCloudUrl();
 const SERVER_KEY = 'bacchat.sync.server';
 
 export function isValidServerUrl(url: string): boolean {
   return /^https?:\/\/[^\s/$.?#][^\s]*$/i.test(url.trim());
 }
 
-/** The saved server address, or the default Bacchat Cloud address. */
+/** The saved server address, or the build's default (empty when none). */
 export async function getServerUrl(secure: SecureStore): Promise<string> {
   const v = await secure.get(SERVER_KEY);
   return v && isValidServerUrl(v) ? v : DEFAULT_CLOUD_URL;

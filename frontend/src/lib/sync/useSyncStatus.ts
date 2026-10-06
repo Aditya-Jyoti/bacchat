@@ -6,8 +6,8 @@ import {
   RateLimitedError,
   UnauthorizedError,
   type DeviceInfo,
-  type SyncClient,
 } from './client';
+import type { SyncTarget } from './target';
 import { DecryptError, WrongPassphraseError } from './crypto';
 import type { SyncConflict } from './merge';
 import { RollbackError, type SyncEngine, type SyncProgress, type SyncResult } from './engine';
@@ -83,7 +83,7 @@ export const useSyncStatus = create<SyncStatusStore>()((set) => ({
  * Runs one sync and mirrors it into the store. Wire engine progress with
  * `onProgress: (p) => useSyncStatus.getState().setProgress(p)` when building the engine.
  */
-export async function runSyncWithStatus(engine: SyncEngine, client?: SyncClient): Promise<SyncResult | null> {
+export async function runSyncWithStatus(engine: SyncEngine, client?: SyncTarget): Promise<SyncResult | null> {
   const s = useSyncStatus.getState();
   s.begin();
   try {
@@ -91,7 +91,7 @@ export async function runSyncWithStatus(engine: SyncEngine, client?: SyncClient)
     useSyncStatus.getState().finish(result);
     if (client && result.status === 'synced') {
       try {
-        useSyncStatus.getState().setDevices(await client.listDevices());
+        useSyncStatus.getState().setDevices((await client.listDevices?.()) ?? []);
       } catch {
         // Device list is optional.
       }

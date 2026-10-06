@@ -7,3 +7,4 @@ export * from './email';
 export * from './categorise';
 export * from './ocr';
 export * from './pipeline';
+export * from './ocrGeometry';

@@ -378,3 +378,72 @@ TLS is terminated by a reverse proxy in front of the container (planned guidance
 - Sync pushes only changed blobs and compresses before encrypting. Compressing after encryption is useless, so order matters.
 - Fonts (Young Serif, Figtree) load before the splash hides; fallback to system serif and sans if they fail.
 - Font scale to 200% and reduce motion are honoured; animations use the native driver or Reanimated worklets.
+
+
+## 13. AI routing: cloud key, on-device model, or both
+
+Every AI feature (Ask advisor, SMS and email reading, category suggestions, OCR name clean-up, insight text) goes through one router. The user chooses where AI runs in Settings: no AI, their own cloud key, a model on this phone, or Auto. No feature is tied to one engine, and no feature is denied by either. The backend does no inference.
+
+```mermaid
+flowchart TD
+    F[Feature: advisor, ingestion, categorise, ocr, insight] --> R{AiRouter mode for this feature}
+    R -->|off| RULES[Rules only: parseSms, parseEmail, categorise]
+    R -->|cloud| C[Cloud provider]
+    R -->|device| D[On-device provider]
+    R -->|auto| D
+    D -->|missing, failed or low confidence| FB{Cloud allowed in Auto?}
+    FB -->|yes| C
+    FB -->|no| RULES
+    C --> G{Needs message text?}
+    G -->|no: advisor, insight| SEND[Send aggregates only]
+    G -->|yes| K{Consent for this provider?}
+    K -->|no| RULES
+    K -->|yes| RED[Redact, verify, send]
+    D --> LOCAL[Original text, never leaves the phone]
+```
+
+Modes and overrides. Preferences live in their own persisted store (`lib/ai/prefs.ts`, key `bacchat.ai`): `aiMode` (off, cloud, device, auto), `aiFeatureModes` (overrides for advisor, ingestion, categorise; OCR follows categorise and insight follows advisor), provider choice, OpenAI-compatible base URL and model, `aiAutoCloudFallback`, `aiActiveModelId`, and `aiConsent` (provider key to the time it was given). API keys are never in preferences: the Anthropic key and model stay where they were (secure store), and the OpenAI-compatible key is in the secure store under `bacchat.ai.openai.key`.
+
+Layers.
+
+```mermaid
+flowchart LR
+    UI[Settings AiSection, Ask k18] --> SVC[services/aiService]
+    ING[ingestService] -->|extractor| SVC
+    SVC --> RT[lib/ai/router AiRouter]
+    RT --> EX[extract.ts rules first, validated model reading]
+    RT --> ADV[client.ts createAdvisor loop and read-only tools]
+    RT --> P1[AnthropicProvider]
+    RT --> P2[OpenAICompatibleProvider]
+    RT --> P3[OnDeviceProvider]
+    P3 --> NATIVE[modules/bacchat-llm over llama.rn and llama.cpp]
+    SVC --> DL[ModelDownloadManager and ModelRegistry]
+```
+
+Privacy boundaries.
+
+- Advisor and insights: only the aggregates the read-only tools return. Each tool result is also scanned for payee names, account names, UPI ids, notes and message references and blocked on a hit. This is the same on every engine.
+- Message reading, tagging and OCR clean-up need raw text. On the phone's model the original text is used and nothing leaves the phone. For a cloud provider the text is redacted first (`lib/ai/redact.ts`): OTPs and codes, balances and limits, card and account numbers (last 4 kept), phone numbers (also inside UPI handles), email addresses (domain kept), PAN and Aadhaar. The amount, date, payee name, last-4 digits and UPI handle stay, because they are what the model must read. A second check refuses to send text that still matches a sensitive pattern. Text the rules call not-a-payment (OTPs, offers, reminders) never goes to any model.
+- Consent: a cloud provider is called for message text only after explicit, one-time consent for that provider (a self-hosted endpoint counts per host). The router leaves the cloud engine out of the plan without consent, and a guard on the provider re-checks at call time, so withdrawing consent stops calls at once. Settings shows a calm disclosure line next to the switch. When a message is read by rules only because consent is missing, Settings says so once.
+- Nothing is logged: prompts, message text, model output and keys never reach a log. Errors shown to people are the calm fixed messages in `lib/ai/errors.ts`.
+
+Hybrid ingestion. `extractTransaction(text, ctx)` runs the rule parser first and accepts it at confidence 0.75 or more. Otherwise the router asks a model for strict JSON (amount as printed, direction, merchant, time, method, last-4, UPI id, category name from the user's list). The answer must pass a schema and then cross-checks: the amount must appear in the original text, must not equal the balance or limit, and must agree with the rule parser when it found something; digits, UPI id and merchant must be present in the text or are dropped; the category must be one of the user's. A failed check is sent back to the model once with the reason, then refused. Accepted readings become normal candidates and the pipeline stores them To review and AI added. In Auto, a low-confidence device answer hands over to the cloud only if the user allowed fallback and gave consent.
+
+On-device model lifecycle.
+
+```mermaid
+stateDiagram-v2
+    [*] --> NotDownloaded
+    NotDownloaded --> Downloading: Download (Range resume, free space check)
+    Downloading --> Paused: Pause or network drop (partial file kept)
+    Paused --> Downloading: Resume
+    Downloading --> Verifying: all bytes received
+    Verifying --> Installed: checksum ok or unpinned
+    Verifying --> NotDownloaded: checksum mismatch (file removed)
+    Installed --> Active: Use this
+    Active --> Loaded: first request loads the GGUF
+    Loaded --> Installed: unload on memory pressure or delete
+    Installed --> NotDownloaded: Delete
+```
+
+Models are never bundled. The registry lists small GGUF models with size, RAM need, licence and chat template. The engine loads a model lazily on the first request and keeps one loaded. Tool use is emulated with a small JSON protocol checked against each tool's schema, with repair attempts; JSON output uses grammar-constrained decoding when the engine supports it.

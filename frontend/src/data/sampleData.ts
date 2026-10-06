@@ -1,4 +1,5 @@
 import { groupIndian } from '../lib/format';
+import { t } from '../lib/i18n';
 import type {
   AllocationItem,
   BudgetItem,
@@ -352,13 +353,24 @@ export const categoryIcons: readonly (readonly [string, string])[] = [
   ['redeem', 'Gifts'],
 ];
 
+/** Labels and descriptions read through t() at access time, so they follow the locale. */
+const section = (id: HomeSectionId, icon: string): SectionMeta => ({
+  get label() {
+    return t(`home.sections.${id}`);
+  },
+  get desc() {
+    return t(`home.sectionDesc.${id}`);
+  },
+  icon,
+});
+
 export const sectionMeta: Record<HomeSectionId, SectionMeta> = {
-  insight: { label: 'Bacchat noticed', desc: 'Small tips from your own data', icon: 'auto_awesome' },
-  spend: { label: 'This month', desc: 'Spend by category', icon: 'donut_small' },
-  upcoming: { label: 'Coming up', desc: 'Bills, card dues and SIPs', icon: 'event_upcoming' },
-  goals: { label: 'Goals', desc: 'Progress on what you are saving for', icon: 'flag' },
-  budget: { label: 'Budget', desc: 'How this month is pacing', icon: 'account_balance_wallet' },
-  accounts: { label: 'Own & owe', desc: 'What is yours vs. what is due', icon: 'account_balance' },
+  insight: section('insight', 'auto_awesome'),
+  spend: section('spend', 'donut_small'),
+  upcoming: section('upcoming', 'event_upcoming'),
+  goals: section('goals', 'flag'),
+  budget: section('budget', 'account_balance_wallet'),
+  accounts: section('accounts', 'account_balance'),
 };
 
 export const keypadKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'backspace'] as const;

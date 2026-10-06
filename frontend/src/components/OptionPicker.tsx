@@ -3,6 +3,7 @@ import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { useTheme } from '../theme';
 import { Glyph } from './Glyph';
+import { t } from '../lib/i18n';
 
 export type OptionPickerProps = {
   visible: boolean;
@@ -18,7 +19,7 @@ export function OptionPicker({ visible, title, options, value, onSelect, onClose
   const { colors, typography, shapes } = useTheme();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} style={{ flex: 1, backgroundColor: colors.scrim }} />
+      <Pressable accessibilityRole="button" accessibilityLabel={t('componentsUi.close')} onPress={onClose} style={{ flex: 1, backgroundColor: colors.scrim }} />
       <View
         testID="option-picker"
         style={{

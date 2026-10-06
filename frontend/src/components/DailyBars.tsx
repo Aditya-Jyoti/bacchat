@@ -4,6 +4,7 @@ import { Pressable, Text, View, type LayoutChangeEvent } from 'react-native';
 import { formatRupees } from '../lib/format';
 import { useTheme } from '../theme';
 import { ChartTooltip } from './ChartTooltip';
+import { t } from '../lib/i18n';
 
 export type DailyBarsProps = {
   /** Spend per elapsed day in integer paise (day 1 first). */
@@ -119,7 +120,7 @@ export function DailyBars({
             focusable
             accessibilityRole="button"
             accessibilityState={{ selected: i === selectedIndex }}
-            accessibilityLabel={labelFor ? labelFor(i) : `Day ${i + 1}: ${formatRupees(v)}`}
+            accessibilityLabel={labelFor ? labelFor(i) : t('componentsUi.dayAmount', { day: i + 1, amount: formatRupees(v) })}
             onPress={() => onSelect(i)}
             onHoverIn={() => onSelect(i)}
             onFocus={() => onSelect(i)}

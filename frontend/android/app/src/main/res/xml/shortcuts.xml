@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+  <shortcut
+    android:shortcutId="add_entry"
+    android:enabled="true"
+    android:shortcutShortLabel="@string/shortcut_add_entry_short"
+    android:shortcutLongLabel="@string/shortcut_add_entry_long">
+    <intent
+      android:action="android.intent.action.VIEW"
+      android:data="bacchat://add"
+      android:targetPackage="app.bacchat"
+      android:targetClass="app.bacchat.MainActivity" />
+  </shortcut>
+</shortcuts>

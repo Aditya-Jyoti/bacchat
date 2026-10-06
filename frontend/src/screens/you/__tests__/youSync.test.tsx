@@ -67,8 +67,8 @@ suite.each(['light', 'dark'] as const)('k25 and k26 against the real backend (%s
   }
 
   it('start sync stores credentials, shows the recovery key once and never keeps the passphrase', async () => {
-    const { services, getByTestId, findByTestId, queryByTestId, getAllByText } = await setUpFirstPhone();
-    expect(getAllByText('Coming soon')).toHaveLength(2);
+    const { services, getByTestId, findByTestId, queryByTestId, queryByText } = await setUpFirstPhone();
+    expect(queryByText('Coming soon')).toBeNull();
     fireEvent(getByTestId('sync-switch'), 'valueChange', true);
     fireEvent.changeText(getByTestId('passphrase'), 'short');
     expect(getByTestId('start-sync').props.accessibilityState.disabled).toBe(true);

@@ -11,21 +11,21 @@ import { TopBar, TopBarAction } from '../../../components/TopBar';
 import { useTheme } from '../../../theme';
 import { Glyph } from '../../you/parts/Glyph';
 import { GalleryCard } from './GalleryFrame';
+import { t } from '../../../lib/i18n';
 
 const R = '\u20B9';
-const DOT = '\u00B7';
 
 export function BannersCard(): React.JSX.Element {
   const { colors, typography } = useTheme();
   return (
-    <GalleryCard title="BANNERS & INLINE STATES" caption="Banner for one-time permission asks, offline line, calm error with retry, small empty state.">
-      <Banner variant="insight" icon="sms" actionLabel="Allow">Let Bacchat read bank SMS so entries add themselves? It stays on this phone.</Banner>
-      <Banner variant="caution" icon="cloud_off" actionLabel="Retry">{`Offline ${DOT} prices from 9:30 am`}</Banner>
-      <Banner variant="caution" icon="image_not_supported" actionLabel="Try again">{"Couldn't read this screenshot. A sharper or uncropped one usually works."}</Banner>
+    <GalleryCard title={t('galleryUi.bannersInlineStates')} caption={t('galleryUi.bannerForOneTime')}>
+      <Banner variant="insight" icon="sms" actionLabel={t('galleryUi.allow')}>{t('galleryUi.letBacchatReadBank')}</Banner>
+      <Banner variant="caution" icon="cloud_off" actionLabel={t('galleryUi.retry')}>{t('galleryUi.offlineUBPrices')}</Banner>
+      <Banner variant="caution" icon="image_not_supported" actionLabel={t('galleryUi.tryAgain')}>{t('galleryUi.couldnTReadThis')}</Banner>
       <View style={{ alignItems: 'center', gap: 4, paddingVertical: 12 }}>
         <Glyph name="local_cafe" size={36} color={colors.onSurfaceVariant} />
-        <Text style={[typography.titleMedium, { color: colors.onSurface }]}>Nothing here yet</Text>
-        <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>Entries you add will show up here.</Text>
+        <Text style={[typography.titleMedium, { color: colors.onSurface }]}>{t('galleryUi.nothingHereYet')}</Text>
+        <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{t('galleryUi.entriesYouAddWill')}</Text>
       </View>
     </GalleryCard>
   );
@@ -46,31 +46,31 @@ export function SteppersCard(): React.JSX.Element {
     </View>
   );
   return (
-    <GalleryCard title="PROGRESS & STEPPERS" caption="Stepper for multi-step flows, number stepper, avatar stack, circular goal ring.">
-      <Text style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>Flow stepper, screenshot import</Text>
+    <GalleryCard title={t('galleryUi.progressSteppers')} caption={t('galleryUi.stepperForMultiStep')}>
+      <Text style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>{t('galleryUi.flowStepperScreenshotImport')}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        {step(1, 'Upload', 'done')}
+        {step(1, t('galleryUi.upload'), 'done')}
         <View style={{ width: 16, height: 1, backgroundColor: colors.outlineVariant }} />
-        {step(2, 'Review', 'active')}
+        {step(2, t('galleryUi.review'), 'active')}
         <View style={{ width: 16, height: 1, backgroundColor: colors.outlineVariant }} />
-        {step(3, 'Done', 'todo')}
+        {step(3, t('galleryUi.done'), 'todo')}
       </View>
-      <Text style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>Number stepper, split between people</Text>
+      <Text style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>{t('galleryUi.numberStepperSplitBetween')}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <NumberStepper testID="gallery-stepper" label="People" value={people} min={1} max={10} onChange={setPeople} format={(v) => `${v} people`} />
+        <NumberStepper testID="gallery-stepper" label={t('galleryUi.people')} value={people} min={1} max={10} onChange={setPeople} format={(v) => `${v} people`} />
         <View>
           <Text style={[typography.labelLarge, { color: colors.onSurface }]}>{`${R}${Math.round(1485 / people)} each`}</Text>
-          <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{`of ${R}1,485`}</Text>
+          <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{t('galleryUi.ofRs')}</Text>
         </View>
       </View>
-      <Text style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>People, avatars and owed chips</Text>
+      <Text style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>{t('galleryUi.peopleAvatarsAndOwed')}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <AvatarStack items={[{ id: 'p', name: 'Priya' }, { id: 'a', name: 'Arjun' }, { id: 'm', name: 'Meera' }, { id: 'k', name: 'Karan' }]} max={2} />
-        <Text style={[typography.bodySmall, { color: colors.onSurface }]}>{`Priya owes ${R}495`}</Text>
+        <Text style={[typography.bodySmall, { color: colors.onSurface }]}>{t('galleryUi.priyaOwesRs')}</Text>
       </View>
-      <Text style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>Goal milestone, ring</Text>
+      <Text style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>{t('galleryUi.goalMilestoneRing')}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-        <View testID="goal-ring" accessible accessibilityRole="progressbar" accessibilityLabel="Goa, 63 percent" accessibilityValue={{ min: 0, max: 100, now: 63 }} style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+        <View testID="goal-ring" accessible accessibilityRole="progressbar" accessibilityLabel={t('galleryUi.goaPercent')} accessibilityValue={{ min: 0, max: 100, now: 63 }} style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
           <Svg width={size} height={size} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
             <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.surfaceContainerHigh} strokeWidth={6} fill="none" />
             <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.primary} strokeWidth={6} strokeLinecap="round" fill="none" strokeDasharray={`${circ}`} strokeDashoffset={circ * 0.37} />
@@ -78,8 +78,8 @@ export function SteppersCard(): React.JSX.Element {
           <Text style={[typography.titleMedium, { color: colors.onSurface }]}>63%</Text>
         </View>
         <View>
-          <Text style={[typography.labelLarge, { color: colors.onSurface }]}>Goa</Text>
-          <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>Next milestone at 75%</Text>
+          <Text style={[typography.labelLarge, { color: colors.onSurface }]}>{t('galleryUi.goa')}</Text>
+          <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{t('galleryUi.nextMilestoneAt')}</Text>
         </View>
       </View>
     </GalleryCard>
@@ -98,21 +98,21 @@ export function AppBarsCard(): React.JSX.Element {
     </View>
   );
   return (
-    <GalleryCard title="APP BARS & NAVIGATION" caption="Badges: a number means things to review; a dot on You means backup needs attention.">
-      <Text style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>Small, sub-pages</Text>
-      <TopBar title="Settings" trailing={<TopBarAction icon="more_vert" label="More" />} />
-      <Text style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>Large, collapses</Text>
+    <GalleryCard title={t('galleryUi.appBarsNavigation')} caption={t('galleryUi.badgesANumberMeans')}>
+      <Text style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>{t('galleryUi.smallSubPages')}</Text>
+      <TopBar title={t('galleryUi.settings')} trailing={<TopBarAction icon="more_vert" label={t('galleryUi.more')} />} />
+      <Text style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>{t('galleryUi.largeCollapses')}</Text>
       <View>
-        <TopBar trailing={<TopBarAction icon="search" label="Search" />} />
-        <Text style={[typography.headlineSmall, { color: colors.onSurface, paddingHorizontal: 16 }]}>Entries</Text>
+        <TopBar trailing={<TopBarAction icon="search" label={t('galleryUi.search2')} />} />
+        <Text style={[typography.headlineSmall, { color: colors.onSurface, paddingHorizontal: 16 }]}>{t('galleryUi.entries')}</Text>
       </View>
-      <Text style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>Contextual, 3 selected</Text>
-      <TopBar title="3 selected" leading="close" trailing={<TopBarAction icon="delete" label="Delete" />} />
+      <Text style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>{t('galleryUi.contextualSelected')}</Text>
+      <TopBar title={t('galleryUi.selected')} leading="close" trailing={<TopBarAction icon="delete" label={t('galleryUi.delete')} />} />
       <View style={{ flexDirection: 'row', backgroundColor: colors.surfaceContainer, paddingVertical: 12, borderRadius: 16 }}>
-        {nav('home', 'Home', true)}
-        {nav('receipt_long', 'Money', false, 2)}
-        {nav('flag', 'Goals', false)}
-        {nav('person', 'You', false)}
+        {nav('home', t('galleryUi.home'), true)}
+        {nav('receipt_long', t('galleryUi.money'), false, 2)}
+        {nav('flag', t('galleryUi.goals'), false)}
+        {nav('person', t('galleryUi.you'), false)}
       </View>
     </GalleryCard>
   );
@@ -122,24 +122,24 @@ export function AmountsCard(): React.JSX.Element {
   const { colors, typography } = useTheme();
   const label = (s: string) => <Text style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>{s}</Text>;
   return (
-    <GalleryCard title="AMOUNTS" caption="Spends are never red and never shown with a minus sign. Only income gets colour (primary). Debt carries a word, not a colour.">
-      {label('Hero')}
+    <GalleryCard title={t('galleryUi.amounts')} caption={t('galleryUi.spendsAreNeverRed')}>
+      {label(t('galleryUi.hero'))}
       <Amount paise={182235000} variant="displayMedium" />
-      {label('Hidden (tap to show)')}
-      <Text accessibilityLabel="Amount hidden" style={[typography.headlineSmall, { color: colors.onSurface }]}>{`${R} \u2022\u2022\u2022\u2022\u2022\u2022`}</Text>
-      {label('Compact, in charts')}
-      <Text style={[typography.labelLarge, { color: colors.onSurface }]}>{`${R}18.2L ${DOT} ${R}52k`}</Text>
-      {label('Money in')}
+      {label(t('galleryUi.hiddenTapToShow'))}
+      <Text accessibilityLabel={t('galleryUi.amountHidden')} style={[typography.headlineSmall, { color: colors.onSurface }]}>{t('galleryUi.rsUUU')}</Text>
+      {label(t('galleryUi.compactInCharts'))}
+      <Text style={[typography.labelLarge, { color: colors.onSurface }]}>{t('galleryUi.rsLUB')}</Text>
+      {label(t('galleryUi.moneyIn'))}
       <Amount paise={89900} income />
-      {label('Money out')}
+      {label(t('galleryUi.moneyOut'))}
       <Amount paise={48600} />
-      {label('Debt')}
+      {label(t('galleryUi.debt'))}
       <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
         <Amount paise={2000000} variant="bodyLarge" />
-        <Text style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>OWED</Text>
+        <Text style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>{t('galleryUi.owed')}</Text>
       </View>
-      {label('Delta')}
-      <Text style={[typography.labelLarge, { color: colors.primary }]}>{`\u2197 +${R}24,180`}</Text>
+      {label(t('galleryUi.delta'))}
+      <Text style={[typography.labelLarge, { color: colors.primary }]}>{t('galleryUi.uRs')}</Text>
     </GalleryCard>
   );
 }

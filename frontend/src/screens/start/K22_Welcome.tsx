@@ -1,10 +1,12 @@
 /** k22: Welcome. First run only: start fresh or restore a backup. No sign-up wall. */
-import React from 'react';
-import { Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { ScrollView, Text, View } from 'react-native';
 import { Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Glyph } from '../../components/Glyph';
+import { OutlinedField } from '../../components/OutlinedField';
+import { usePreferences } from '../../lib/preferences';
 import { useTheme } from '../../theme';
 import { useGo } from '../useGo';
 import { ChaiIllustration } from './ChaiIllustration';
@@ -20,14 +22,17 @@ export default function K22_Welcome(): React.JSX.Element {
   const { colors, typography, shapes } = useTheme();
   const { go } = useGo();
   const markSeen = useFirstRun((s) => s.markSeen);
+  const setProfileName = usePreferences((s) => s.setProfileName);
+  const [name, setName] = useState('');
   const finish = (to: 'k1' | 'k25') => {
+    if (name.trim()) setProfileName(name);
     markSeen();
     go(to);
   };
 
   return (
     <SafeAreaView testID="screen-k22" edges={['top', 'bottom']} style={{ flex: 1, backgroundColor: colors.surface }}>
-      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 20 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 20 }} keyboardShouldPersistTaps="handled">
         <View
           style={{ height: 220, borderRadius: 24, backgroundColor: colors.surfaceContainer, alignItems: 'center', justifyContent: 'center' }}
         >
@@ -51,7 +56,10 @@ export default function K22_Welcome(): React.JSX.Element {
             </View>
           ))}
         </View>
-      </View>
+        <View style={{ marginTop: 20 }}>
+          <OutlinedField testID="welcome-name" label={t('startUi.nameLabel')} value={name} onChangeText={setName} maxLength={40} helper={t('startUi.namePlaceholder')} />
+        </View>
+      </ScrollView>
       <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 28, gap: 10 }}>
         <Button mode="contained" onPress={() => finish('k1')} contentStyle={{ height: 52 }}>
           {t('startUi.startFresh')}

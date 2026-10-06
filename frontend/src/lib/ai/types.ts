@@ -6,6 +6,8 @@ export type AdvisorErrorCode =
   | 'overloaded'
   | 'bad_request'
   | 'max_iterations'
+  | 'no_engine'
+  | 'consent_needed'
   | 'cancelled'
   | 'unknown';
 
@@ -27,7 +29,7 @@ export type AdvisorEvent =
   | { type: 'tool_call'; id: string; tool: string; label: string }
   | { type: 'tool_result'; id: string; tool: string; ok: boolean }
   | { type: 'text_delta'; text: string }
-  | { type: 'done'; text: string; iterations: number; usage: { inputTokens: number; outputTokens: number } }
+  | { type: 'done'; text: string; iterations: number; usage: { inputTokens: number; outputTokens: number }; engine?: { id: string; kind: 'cloud' | 'device'; label: string } }
   | { type: 'error'; error: AdvisorError; partialText: string };
 
 export type ChatTurn = { role: 'user' | 'assistant'; text: string };

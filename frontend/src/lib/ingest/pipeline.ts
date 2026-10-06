@@ -50,20 +50,28 @@ export async function ingestCandidate(db: BacchatDb, c: Candidate, opts: IngestO
     return { kind: 'conflict', against, recon, candidate: c };
   }
 
+  return { kind: 'added', entry: await insertCandidate(db, c) };
+}
+
+/**
+ * Insert a candidate as a new To review entry, without any matching. ingestCandidate uses this for
+ * "New"; callers use it directly when the user chose to keep both sides of a conflict.
+ */
+export async function insertCandidate(db: BacchatDb, c: Candidate): Promise<Entry> {
   const [history, cats] = await Promise.all([db.merchants.list(), db.categories.list()]);
   const guess = categorise(c.merchant, history, cats);
   const [accounts, upis] = await Promise.all([db.accounts.list(), db.upiIds.list()]);
   const last4 = c.cardLast4 ?? c.accountLast4;
   const account = last4 ? accounts.find((a) => a.last4 === last4) : undefined;
   const upi = c.upiHandle ? upis.find((u) => u.handle.toLowerCase() === c.upiHandle) : undefined;
-  const entry = await db.entries.put({
+  return db.entries.put({
     id: newId('e'),
     amountPaise: c.amountPaise,
     direction: c.direction,
     at: c.at,
     merchant: c.merchant ?? 'Unknown',
     note: null,
-    categoryId: guess.categoryId,
+    categoryId: guess.categoryId ?? (c.categoryHint && cats.some((k) => k.id === c.categoryHint) ? c.categoryHint : null),
     accountId: account?.id ?? upi?.accountId ?? null,
     method: c.method ?? (upi ? 'upi' : 'bank'),
     upiId: upi?.id ?? null,
@@ -71,5 +79,4 @@ export async function ingestCandidate(db: BacchatDb, c: Candidate, opts: IngestO
     status: 'toReview',
     aiAdded: true,
   });
-  return { kind: 'added', entry };
 }

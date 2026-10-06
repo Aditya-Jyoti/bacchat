@@ -4,6 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 import { formatRupeesCompact } from '../lib/format';
 import { useTheme } from '../theme';
 import { ChartTooltip } from './ChartTooltip';
+import { t } from '../lib/i18n';
 
 export type PairedBarChartProps = {
   /** One label per month, shown under the columns. */
@@ -32,8 +33,8 @@ export function PairedBarChart({
   const [selected, setSelected] = useState<number | null>(initialSelected);
   const max = Math.max(1, ...income, ...spend);
   const k = (p: number) => formatRupeesCompact(p, { symbol: true });
-  const summary = `Cash flow, last ${months.length} months. ` +
-    months.map((m, i) => `${m}: in ${k(income[i] ?? 0)}, out ${k(spend[i] ?? 0)}.`).join(' ');
+  const summary = `${t('componentsUi.cashFlowLast', { n: months.length })} ` +
+    months.map((m, i) => t('componentsUi.monthInOut', { m, inn: k(income[i] ?? 0), out: k(spend[i] ?? 0) })).join(' ');
   const n = months.length;
   const net = selected === null ? 0 : (income[selected] ?? 0) - (spend[selected] ?? 0);
   const pct = selected === null ? 0 : Math.min(85, Math.max(15, ((selected + 0.5) / n) * 100));
@@ -54,7 +55,7 @@ export function PairedBarChart({
               key={m}
               testID={`paired-col-${i}`}
               accessibilityRole="button"
-              accessibilityLabel={`${m}, in ${k(income[i] ?? 0)}, out ${k(spend[i] ?? 0)}`}
+              accessibilityLabel={t('componentsUi.monthInOutLabel', { m, inn: k(income[i] ?? 0), out: k(spend[i] ?? 0) })}
               onPress={() => setSelected(selected === i ? null : i)}
               style={{ flex: 1, flexDirection: 'row', gap: 3, alignItems: 'flex-end', height: '100%' }}
             >

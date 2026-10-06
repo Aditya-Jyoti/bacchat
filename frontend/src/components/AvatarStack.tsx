@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, View } from 'react-native';
 
 import { useTheme } from '../theme';
+import { t } from '../lib/i18n';
 
 export type AvatarStackItem = { id: string; name: string };
 
@@ -23,7 +24,7 @@ export function AvatarStack({ items, max = 3, size = 28 }: AvatarStackProps): Re
   ];
   const shown = items.slice(0, max);
   const extra = items.length - shown.length;
-  const summary = `${shown.map((i) => i.name).join(', ')}${extra > 0 ? ` and ${extra} more` : ''}`;
+  const summary = `${shown.map((i) => i.name).join(', ')}${extra > 0 ? ` ${t('componentsUi.andMore', { extra })}` : ''}`;
   const circle = (key: string, bg: string, fg: string, text: string, first: boolean) => (
     <View
       key={key}

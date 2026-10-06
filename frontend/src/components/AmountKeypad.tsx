@@ -4,6 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { groupIndian } from '../lib/format';
 import { useTheme } from '../theme';
+import { t } from '../lib/i18n';
 
 export const KEYPAD_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'backspace'] as const;
 export type KeypadKey = (typeof KEYPAD_KEYS)[number];
@@ -54,7 +55,7 @@ export function AmountKeypad({ value, onChange, quickAdds = [100, 500, 1000] }: 
               key={q}
               testID={`quick-add-${q}`}
               accessibilityRole="button"
-              accessibilityLabel={`Add ${q} rupees`}
+              accessibilityLabel={t('componentsUi.addRupees', { q })}
               hitSlop={8}
               onPress={() => addQuick(q)}
               style={{ height: 32, paddingHorizontal: spacing.md, justifyContent: 'center', borderRadius: shapes.chip, borderWidth: 1, borderColor: colors.outline }}

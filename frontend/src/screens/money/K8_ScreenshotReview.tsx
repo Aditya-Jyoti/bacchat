@@ -140,7 +140,7 @@ export default function K8_ScreenshotReview(): React.JSX.Element {
   const add = (): void => {
     if (!ctx || busy || open.length > 0) return;
     setBusy(true);
-    void commitImport(db, ctx.loaded, decisions, ctx.defaults)
+    void commitImport(db, ctx.loaded, decisions, ctx.defaults, session.uri ? { uri: session.uri, readAt: now } : undefined)
       .then(() => {
         useImportSession.getState().reset();
         nav.go('k4');

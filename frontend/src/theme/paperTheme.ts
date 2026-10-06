@@ -2,7 +2,7 @@ import { configureFonts, MD3DarkTheme, MD3LightTheme, type MD3Theme } from 'reac
 
 import { shapes } from './shapes';
 import type { BacchatColors, ColorMode } from './types';
-import { typography, type TypeToken } from './typography';
+import { typography, type Typography, type TypeToken } from './typography';
 
 type PaperType = {
   fontFamily: string;
@@ -12,8 +12,8 @@ type PaperType = {
   fontWeight: '400' | '500' | '600';
 };
 
-function toPaperType(token: TypeToken): PaperType {
-  const s = typography[token];
+function toPaperType(token: TypeToken, scale: Typography = typography): PaperType {
+  const s = scale[token];
   return {
     fontFamily: String(s.fontFamily),
     fontSize: s.fontSize ?? 14,
@@ -23,27 +23,21 @@ function toPaperType(token: TypeToken): PaperType {
   };
 }
 
-const fontConfig = {
-  displayMedium: toPaperType('displayMedium'),
-  headlineSmall: toPaperType('headlineSmall'),
-  titleMedium: toPaperType('titleMedium'),
-  bodyLarge: toPaperType('bodyLarge'),
-  bodyMedium: toPaperType('bodyMedium'),
-  bodySmall: toPaperType('bodySmall'),
-  labelLarge: toPaperType('labelLarge'),
-  labelMedium: toPaperType('labelMedium'),
-  labelSmall: toPaperType('labelSmall'),
-};
+const TOKENS: TypeToken[] = ['displayMedium', 'headlineSmall', 'titleMedium', 'bodyLarge', 'bodyMedium', 'bodySmall', 'labelLarge', 'labelMedium', 'labelSmall'];
+
+function fontConfigFor(scale: Typography): Record<TypeToken, PaperType> {
+  return Object.fromEntries(TOKENS.map((t) => [t, toPaperType(t, scale)])) as Record<TypeToken, PaperType>;
+}
 
 /** Map Bacchat roles onto react-native-paper's MD3 theme. Paper's default palette is not used. */
-export function toPaperTheme(colors: BacchatColors, mode: ColorMode): MD3Theme {
+export function toPaperTheme(colors: BacchatColors, mode: ColorMode, scale: Typography = typography): MD3Theme {
   const base = mode === 'dark' ? MD3DarkTheme : MD3LightTheme;
   const c = colors;
   return {
     ...base,
     dark: mode === 'dark',
     roundness: shapes.field,
-    fonts: configureFonts({ config: fontConfig }),
+    fonts: configureFonts({ config: fontConfigFor(scale) }),
     colors: {
       ...base.colors,
       primary: c.primary,

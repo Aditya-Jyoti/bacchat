@@ -1,4 +1,5 @@
 import type { BacchatDb } from '../repositories';
+import { ledger } from './balances';
 import { holdingValuePaise } from '../../../lib/nav/valuation';
 
 export type NetWorth = {
@@ -19,7 +20,7 @@ export function holdingValue(h: { unitsMicro: number; lastNavMicro: number | nul
 
 /** Net worth = what you own minus what you owe. Debt is never folded into a balance. */
 export async function netWorth(db: BacchatDb): Promise<NetWorth> {
-  const [accounts, holdings, debts] = await Promise.all([db.accounts.list(), db.holdings.list(), db.debts.list()]);
+  const [{ accounts, debts }, holdings] = await Promise.all([ledger(db), db.holdings.list()]);
   const ownBy = { bank: 0, cash: 0, mf: 0, nps: 0 };
   const accountIds = new Set(accounts.map((a) => a.id));
   for (const a of accounts) {
@@ -54,7 +55,7 @@ export async function netWorth(db: BacchatDb): Promise<NetWorth> {
 
 /** Yours to spend: banks plus cash, minus what credit cards are due. Funds and NPS are not spendable. */
 export async function spendable(db: BacchatDb): Promise<{ paise: number; liquidPaise: number; cardDuesPaise: number }> {
-  const [accounts, debts] = await Promise.all([db.accounts.list(), db.debts.list()]);
+  const { accounts, debts } = await ledger(db);
   const liquidPaise = accounts
     .filter((a) => a.kind === 'bank' || a.kind === 'cash')
     .reduce((s, a) => s + a.balancePaise, 0);

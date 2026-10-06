@@ -10,6 +10,7 @@ import type { EntryItem } from '../types';
 import type { BacchatDb } from './repositories';
 import type { Account, Category, Entry, EntrySourceKind, PayMethod, Recurring } from './models';
 import { holdingValuePaise } from '../../lib/nav/valuation';
+import { rebaseOpeningBalances } from './queries/balances';
 import { buildHistory, merchantFor, type EntryDraft } from './seedHistory';
 
 export const SAMPLE_TODAY = new Date(2026, 9, 24, 21, 30).getTime();
@@ -412,6 +413,8 @@ export async function seedFromSampleData(db: BacchatDb): Promise<void> {
     more('rec-bescom', 'BESCOM electricity', 'bolt', 1840, '2026-11-20', 'bill', 'bills', 'acc-hdfc'),
     more('rec-google-one', 'Google One', 'cloud', 130, '2026-11-22', 'monthly', 'bills', 'acc-icici'),
   ]);
+  // Balances follow entries: record each account's opening balance so today's figures stay as designed.
+  await rebaseOpeningBalances(db);
   await db.meta.set(SEED_FLAG, '1');
 }
 

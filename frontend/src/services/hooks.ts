@@ -22,6 +22,7 @@ import {
   type UpcomingItem,
   type UpiFlow,
 } from '../data/db/queries';
+import { accountsWithBalances, ledger } from '../data/db/queries/balances';
 import type { Account, DebtCard, Entry, EntryDirection, EntrySourceKind, EntryStatus, Goal, PayMethod } from '../data/db/models';
 import { useDbQuery, type QueryResult } from './useDbQuery';
 import { useServices } from './AppServicesProvider';
@@ -139,13 +140,13 @@ export function useToReviewEntries(): QueryResult<Entry[]> {
 }
 
 export function useAccounts(): QueryResult<Account[]> {
-  return useDbQuery((db) => db.accounts.list());
+  return useDbQuery((db) => accountsWithBalances(db));
 }
 
 /** Card dues and loans, each with its account name. Debt is always listed on its own. */
 export function useDebts(): QueryResult<DebtWithAccount[]> {
   return useDbQuery(async (db) => {
-    const [debts, accounts] = await Promise.all([db.debts.list(), db.accounts.list()]);
+    const { accounts, debts } = await ledger(db);
     const byId = new Map(accounts.map((a) => [a.id, a] as const));
     return debts.map((d) => ({
       ...d,

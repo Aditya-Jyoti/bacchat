@@ -4,9 +4,10 @@
  * Enabling SQLCipher in a dev build (not Expo Go):
  *  1. In app.json add the config plugin option: ["expo-sqlite", { "useSQLCipher": true }].
  *  2. Rebuild the dev client: `npx expo prebuild --clean && npx expo run:android`.
- *  3. Provide a KeyProvider that returns a 64 hex char key kept in the Android Keystore
- *     (for example via expo-secure-store with requireAuthentication, generated once with
- *     expo-crypto getRandomBytes). The key is never stored in the database or in sync blobs.
+ *  3. Provide a KeyProvider that returns a 64 hex char key kept in the Android Keystore through
+ *     expo-secure-store. src/services/dbKey.ts does this: the key is generated once from the
+ *     platform CSPRNG (crypto.getRandomValues, else expo-crypto). It is never stored in the
+ *     database or in sync blobs. The pragma is the raw-key form: PRAGMA key = "x'<64 hex>'".
  *  4. openBacchatDb() runs PRAGMA key before any other statement, then verifies it can read.
  * Without a key provider the database opens unencrypted (useful in tests and early dev builds).
  */

@@ -5,3 +5,5 @@ export * from './merge';
 export * from './engine';
 export * from './setup';
 export * from './useSyncStatus';
+export * from './target';
+export * from './targets';

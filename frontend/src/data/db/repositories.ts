@@ -13,6 +13,8 @@ import type {
   MerchantHistory,
   NewRecord,
   Recurring,
+  AskRecord,
+  ScreenshotRecord,
   UpiId,
 } from './models';
 
@@ -73,6 +75,8 @@ export interface BacchatDb {
   upiIds: Repository<UpiId>;
   holdings: Repository<FundHolding>;
   alerts: AlertLogRepository;
+  screenshots: Repository<ScreenshotRecord>;
+  asks: Repository<AskRecord>;
   meta: MetaStore;
   close(): Promise<void>;
 }

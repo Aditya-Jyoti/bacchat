@@ -9,7 +9,8 @@
  *   budgets     -> budgets
  *   categories  -> categories
  *   rules       -> merchants (learned payee rules)
- *   screenshots, asks -> no local repository yet: read as empty, writes ignored
+ *   screenshots -> screenshots (metadata only; the phone's file path never leaves it)
+ *   asks        -> asks (Ask Bacchat history)
  * Budget alert logs stay on the phone.
  */
 import type { BacchatDb } from '../data/db';
@@ -19,10 +20,15 @@ import type { BlobSyncState, LocalDataSource, SyncStateStore } from '../lib/sync
 import type { DataSetName, SyncRecord } from '../lib/sync/merge';
 import { getJSON, setJSON } from '../lib/storage';
 
-type Table = { table: string; repo: Repository<BaseRecord> };
+type Table = {
+  table: string;
+  repo: Repository<BaseRecord>;
+  /** Fields that stay on this phone: dropped when reading for sync, kept (or defaulted) when a pulled row is written. */
+  localOnly?: Record<string, unknown>;
+};
 
 function tablesFor(db: BacchatDb, name: DataSetName): { prefixed: boolean; tables: Table[] } {
-  const t = (table: string, repo: unknown): Table => ({ table, repo: repo as Repository<BaseRecord> });
+  const t = (table: string, repo: unknown, localOnly?: Record<string, unknown>): Table => ({ table, repo: repo as Repository<BaseRecord>, localOnly });
   switch (name) {
     case 'entries':
       return { prefixed: false, tables: [t('entries', db.entries)] };
@@ -42,6 +48,10 @@ function tablesFor(db: BacchatDb, name: DataSetName): { prefixed: boolean; table
       return { prefixed: false, tables: [t('categories', db.categories)] };
     case 'rules':
       return { prefixed: false, tables: [t('merchants', db.merchants)] };
+    case 'screenshots':
+      return { prefixed: false, tables: [t('screenshots', db.screenshots, { uri: '' })] };
+    case 'asks':
+      return { prefixed: false, tables: [t('asks', db.asks)] };
     default:
       return { prefixed: false, tables: [] };
   }
@@ -61,8 +71,9 @@ export function createLocalDataSource(db: BacchatDb): LocalDataSource {
   let applied: Applied | null = null;
   const load = async (): Promise<Applied> => (applied ??= await getJSON<Applied>(APPLIED_KEY, {}));
 
-  const toSync = (rec: BaseRecord, key: string, id: string, tag: string | null, map: Applied): SyncRecord => {
+  const toSync = (rec: BaseRecord, key: string, id: string, tag: string | null, map: Applied, localOnly?: Record<string, unknown>): SyncRecord => {
     const { updatedAt, deletedAt, ...rest } = rec as BaseRecord & Record<string, unknown>;
+    for (const f of Object.keys(localOnly ?? {})) delete rest[f];
     const a = map[key];
     const stamp = a && a[0] === updatedAt ? a[1] : updatedAt;
     const out: SyncRecord = { ...rest, id, updatedAt: iso(stamp), deletedAt: deletedAt ? iso(stamp) : null };
@@ -75,10 +86,10 @@ export function createLocalDataSource(db: BacchatDb): LocalDataSource {
       const { prefixed, tables } = tablesFor(db, name);
       const map = await load();
       const out: SyncRecord[] = [];
-      for (const { table, repo } of tables) {
+      for (const { table, repo, localOnly } of tables) {
         for (const rec of await repo.changedSince(0)) {
           const key = `${table}:${rec.id}`;
-          out.push(toSync(rec, key, prefixed ? key : rec.id, prefixed ? table : null, map));
+          out.push(toSync(rec, key, prefixed ? key : rec.id, prefixed ? table : null, map, localOnly));
         }
       }
       return out;
@@ -101,7 +112,12 @@ export function createLocalDataSource(db: BacchatDb): LocalDataSource {
         void _t;
         void _id;
         const remoteMs = Date.parse(deletedAt ?? updatedAt) || Date.parse(updatedAt) || 0;
-        await table.repo.put({ ...fields, id: rawId } as NewRecord<BaseRecord>);
+        let kept: Record<string, unknown> = {};
+        if (table.localOnly) {
+          const cur = (await table.repo.get(rawId)) as unknown as Record<string, unknown> | null;
+          kept = Object.fromEntries(Object.entries(table.localOnly).map(([f, d]) => [f, cur?.[f] ?? d]));
+        }
+        await table.repo.put({ ...fields, ...kept, id: rawId } as NewRecord<BaseRecord>);
         if (deletedAt) await table.repo.remove(rawId);
         touched.push({ table, id: rawId, remoteMs });
       }

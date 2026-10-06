@@ -7,7 +7,7 @@ import { STOP, cleanMerchant, merchantFromVpa } from './merchantText';
 const DEBIT = /\b(debited|debit of|used for (?:a )?(?:transaction|purchase)|transaction of|spent|sent|paid|payment of|withdrawn|purchase|purchased|transferred|trf to|deducted|charged)\b/i;
 const CREDIT = /\b(credited|credit of|received|deposited|refund(?:ed)?|reversed|cashback)\b/i;
 /** Messages that look like money but are not transactions. */
-const NOT_TXN = /\b(otp|one[- ]time password|verification code|will be (?:debited|credited)|requested money|requesting|collect request|is due|due on|due by|due date|minimum (?:amount )?due|total (?:amount )?due|statement|reminder|pre[- ]?approved|offer|apply now|click|e-?mandate|autopay (?:of|scheduled)|failed|declined|unsuccessful|not processed|insufficient)\b/i;
+export const NOT_TXN = /\b(otp|one[- ]time password|verification code|will be (?:debited|credited)|requested money|requesting|collect request|is due|due on|due by|due date|minimum (?:amount )?due|total (?:amount )?due|statement|reminder|pre[- ]?approved|offer|apply now|click|e-?mandate|autopay (?:of|scheduled)|failed|declined|unsuccessful|not processed|insufficient)\b/i;
 
 function direction(text: string): 'out' | 'in' | null {
   const d = DEBIT.exec(text);

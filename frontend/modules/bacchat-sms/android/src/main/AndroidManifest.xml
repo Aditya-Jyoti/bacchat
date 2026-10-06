@@ -1,0 +1,17 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.READ_SMS" />
+  <uses-permission android:name="android.permission.RECEIVE_SMS" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+  <application>
+    <!-- Does nothing unless the user switched SMS reading on (see SmsStore.isEnabled). -->
+    <receiver
+      android:name="app.bacchat.sms.SmsReceiver"
+      android:exported="true"
+      android:permission="android.permission.BROADCAST_SMS">
+      <intent-filter android:priority="0">
+        <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+      </intent-filter>
+    </receiver>
+  </application>
+</manifest>

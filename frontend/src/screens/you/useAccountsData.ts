@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { ledger } from '../../data/db/queries/balances';
 import { holdingValue, nextDueDate, type Account } from '../../data/db';
 import { t } from '../../lib/i18n';
 import { useDbQuery, useNetWorth, useSpendable, useUpiFlows, type QueryResult } from '../../services';
@@ -35,7 +36,7 @@ export function useAccountsData(): AccountsData {
   const sp = useSpendable();
   const upi = useUpiFlows();
   const rows: QueryResult<{ own: OwnRow[]; owe: OweRow[] }> = useDbQuery(async (db, at) => {
-    const [accounts, holdings, debts] = await Promise.all([db.accounts.list(), db.holdings.list(), db.debts.list()]);
+    const [{ accounts, debts }, holdings] = await Promise.all([ledger(db), db.holdings.list()]);
     const own: OwnRow[] = [];
     for (const a of accounts) {
       if (a.kind !== 'bank' && a.kind !== 'cash' && a.kind !== 'mf' && a.kind !== 'nps') continue;

@@ -6,6 +6,8 @@ export const fontFamilies = {
   sans: 'Figtree_400Regular',
   sansMedium: 'Figtree_500Medium',
   sansSemiBold: 'Figtree_600SemiBold',
+  /** Serif for display, headline and title when the language is Hindi (Young Serif has no Devanagari). */
+  hindiSerif: 'TiroDevanagariHindi_400Regular',
 } as const;
 
 export type TypeToken =
@@ -88,3 +90,28 @@ export const typography: Typography = {
     fontWeight: '500',
   },
 };
+
+/** Tokens that use the serif: the ones whose family changes with the language. */
+export const SERIF_TOKENS: readonly TypeToken[] = ['displayMedium', 'headlineSmall', 'titleMedium'];
+
+/** Serif family per language. Add a locale here to give it its own display face. */
+export const serifFamilyByLocale: Record<'en' | 'hi', string> = {
+  en: fontFamilies.serif,
+  hi: fontFamilies.hindiSerif,
+};
+
+/**
+ * Type scale for a language: same sizes, with the display, headline and title tokens switched to
+ * that language's serif. Body and labels keep Figtree (the system font draws the glyphs it lacks).
+ */
+export function typographyFor(locale: 'en' | 'hi'): Typography {
+  if (locale === 'en') return typography;
+  const family = serifFamilyByLocale[locale];
+  const out = { ...typography };
+  for (const token of SERIF_TOKENS) {
+    // Devanagari sits taller and wants a little more line height and no negative tracking.
+    const base = typography[token];
+    out[token] = { ...base, fontFamily: family, letterSpacing: 0, lineHeight: Math.round((base.lineHeight ?? 24) * 1.1) };
+  }
+  return out;
+}

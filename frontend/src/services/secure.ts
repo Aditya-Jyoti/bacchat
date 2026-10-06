@@ -65,10 +65,28 @@ export const SECURE_KEYS = {
   sync: 'bacchat.sync.config',
 } as const;
 
-/** Random hex string from the platform CSPRNG. Throws when none exists (never falls back to Math.random). */
-export function randomHex(bytes = 32): string {
+export type RandomBytes = (length: number) => Uint8Array;
+
+/**
+ * The platform CSPRNG: globalThis.crypto.getRandomValues when present, else expo-crypto (Hermes may
+ * not provide crypto.getRandomValues). Null when neither exists. Never Math.random.
+ */
+export function platformRandomBytes(): RandomBytes | null {
   const c = (globalThis as { crypto?: { getRandomValues?: (a: Uint8Array) => Uint8Array } }).crypto;
-  if (!c?.getRandomValues) throw new Error('No secure random source on this device.');
-  const a = c.getRandomValues(new Uint8Array(bytes));
-  return Array.from(a, (b) => b.toString(16).padStart(2, '0')).join('');
+  if (c?.getRandomValues) return (n) => c.getRandomValues?.(new Uint8Array(n)) as Uint8Array;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require('expo-crypto') as { getRandomBytes?: (n: number) => Uint8Array };
+    const get = mod.getRandomBytes;
+    if (typeof get === 'function') return (n) => get(n);
+  } catch {
+    // module not linked
+  }
+  return null;
+}
+
+/** Random hex string from the platform CSPRNG. Throws when none exists. `source` is injectable for tests. */
+export function randomHex(bytes = 32, source: RandomBytes | null = platformRandomBytes()): string {
+  if (!source) throw new Error('No secure random source on this device.');
+  return Array.from(source(bytes), (b) => b.toString(16).padStart(2, '0')).join('');
 }

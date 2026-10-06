@@ -39,6 +39,11 @@ export function AssistantMessage({ message }: { message: Assistant }): React.JSX
           {advisorErrorText(message.status === 'stopped' ? 'cancelled' : (message.errorCode ?? 'unknown'))}
         </Text>
       ) : null}
+      {message.status === 'done' && message.engine ? (
+        <Text testID="ask-engine" style={[typography.labelSmall, { fontWeight: '400', color: colors.onSurfaceVariant }]}>
+          {t('aiUi.engineCaption', { engine: message.engine.kind === 'device' ? t('aiUi.engineDevice') : t('aiUi.engineCloud', { label: message.engine.label }) })}
+        </Text>
+      ) : null}
       {finished ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           <Pressable

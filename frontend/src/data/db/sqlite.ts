@@ -1,3 +1,4 @@
+import { withDerivedBalances } from './queries/balances';
 import type {
   Account,
   BaseRecord,
@@ -13,6 +14,8 @@ import type {
   MerchantHistory,
   NewRecord,
   Recurring,
+  AskRecord,
+  ScreenshotRecord,
   UpiId,
 } from './models';
 import type {
@@ -173,7 +176,7 @@ class SqliteMeta implements MetaStore {
 export async function createSqliteDb(driver: SqlDriver, opts: DbOptions = {}): Promise<BacchatDb> {
   await runMigrations(driver);
   const now = opts.now ?? Date.now;
-  return {
+  return withDerivedBalances({
     kind: 'sqlite',
     accounts: new SqliteRepo<Account>(driver, 'accounts', now),
     debts: new SqliteRepo<DebtCard>(driver, 'debts', now),
@@ -187,7 +190,9 @@ export async function createSqliteDb(driver: SqlDriver, opts: DbOptions = {}): P
     upiIds: new SqliteRepo<UpiId>(driver, 'upi_ids', now),
     holdings: new SqliteRepo<FundHolding>(driver, 'holdings', now),
     alerts: new SqliteAlerts(driver, now),
+    screenshots: new SqliteRepo<ScreenshotRecord>(driver, 'screenshots', now),
+    asks: new SqliteRepo<AskRecord>(driver, 'asks', now),
     meta: new SqliteMeta(driver),
     close: () => driver.close(),
-  };
+  });
 }

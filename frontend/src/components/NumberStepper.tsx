@@ -3,6 +3,7 @@ import { Pressable, Text, View, type AccessibilityActionEvent } from 'react-nati
 
 import { useTheme } from '../theme';
 import { Glyph } from './Glyph';
+import { t } from '../lib/i18n';
 
 export type NumberStepperProps = {
   value: number;
@@ -39,7 +40,7 @@ export function NumberStepper({
     <Pressable
       testID={`${testID}-${name === 'add' ? 'inc' : 'dec'}`}
       accessibilityRole="button"
-      accessibilityLabel={`${name === 'add' ? 'More' : 'Less'} ${label}`}
+      accessibilityLabel={t(name === 'add' ? 'componentsUi.more' : 'componentsUi.less', { label })}
       accessibilityState={{ disabled: off }}
       disabled={off}
       onPress={() => set(value + delta)}

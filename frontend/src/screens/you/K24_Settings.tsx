@@ -11,8 +11,11 @@ import { AppBar } from './parts/AppBar';
 import { GroupCaption, YouRow } from './parts/YouRow';
 import { useKidNav } from './parts/useKidNav';
 import { AdvisorSection } from './settings/AdvisorSection';
+import { AiSection } from './settings/AiSection';
+import { LanguageSection } from './settings/LanguageSection';
 import { ServerSection } from './settings/ServerSection';
-import { useServices } from '../../services';
+import { SmsSection } from './settings/SmsSection';
+import { authenticate, canUseAppLock, useServices } from '../../services';
 
 type ThemeChoice = 'system' | 'light' | 'dark';
 type SwitchId = 'wallpaper' | 'sms' | 'email' | 'upi' | 'nudges' | 'reminders' | 'lock' | 'hide';
@@ -33,9 +36,36 @@ export default function K24_Settings(): React.JSX.Element {
   const { go, back } = useKidNav();
   const choice = usePreferences((s) => s.theme);
   const setChoice = usePreferences((s) => s.setTheme);
-  const [on, setOn] = useState<Record<SwitchId, boolean>>({
+  const wallpaperOn = usePreferences((s) => s.wallpaperColors);
+  const setWallpaperOn = usePreferences((s) => s.setWallpaperColors);
+  const lockOn = usePreferences((s) => s.appLock);
+  const setLockOn = usePreferences((s) => s.setAppLock);
+  const [lockNote, setLockNote] = useState<string | null>(null);
+  const [localOn, setOn] = useState<Record<SwitchId, boolean>>({
     wallpaper: true, sms: true, email: true, upi: false, nudges: true, reminders: true, lock: true, hide: false,
   });
+  // Wallpaper colours and app lock are real preferences; the other switches are still local.
+  const on: Record<SwitchId, boolean> = { ...localOn, wallpaper: wallpaperOn, lock: lockOn };
+  const change = (id: SwitchId, v: boolean): void => {
+    if (id === 'wallpaper') setWallpaperOn(v);
+    else if (id === 'lock') void toggleLock(v);
+    else setOn((s) => ({ ...s, [id]: v }));
+  };
+  // Turning the lock on asks the phone once, so a lock that cannot open never gets switched on.
+  const toggleLock = async (v: boolean): Promise<void> => {
+    setLockNote(null);
+    if (!v) {
+      setLockOn(false);
+      return;
+    }
+    if (!(await canUseAppLock())) {
+      setLockNote(t('settingsUi.lockUnavailable'));
+      return;
+    }
+    const r = await authenticate({ message: t('lockUi.prompt'), cancel: t('lockUi.cancel') });
+    if (r === 'ok') setLockOn(true);
+    else setLockNote(t('settingsUi.lockNotConfirmed'));
+  };
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { settings } = useServices();
   const [syncOn, setSyncOn] = useState(settings.isSyncEnabled());
@@ -47,7 +77,11 @@ export default function K24_Settings(): React.JSX.Element {
     const row = SWITCHES[id];
     const title = t(row.title);
     // The email row shows the account address as is; every other subtitle is a bundle key.
-    const sub = id === 'wallpaper' && !on.wallpaper ? t('settingsUi.wallpaperOff') : id === 'email' ? row.sub : t(row.sub);
+    const sub =
+      id === 'wallpaper' && !on.wallpaper ? t('settingsUi.wallpaperOff')
+      : id === 'lock' && lockNote ? lockNote
+      : id === 'email' ? row.sub
+      : t(row.sub);
     return (
       <YouRow
         key={id}
@@ -59,7 +93,7 @@ export default function K24_Settings(): React.JSX.Element {
           <Switch
             testID={`settings-switch-${id}`}
             value={on[id]}
-            onValueChange={(v) => setOn((s) => ({ ...s, [id]: v }))}
+            onValueChange={(v) => change(id, v)}
             accessibilityLabel={title}
           />
         }
@@ -87,8 +121,10 @@ export default function K24_Settings(): React.JSX.Element {
         {colorSource === 'dynamic' && on.wallpaper ? t('settingsUi.coloursDynamic') : t('settingsUi.coloursKhata')}
       </Text>
       <YouRow icon="currency_rupee" title={t('settingsUi.numberFormat')} subtitle={t('settingsUi.numberFormatSub')} onPress={() => undefined} />
+      <LanguageSection />
       <GroupCaption>{t('settingsUi.autoAdd')}</GroupCaption>
-      {(['sms', 'email', 'upi'] as const).map(sw)}
+      <SmsSection />
+      {(['email', 'upi'] as const).map(sw)}
       <GroupCaption>{t('settingsUi.nudges')}</GroupCaption>
       {(['nudges', 'reminders'] as const).map(sw)}
       <GroupCaption>{t('settingsUi.privacySecurity')}</GroupCaption>
@@ -103,6 +139,7 @@ export default function K24_Settings(): React.JSX.Element {
       <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant, paddingTop: 8 }]}>
         {`${t('privacy.onDevice')} ${t('settingsUi.smsChoice')}`}
       </Text>
+      <AiSection />
       <AdvisorSection />
       <ServerSection />
       <GroupCaption>{t('settingsUi.data')}</GroupCaption>

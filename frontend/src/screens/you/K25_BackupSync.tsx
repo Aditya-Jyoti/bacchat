@@ -12,21 +12,17 @@ import { useKidNav } from './parts/useKidNav';
 import { t } from '../../lib/i18n';
 import type { SyncOptions } from '../../lib/sync/engine';
 import { useServices } from '../../services';
-import { MIN_PASSPHRASE, makePairingCode, setupErrorText, startFirstDevice } from './sync/actions';
+import { MIN_PASSPHRASE, makePairingCode, setupErrorText, startFirstDevice, startOwnTarget, type WhereDraft } from './sync/actions';
 import { useSyncDeps } from './sync/deps';
 import { ForgotSection } from './sync/ForgotSection';
 import { JoinSection } from './sync/JoinSection';
 import { PairingDialog } from './sync/PairingDialog';
 import { RecoveryKeyDialog } from './sync/RecoveryKeyDialog';
-import { getServerUrl } from './sync/server';
-
-type Where = 'cloud' | 'drive' | 'own';
-
-const WHERE: { id: Where; icon: string; title: string; sub: string; ready: boolean }[] = [
-  { id: 'cloud', icon: 'cloud', title: 'syncUi.cloudTitle', sub: 'syncUi.cloudSub', ready: true },
-  { id: 'drive', icon: 'add_to_drive', title: 'syncUi.driveTitle', sub: 'syncUi.driveSub', ready: false },
-  { id: 'own', icon: 'dns', title: 'syncUi.ownTitle', sub: 'syncUi.ownSub', ready: false },
-];
+import { EMPTY_OWN_FORM, ownFormToConfig, type OwnForm } from './sync/ownForm';
+import { getServerUrl, isValidServerUrl, setServerUrl } from './sync/server';
+import { JoinOwnSection } from './sync/JoinOwnSection';
+import { WhereSection, type Where } from './sync/WhereSection';
+import type { SyncConfig } from '../../services';
 
 const WHAT: readonly { id: Exclude<keyof SyncOptions, 'wifiOnly'>; label: string }[] = [
   { id: 'entries', label: 'syncUi.whatEntries' },
@@ -53,7 +49,12 @@ export default function K25_BackupSync(): React.JSX.Element {
   const [enabled, setEnabled] = useState(settings.isSyncEnabled());
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [setupOpen, setSetupOpen] = useState(false);
-  const [where] = useState<Where>('cloud');
+  const [where, setWhere] = useState<Where>('cloud');
+  const [saved, setSaved] = useState<SyncConfig | null>(null);
+  const [ownForm, setOwnForm] = useState<OwnForm>(EMPTY_OWN_FORM);
+  const [driveIn, setDriveIn] = useState(false);
+  const [driveBusy, setDriveBusy] = useState(false);
+  const [driveError, setDriveError] = useState('');
   const [serverUrl, setServerUrlText] = useState('');
   const [pass, setPass] = useState('');
   const [show, setShow] = useState(false);
@@ -68,7 +69,13 @@ export default function K25_BackupSync(): React.JSX.Element {
   useEffect(() => {
     let alive = true;
     const read = (): void => {
-      void settings.getSyncConfig().then((c) => alive && setConfigured(!!c));
+      void settings.getSyncConfig().then((c) => {
+        if (!alive) return;
+        setConfigured(!!c);
+        setSaved(c);
+        if (c) setWhere(c.target?.kind === 'gdrive' ? 'drive' : c.target ? 'own' : 'cloud');
+      });
+      void services.google.isSignedIn().then((v) => alive && setDriveIn(v));
       setEnabled(settings.isSyncEnabled());
     };
     read();
@@ -78,7 +85,7 @@ export default function K25_BackupSync(): React.JSX.Element {
       alive = false;
       off();
     };
-  }, [settings, services.secure]);
+  }, [settings, services.secure, services.google]);
 
   const active = configured ? enabled : setupOpen;
 
@@ -89,12 +96,50 @@ export default function K25_BackupSync(): React.JSX.Element {
     } else setSetupOpen(v);
   };
 
+  const ownDraft = (): Exclude<WhereDraft, { where: 'cloud' }> | null => {
+    if (where === 'drive') return { where: 'drive' };
+    const own = ownFormToConfig(ownForm);
+    return own ? { where: 'own', own } : null;
+  };
+
+  const signInDrive = async (): Promise<void> => {
+    setDriveBusy(true);
+    setDriveError('');
+    try {
+      const ok = await services.google.signIn();
+      setDriveIn(ok);
+    } catch {
+      setDriveError(t('syncUi.driveSignInFailed'));
+    } finally {
+      setDriveBusy(false);
+    }
+  };
+
   const start = async (): Promise<void> => {
     if (pass.length < MIN_PASSPHRASE || busy) return;
     setBusy(true);
     setError('');
     try {
-      const key = await startFirstDevice(services, deps, pass);
+      let key: string;
+      if (where === 'cloud') {
+        if (!isValidServerUrl(serverUrl)) {
+          setError(t(serverUrl.trim() ? 'syncUi.serverInvalid' : 'syncUi.serverMissing'));
+          return;
+        }
+        await setServerUrl(services.secure, serverUrl);
+        key = await startFirstDevice(services, deps, pass);
+      } else {
+        const draft = ownDraft();
+        if (!draft) {
+          setError(t(where === 'drive' ? 'syncUi.driveNeedSignIn' : 'syncUi.ownMissing'));
+          return;
+        }
+        if (where === 'drive' && !driveIn) {
+          setError(t('syncUi.driveNeedSignIn'));
+          return;
+        }
+        key = await startOwnTarget(services, deps, draft, pass);
+      }
       setPass('');
       setShow(false);
       setRecoveryKey(key);
@@ -157,55 +202,20 @@ export default function K25_BackupSync(): React.JSX.Element {
         </View>
         <View pointerEvents={active ? 'auto' : 'none'} style={{ opacity: active ? 1 : 0.5 }}>
           <GroupCaption>{t('syncUi.where')}</GroupCaption>
-          <View style={{ gap: 8 }} accessibilityRole="radiogroup">
-            {WHERE.map((w) => {
-              const sel = where === w.id;
-              return (
-                <Pressable
-                  key={w.id}
-                  testID={`where-${w.id}`}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: sel, disabled: !w.ready }}
-                  accessibilityLabel={`${t(w.title)}, ${w.ready ? t(w.sub) : t('syncUi.comingSoon')}`}
-                  onPress={() => undefined}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 12,
-                    paddingVertical: 12,
-                    paddingHorizontal: 14,
-                    minHeight: 56,
-                    borderRadius: 14,
-                    borderWidth: sel ? 2 : 1,
-                    borderColor: sel ? colors.primary : colors.outlineVariant,
-                    backgroundColor: sel ? colors.surfaceContainerLowest : 'transparent',
-                    opacity: w.ready ? 1 : 0.6,
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 20,
-                      height: 20,
-                      borderRadius: 10,
-                      borderWidth: 2,
-                      borderColor: sel ? colors.primary : colors.outline,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {sel ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary }} /> : null}
-                  </View>
-                  <Glyph name={w.icon} color={colors.onSurface} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[typography.labelLarge, { color: colors.onSurface }]}>{t(w.title)}</Text>
-                    <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>
-                      {w.ready ? (serverUrl ? t('syncUi.cloudBase', { url: serverUrl }) : t(w.sub)) : t('syncUi.comingSoon')}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
+          <WhereSection
+            where={where}
+            onWhere={(w) => {
+              setWhere(w);
+              setError('');
+            }}
+            locked={!!configured}
+            cloudUrl={serverUrl}
+            onCloudUrl={setServerUrlText}
+            savedTarget={saved?.target}
+            drive={{ configured: services.google.isConfigured(), signedIn: driveIn, busy: driveBusy, error: driveError, onSignIn: () => void signInDrive() }}
+            own={ownForm}
+            onOwn={setOwnForm}
+          />
           <GroupCaption>{t('syncUi.encryption')}</GroupCaption>
           {configured ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, minHeight: 48 }}>
@@ -261,10 +271,14 @@ export default function K25_BackupSync(): React.JSX.Element {
         <View style={{ paddingTop: 8 }}>
           {configured ? (
             <>
-              <Pressable testID="pair-phone" accessibilityRole="button" onPress={() => void showPairing()} style={{ minHeight: 56, justifyContent: 'center' }}>
-                <Text style={[typography.labelLarge, { color: colors.primary }]}>{t('syncUi.anotherPhone')}</Text>
-                <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{t('syncUi.anotherPhoneSub')}</Text>
-              </Pressable>
+              {saved?.target ? (
+                <Text testID="other-phone-own" style={[typography.bodySmall, { color: colors.onSurfaceVariant, paddingVertical: 8 }]}>{t('syncUi.otherPhoneOwn')}</Text>
+              ) : (
+                <Pressable testID="pair-phone" accessibilityRole="button" onPress={() => void showPairing()} style={{ minHeight: 56, justifyContent: 'center' }}>
+                  <Text style={[typography.labelLarge, { color: colors.primary }]}>{t('syncUi.anotherPhone')}</Text>
+                  <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{t('syncUi.anotherPhoneSub')}</Text>
+                </Pressable>
+              )}
               <Pressable testID="forgot-open" accessibilityRole="button" onPress={() => setMore((m) => (m === 'forgot' ? 'none' : 'forgot'))} style={{ minHeight: 56, justifyContent: 'center' }}>
                 <Text style={[typography.labelLarge, { color: colors.primary }]}>{t('syncUi.forgot')}</Text>
                 <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{t('syncUi.forgotSub')}</Text>
@@ -274,10 +288,12 @@ export default function K25_BackupSync(): React.JSX.Element {
           ) : configured === false ? (
             <>
               <Pressable testID="join-open" accessibilityRole="button" onPress={() => setMore((m) => (m === 'join' ? 'none' : 'join'))} style={{ minHeight: 56, justifyContent: 'center' }}>
-                <Text style={[typography.labelLarge, { color: colors.primary }]}>{t('syncUi.joinTitle')}</Text>
-                <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{t('syncUi.joinSub')}</Text>
+                <Text style={[typography.labelLarge, { color: colors.primary }]}>{t(where === 'cloud' ? 'syncUi.joinTitle' : 'syncUi.joinOwnTitle')}</Text>
+                <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{t(where === 'cloud' ? 'syncUi.joinSub' : 'syncUi.joinOwnSub')}</Text>
               </Pressable>
-              {more === 'join' ? <JoinSection onJoined={() => setMore('none')} /> : null}
+              {more === 'join' ? (
+                where === 'cloud' ? <JoinSection onJoined={() => setMore('none')} /> : <JoinOwnSection draft={ownDraft()} onJoined={() => setMore('none')} />
+              ) : null}
             </>
           ) : null}
         </View>

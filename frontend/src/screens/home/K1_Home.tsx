@@ -11,7 +11,7 @@ import { SkeletonLoader } from '../../components/SkeletonLoader';
 import { useHomeConfig, visibleSections } from '../../data';
 import { formatDateLong, formatDateShort, formatRupees, formatRupeesCompact } from '../../lib/format';
 import { t } from '../../lib/i18n';
-import { useDbQuery, useNetWorth, useNow, useServices } from '../../services';
+import { useDbQuery, useNetWorth, useNow, useProfile, useServices } from '../../services';
 import { useTheme } from '../../theme';
 import { useGo } from '../useGo';
 import { homeCopy as c } from './copy';
@@ -51,7 +51,9 @@ export default function K1_Home(): React.JSX.Element {
     return parts.map((p) => ({ name: p.name, amountText: formatRupees(p.paise), percent: (p.paise / net.ownPaise) * 100, color: p.color }));
   }, [net, colors]);
   const hour = new Date(now).getHours();
-  const hello = t(hour < 12 ? 'homeLive.morning' : hour < 17 ? 'homeLive.afternoon' : 'homeLive.evening');
+  const profile = useProfile();
+  const salute = t(hour < 12 ? 'homeLive.morning' : hour < 17 ? 'homeLive.afternoon' : 'homeLive.evening');
+  const hello = profile.firstName ? t('homeLive.greetingName', { greeting: salute, name: profile.firstName }) : salute;
   const privacy = sample || !navDay ? (sample ? c.privacy : t('homeLive.privacyPlain')) : t('homeLive.privacyNav', { date: formatDateShort(navDay + 'T12:00:00') });
   const arrange = () => go('k2');
 
@@ -61,7 +63,7 @@ export default function K1_Home(): React.JSX.Element {
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 52 }}>
           <View>
             <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{sample ? c.today : formatDateLong(now)}</Text>
-            <Text style={[typography.bodyLarge, { fontSize: 17, fontWeight: '600', color: colors.onSurface }]}>{sample ? c.greeting : hello}</Text>
+            <Text style={[typography.bodyLarge, { fontSize: 17, fontWeight: '600', color: colors.onSurface }]}>{sample && !profile.custom ? c.greeting : hello}</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Pressable
@@ -92,7 +94,7 @@ export default function K1_Home(): React.JSX.Element {
               accessibilityLabel={t('homeUi.profile')}
               style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primaryContainer, alignItems: 'center', justifyContent: 'center' }}
             >
-              <Text style={[typography.labelLarge, { color: colors.onPrimaryContainer }]}>{sample ? c.initial : t('homeLive.initialFallback')}</Text>
+              <Text style={[typography.labelLarge, { color: colors.onPrimaryContainer }]}>{profile.initial || t('homeLive.initialFallback')}</Text>
             </View>
           </View>
         </View>

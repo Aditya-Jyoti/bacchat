@@ -13,6 +13,8 @@ import type {
   MerchantHistory,
   NewRecord,
   Recurring,
+  AskRecord,
+  ScreenshotRecord,
   UpiId,
 } from './models';
 import type {
@@ -24,6 +26,7 @@ import type {
   MetaStore,
   Repository,
 } from './repositories';
+import { withDerivedBalances } from './queries/balances';
 import { newId } from './ids';
 import { merchantKey, mergeMerchant } from './merchantKey';
 
@@ -118,7 +121,7 @@ class MemoryMeta implements MetaStore {
 /** In-memory database: the default for tests and for the first run before SQLite is ready. */
 export function createMemoryDb(opts: DbOptions = {}): BacchatDb {
   const now = opts.now ?? Date.now;
-  return {
+  return withDerivedBalances({
     kind: 'memory',
     accounts: new MemoryRepo<Account>(now),
     debts: new MemoryRepo<DebtCard>(now),
@@ -132,7 +135,9 @@ export function createMemoryDb(opts: DbOptions = {}): BacchatDb {
     upiIds: new MemoryRepo<UpiId>(now),
     holdings: new MemoryRepo<FundHolding>(now),
     alerts: new MemoryAlerts(now),
+    screenshots: new MemoryRepo<ScreenshotRecord>(now),
+    asks: new MemoryRepo<AskRecord>(now),
     meta: new MemoryMeta(),
     async close() {},
-  };
+  });
 }

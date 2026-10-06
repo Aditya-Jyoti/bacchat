@@ -1,3 +1,4 @@
+import { accountsWithBalances } from './balances';
 import type { BacchatDb } from '../repositories';
 
 export type GoalTotal = {
@@ -36,7 +37,7 @@ export async function goalTotals(db: BacchatDb): Promise<GoalTotal[]> {
 
 /** How much of each account's balance is set aside for goals. Allocations to deleted goals do not count. */
 export async function accountAllocations(db: BacchatDb): Promise<AccountAllocation[]> {
-  const [accounts, allocs, goals] = await Promise.all([db.accounts.list(), db.allocations.list(), db.goals.list()]);
+  const [accounts, allocs, goals] = await Promise.all([accountsWithBalances(db), db.allocations.list(), db.goals.list()]);
   const liveGoals = new Set(goals.map((g) => g.id));
   return accounts
     .filter((a) => a.kind === 'bank' || a.kind === 'cash')

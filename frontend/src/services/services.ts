@@ -3,24 +3,32 @@
  * advisor and sync handles. createServices() is the real (async) entry point; createTestServices()
  * is a synchronous in-memory variant for tests.
  */
+import { ensureOpeningBalances } from '../data/db/queries/balances';
 import { createMemoryDb, openBacchatDb, seedIfEmpty, SAMPLE_TODAY, SEED_FLAG, dateKey, type BacchatDb, type OpenOptions } from '../data/db';
 import { createAdvisor, type Advisor } from '../lib/ai';
+import { createAiService, type AiService, type AiServiceOptions } from './aiService';
 import { usePreferences } from '../lib/preferences';
 import { createNavClient, refreshHoldingNavs, type NavClient, type NavFetch, type RefreshResult } from '../lib/nav';
-import { BlobCipher, SyncClient, SyncEngine, runSyncWithStatus, useSyncStatus } from '../lib/sync';
+import { BlobCipher, SyncEngine, createTarget, runSyncWithStatus, useSyncStatus } from '../lib/sync';
+import type { AccessTokenProvider } from '../lib/sync/targets';
+import type { SyncTarget } from '../lib/sync/target';
 import type { FetchLike } from '../lib/sync/client';
+import { createGoogleTokenProvider, type GoogleTokenProvider } from './googleAuth';
+import { getGoogleClientId, getNpsNavUrlDefault } from '../lib/appConfig';
 import type { SodiumLike } from '../lib/sync/crypto';
 import type { NetworkProbe, SyncResult } from '../lib/sync/engine';
 import { observeDb, type ObservableDb } from './observable';
-import { createExpoSecureStore, createMemorySecureStore, randomHex, SECURE_KEYS, type SecureStore } from './secure';
+import { createDbKeyProvider } from './dbKey';
+import { createExpoSecureStore, createMemorySecureStore, type SecureStore } from './secure';
 import { createSettings, type AppSettings, type SyncConfig } from './settings';
 import { createLocalDataSource, createSyncStateStore } from './syncData';
 import { loadSodium } from './sodium';
+import { expoShotFiles, syncShotImages, type ShotFiles } from './shotImages';
 
 export const SAMPLE_EXITED_FLAG = 'sample.exited.v1';
 
 export type SyncHandle = {
-  client: SyncClient;
+  client: SyncTarget;
   engine: SyncEngine;
   cipher: BlobCipher;
   config: SyncConfig;
@@ -49,11 +57,17 @@ export type Services = {
   refreshNavs(opts?: { force?: boolean }): Promise<RefreshResult | null>;
   /** Advisor on the stored key and model, or null when no key is saved. */
   createAdvisor(): Promise<Advisor | null>;
+  /** AI router and features: advisor engine, message extraction, category suggestions, on-device models, consent. */
+  ai: AiService;
+  /** Google Drive sign-in (tokens kept in the secure store). Drive sync uses it; K25 calls signIn(). */
+  google: GoogleTokenProvider;
   /** Sync client and engine, or null when sync is off or not set up. Cached until settings change. */
   getSync(): Promise<SyncHandle | null>;
 };
 
 export type ServicesOptions = {
+  /** Test seams for the AI service: on-device engine, model registry, download plumbing, preferences. */
+  ai?: Pick<AiServiceOptions, 'onDevice' | 'registry' | 'downloadFs' | 'downloadFetch' | 'prefs'>;
   secure?: SecureStore;
   /** Use this database instead of opening one (tests). It is wrapped, and seeded unless seed is false. */
   db?: BacchatDb;
@@ -64,6 +78,10 @@ export type ServicesOptions = {
   fetch?: typeof fetch;
   navFetch?: NavFetch;
   syncFetch?: FetchLike;
+  /** Reads and saves screenshot image files for 'Original screenshots' sync (tests). */
+  shotFiles?: ShotFiles;
+  /** Replaces the Google token provider (tests). */
+  googleTokens?: GoogleTokenProvider;
   sodium?: () => Promise<SodiumLike>;
   probe?: NetworkProbe;
   /** Name of the SQLite file. */
@@ -71,18 +89,6 @@ export type ServicesOptions = {
   /** Override how the SQLite file is opened (tests). */
   open?: OpenOptions['open'];
 };
-
-function dbKeyProvider(secure: SecureStore, random: () => string) {
-  return {
-    async getKey(): Promise<string | null> {
-      const have = await secure.get(SECURE_KEYS.dbKey);
-      if (have) return have;
-      const key = random();
-      await secure.set(SECURE_KEYS.dbKey, key);
-      return key;
-    },
-  };
-}
 
 type BuildState = { dbError: string | null; sample: boolean; ready: () => Promise<void> };
 
@@ -92,15 +98,18 @@ function build(raw: BacchatDb, opts: ServicesOptions, state: BuildState): Servic
   const db = observeDb(raw);
   const fetchImpl = (opts.fetch ?? ((...a: Parameters<typeof fetch>) => fetch(...a))) as typeof fetch;
   const navFetch = (opts.navFetch ?? ((url, init) => fetchImpl(url, init as RequestInit))) as NavFetch;
-  const navClient = createNavClient({ fetch: navFetch });
+  const navClient = createNavClient({ fetch: navFetch, npsUrl: () => usePreferences.getState().npsNavUrl || getNpsNavUrlDefault() });
   const realNow = (): number => (opts.now ? opts.now() : Date.now());
 
-  let advisorKey = '';
   let advisor: Advisor | null = null;
   let syncKey = '';
+  const google = opts.googleTokens ?? createGoogleTokenProvider({ secure, clientId: getGoogleClientId });
   let sync: SyncHandle | null = null;
+  const ai = createAiService({ secure, settings, db, fetch: fetchImpl, ...opts.ai });
+  ai.subscribe(() => {
+    advisor = null;
+  });
   settings.subscribe(() => {
-    advisorKey = '';
     syncKey = '';
   });
 
@@ -109,6 +118,7 @@ function build(raw: BacchatDb, opts: ServicesOptions, state: BuildState): Servic
     navClient,
     secure,
     settings,
+    google,
     dbKind: raw.kind,
     dbError: state.dbError,
     now: () => (opts.now ? opts.now() : state.sample ? SAMPLE_TODAY : Date.now()),
@@ -132,20 +142,12 @@ function build(raw: BacchatDb, opts: ServicesOptions, state: BuildState): Servic
       }
     },
 
+    ai,
+
     async createAdvisor() {
-      const apiKey = await settings.getApiKey();
-      if (!apiKey) return null;
-      const model = await settings.getModel();
-      const k = `${apiKey}|${model}`;
-      if (advisor && k === advisorKey) return advisor;
-      advisor = createAdvisor({
-        apiKey,
-        model,
-        db,
-        now: services.now,
-        fetch: ((url, init) => fetchImpl(url, init)) as Parameters<typeof createAdvisor>[0]['fetch'],
-      });
-      advisorKey = k;
+      // The routed provider reads the current mode, keys and consent on every call; the advisor is rebuilt on any change anyway.
+      if (!(await ai.canAdvise())) return null;
+      advisor ??= createAdvisor({ provider: ai.advisorProvider(), db, now: services.now });
       return advisor;
     },
 
@@ -153,10 +155,14 @@ function build(raw: BacchatDb, opts: ServicesOptions, state: BuildState): Servic
       if (!settings.isSyncEnabled()) return null;
       const config = await settings.getSyncConfig();
       if (!config) return null;
-      const k = `${config.baseUrl}|${config.token}|${config.deviceId}|${Array.from(config.masterKey).join(',')}`;
+      const k = `${config.baseUrl}|${config.token}|${config.deviceId}|${JSON.stringify(config.target ?? null)}|${Array.from(config.masterKey).join(',')}`;
       if (sync && k === syncKey) return sync;
       const sodium = await (opts.sodium ?? loadSodium)();
-      const client = new SyncClient({ baseUrl: config.baseUrl, token: config.token, fetch: opts.syncFetch });
+      const client = createTarget(config, config.target, {
+        fetch: opts.syncFetch,
+        tokens: google as AccessTokenProvider,
+        deviceId: config.deviceId,
+      });
       const cipher = new BlobCipher(sodium, config.masterKey);
       const engine = new SyncEngine({
         client,
@@ -167,7 +173,22 @@ function build(raw: BacchatDb, opts: ServicesOptions, state: BuildState): Servic
         probe: opts.probe,
         onProgress: (p) => useSyncStatus.getState().setProgress(p),
       });
-      sync = { client, engine, cipher, config, run: () => runSyncWithStatus(engine, client) };
+      const run = async (): Promise<SyncResult | null> => {
+        const result = await runSyncWithStatus(engine, client);
+        // Image bytes follow the metadata, only when "Original screenshots" is on.
+        if (result?.status === 'synced' && settings.getSyncOptions().shots) {
+          const files = opts.shotFiles ?? expoShotFiles();
+          if (files) {
+            try {
+              await syncShotImages({ target: client, cipher, db, files });
+            } catch {
+              // Metadata is already synced; images are retried on the next run.
+            }
+          }
+        }
+        return result;
+      };
+      sync = { client, engine, cipher, config, run };
       syncKey = k;
       return sync;
     },
@@ -184,11 +205,16 @@ export async function createServices(opts: ServicesOptions = {}): Promise<Servic
     raw = opts.db;
   } else {
     try {
-      raw = await openBacchatDb({ name: opts.dbName, open: opts.open, keyProvider: dbKeyProvider(secure, () => randomHex(32)) });
+      raw = await openBacchatDb({ name: opts.dbName, open: opts.open, keyProvider: createDbKeyProvider(secure) });
     } catch (e) {
       dbError = e instanceof Error ? e.message : 'Could not open the database.';
       raw = createMemoryDb();
     }
+  }
+  try {
+    await ensureOpeningBalances(raw);
+  } catch {
+    // Balances then fall back to the stored figures.
   }
   let sample = false;
   if (opts.seed !== false) {

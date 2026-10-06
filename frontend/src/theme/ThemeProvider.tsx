@@ -9,7 +9,7 @@ import { resolveColors } from './resolveColors';
 import { shapes, type Shapes } from './shapes';
 import { spacing, type Spacing } from './spacing';
 import type { BacchatColors, ColorMode } from './types';
-import { typography, type Typography } from './typography';
+import { typographyFor, type Typography } from './typography';
 
 export type BacchatTheme = {
   mode: ColorMode;
@@ -33,23 +33,27 @@ export type ThemeProviderProps = {
   preference?: 'system' | ColorMode;
   dynamicScheme?: DynamicSchemeSource | null;
   seedHue?: number;
+  /** Language, for the type scale (Hindi gets its own serif). Defaults to English. */
+  locale?: 'en' | 'hi';
 };
 
 export function buildTheme(
   mode: ColorMode,
   dynamicScheme: DynamicSchemeSource | null,
   seedHue: number = DEFAULT_SEED_HUE,
+  locale: 'en' | 'hi' = 'en',
 ): BacchatTheme {
   const { colors, source } = resolveColors(mode, dynamicScheme, seedHue);
+  const scale = typographyFor(locale);
   return {
     mode,
     dark: mode === 'dark',
     colors,
-    typography,
+    typography: scale,
     shapes,
     spacing,
     colorSource: source,
-    paper: toPaperTheme(colors, mode),
+    paper: toPaperTheme(colors, mode, scale),
   };
 }
 
@@ -59,13 +63,14 @@ export function ThemeProvider({
   preference = 'system',
   dynamicScheme = stubDynamicScheme,
   seedHue = DEFAULT_SEED_HUE,
+  locale = 'en',
 }: ThemeProviderProps): React.JSX.Element {
   const os = useColorScheme();
   const resolvedMode: ColorMode =
     mode ?? (preference !== 'system' ? preference : os === 'dark' ? 'dark' : 'light');
   const theme = useMemo(
-    () => buildTheme(resolvedMode, dynamicScheme, seedHue),
-    [resolvedMode, dynamicScheme, seedHue],
+    () => buildTheme(resolvedMode, dynamicScheme, seedHue, locale),
+    [resolvedMode, dynamicScheme, seedHue, locale],
   );
   return (
     <ThemeContext.Provider value={theme}>

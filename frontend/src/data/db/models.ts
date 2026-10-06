@@ -20,6 +20,12 @@ export type Account = BaseRecord & {
   kind: AccountKind;
   /** Balance for bank and cash. For mf and nps it is a fallback when no holdings exist. */
   balancePaise: number;
+  /**
+   * Balance before the first entry. When present, the current balance is derived:
+   * openingBalancePaise + the effect of every live entry (see queries/balances.ts). When absent,
+   * balancePaise is the opening balance. Never edit balancePaise to follow entries.
+   */
+  openingBalancePaise?: number | null;
   icon: string;
   /** Last four digits of a debit or credit card, used to match messages. */
   last4?: string | null;
@@ -33,6 +39,8 @@ export type DebtCard = BaseRecord & {
   /** Day of month the bill is due, 1..31. */
   dueDay: number;
   outstandingPaise: number;
+  /** Dues before the first entry; the current dues are derived like account balances. Absent means outstandingPaise. */
+  openingOutstandingPaise?: number | null;
   limitPaise: number;
 };
 
@@ -58,6 +66,8 @@ export type Entry = BaseRecord & {
   categoryId: string | null;
   /** Account the money moved through (bank, cash) or the card account. */
   accountId: string | null;
+  /** Moved money: the account that receives it. The entry is out of accountId and in to this one, and is not spend. */
+  transferToAccountId?: string | null;
   method: PayMethod;
   /** Id of the UpiId record when method is upi. */
   upiId?: string | null;
@@ -146,4 +156,34 @@ export type BudgetAlertLog = BaseRecord & {
   /** YYYY-MM */
   month: string;
   firedAt: number;
+};
+
+/**
+ * Metadata about a screenshot that was read in k7. The image itself is not stored here: uri points
+ * at the phone's copy. rowsHash is a hash of the extracted rows so the same screenshot is not
+ * counted twice. Image bytes sync only with "Original screenshots" on, as a separate blob.
+ */
+export type ScreenshotRecord = BaseRecord & {
+  /** Where the image lives on this phone (never uploaded as a path). */
+  uri: string;
+  /** Stable hash of the extracted rows (see screenshotRowsHash). */
+  rowsHash: string;
+  rowCount: number;
+  /** Epoch ms the screenshot was read. */
+  readAt: number;
+  /** Image size in bytes when known; used for the sync size cap. */
+  sizeBytes?: number | null;
+  /** Id of the image blob once uploaded ("shot-<id>"). */
+  imageBlob?: string | null;
+};
+
+/** One Ask Bacchat exchange. Only what the person typed and the reply text; no financial data is stored here. */
+export type AskRecord = BaseRecord & {
+  question: string;
+  answer: string;
+  /** Names of the read-only tools the advisor used. */
+  toolNames: string[];
+  /** Epoch ms. */
+  askedAt: number;
+  answeredAt: number | null;
 };

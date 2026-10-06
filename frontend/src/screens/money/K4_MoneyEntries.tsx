@@ -16,6 +16,7 @@ import { useEntries, useNow, useToReviewEntries, useWriters, type EntryFilter as
 import { useTheme } from '../../theme';
 import { EntryRow } from './parts/EntryRow';
 import { MoneyHeader } from './parts/MoneyHeader';
+import { PasteMessage } from './parts/PasteMessage';
 import { PendingRow } from './parts/PendingRow';
 import { Snackbar } from './parts/Snackbar';
 import { EMPTY_LOOKUPS, dayHeading, groupByDay, monthWindow, monthsBack, rowFor, useEarliestEntry, useLookups } from './parts/live';
@@ -71,6 +72,10 @@ export default function K4_MoneyEntries(): React.JSX.Element {
   const undo = useUndo();
   const loading = entries.data === undefined || lookups.data === undefined;
   const groups = useMemo(() => (loading ? [] : groupByDay(entries.data ?? [], now)), [loading, entries.data, now]);
+  // Paste a message is offered from the empty state and stays once shown, so its result is not
+  // lost when the new entry fills the list.
+  const [showPaste, setShowPaste] = useState(false);
+  if (!loading && groups.length === 0 && !showPaste) setShowPaste(true);
   const chips: { id: EntryFilter; label: string; icon?: string }[] = [
     { id: 'all', label: S.all },
     { id: 'review', label: `${S.toReview} \u00B7 ${review.data?.length ?? 0}`, icon: 'auto_awesome' },
@@ -121,6 +126,7 @@ export default function K4_MoneyEntries(): React.JSX.Element {
             {S.noEntries}
           </Text>
         ) : null}
+        {showPaste ? <PasteMessage testID="entries-paste" /> : null}
         {groups.map((g) => {
           const shots = g.entries.filter((e) => e.sources[0]?.kind === 'shot').length;
           const note =

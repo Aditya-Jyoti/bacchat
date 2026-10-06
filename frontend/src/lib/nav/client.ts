@@ -3,8 +3,26 @@ import { parseNpsNav } from './nps';
 import { NavError, type NavFetch, type NavTable } from './types';
 
 export const DEFAULT_AMFI_URL = 'https://www.amfiindia.com/spages/NAVAll.txt';
-/** NPS NAV publication. The exact file name changes; the app should let this be configured. */
+/**
+ * Built-in NPS NAV source. NOT verified against the live site (the build sandbox cannot reach it) and
+ * the publisher has changed file names before, so it is a setting: usePreferences().npsNavUrl, or
+ * app.json extra.npsNavUrl for a build-wide default. The URL may contain {YYYY}, {MM}, {DD} and
+ * {DDMMYYYY}, filled with today's local date, for sources that publish one file per day.
+ */
 export const DEFAULT_NPS_URL = 'https://www.npstrust.org.in/nav-file';
+
+export function isValidNavUrl(url: string): boolean {
+  return /^https?:\/\/[^\s/$.?#][^\s]*$/i.test(url.trim());
+}
+
+/** Fills {YYYY} {MM} {DD} {DDMMYYYY} with the local date of `at` (epoch ms). */
+export function expandNavUrl(template: string, at: number): string {
+  const d = new Date(at);
+  const yyyy = String(d.getFullYear());
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return template.replace(/\{YYYY\}/g, yyyy).replace(/\{MM\}/g, mm).replace(/\{DD\}/g, dd).replace(/\{DDMMYYYY\}/g, `${dd}${mm}${yyyy}`);
+}
 export const DEFAULT_TTL_MS = 12 * 60 * 60 * 1000;
 
 export type CachedText = { text: string; fetchedAt: number };
@@ -33,7 +51,8 @@ export type NavClientOptions = {
   now?: () => number;
   ttlMs?: number;
   amfiUrl?: string;
-  npsUrl?: string;
+  /** The NPS source, or a getter so a changed setting applies on the next request. Empty means DEFAULT_NPS_URL. */
+  npsUrl?: string | (() => string | undefined);
 };
 
 export type NavResult = {
@@ -53,11 +72,17 @@ export function createNavClient(opts: NavClientOptions) {
   const cache = opts.cache ?? createMemoryNavCache();
   const now = opts.now ?? Date.now;
   const ttl = opts.ttlMs ?? DEFAULT_TTL_MS;
-  const urls = { amfi: opts.amfiUrl ?? DEFAULT_AMFI_URL, nps: opts.npsUrl ?? DEFAULT_NPS_URL };
+  const urlFor = (source: 'amfi' | 'nps'): string => {
+    if (source === 'amfi') return opts.amfiUrl ?? DEFAULT_AMFI_URL;
+    const given = typeof opts.npsUrl === 'function' ? opts.npsUrl() : opts.npsUrl;
+    return expandNavUrl(given && isValidNavUrl(given) ? given.trim() : DEFAULT_NPS_URL, now());
+  };
   const memo = new Map<string, { fetchedAt: number; table: NavTable }>();
 
   async function get(source: 'amfi' | 'nps', force = false): Promise<NavResult> {
-    const key = `nav.${source}`;
+    const url = urlFor(source);
+    // A different source URL is a different cache entry, so changing the setting never serves old rows.
+    const key = source === 'nps' ? `nav.nps@${url}` : `nav.${source}`;
     const cached = await cache.get(key);
     const t = now();
     const parse = (c: { text: string; fetchedAt: number }): NavTable => {
@@ -71,7 +96,7 @@ export function createNavClient(opts: NavClientOptions) {
       return { table: parse(cached), fetchedAt: cached.fetchedAt, stale: false, fromCache: true };
     }
     try {
-      const res = await opts.fetch(urls[source], {
+      const res = await opts.fetch(url, {
         method: 'GET',
         headers: { Accept: 'text/plain, text/csv, text/html' },
         credentials: 'omit',

@@ -4,6 +4,7 @@ import Svg, { Line, Path } from 'react-native-svg';
 
 import { useTheme } from '../theme';
 import { ChartTooltip } from './ChartTooltip';
+import { t } from '../lib/i18n';
 
 export type NetWorthChartProps = {
   /** Values in any unit (the sample uses lakhs); drawn min to max. At least 2 points. */
@@ -45,7 +46,7 @@ export function NetWorthChart({ values, labels, formatValue, height = 76 }: NetW
   const p = sel !== null ? pts[sel] : null;
   const first = formatValue(values[0]);
   const end = formatValue(values[n - 1]);
-  const summary = `Net worth chart, ${labels[0]} to ${labels[n - 1]}. From ${first} to ${end}.`;
+  const summary = t('componentsUi.netWorthChart', { from: labels[0], to: labels[n - 1], first, end });
 
   return (
     <View

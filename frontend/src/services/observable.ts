@@ -27,6 +27,8 @@ const REPOS = [
   'upiIds',
   'holdings',
   'alerts',
+  'screenshots',
+  'asks',
 ] as const;
 
 export function observeDb(db: BacchatDb): ObservableDb {

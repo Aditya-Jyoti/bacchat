@@ -6,8 +6,8 @@ import {
   type BlobCipher,
   DecryptError,
 } from './crypto';
+import type { SyncTarget } from './target';
 import {
-  type SyncClient,
   NetworkError,
   VersionConflictError,
 } from './client';
@@ -120,7 +120,8 @@ export class RollbackError extends Error {
 export type ConflictPolicy = 'ask' | 'newest';
 
 export interface EngineDeps {
-  client: SyncClient;
+  /** Where blobs live: Bacchat Cloud, WebDAV, S3 or Drive. */
+  client: SyncTarget;
   cipher: BlobCipher;
   data: LocalDataSource;
   state: SyncStateStore;
@@ -332,7 +333,7 @@ export class SyncEngine {
   private async labelDevices(conflicts: SyncConflict[], remoteDeviceId: string): Promise<void> {
     let name: string | undefined;
     try {
-      const devices = await this.deps.client.listDevices();
+      const devices = (await this.deps.client.listDevices?.()) ?? [];
       name = devices.find((d) => d.id === remoteDeviceId)?.name;
       const me = devices.find((d) => d.current);
       for (const c of conflicts) {

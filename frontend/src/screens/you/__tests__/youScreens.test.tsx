@@ -90,13 +90,13 @@ describe.each(['light', 'dark'] as const)('you screens (%s)', (mode) => {
 
   it('k25 shows where options honestly, validates the passphrase and goes to syncing', async () => {
     const navigate = jest.fn();
-    const { getByText, getAllByText, getByTestId, findByTestId } = renderWithTheme(withNav(<K25_BackupSync />, navigate), mode);
+    const { getByText, queryByText, getByTestId, findByTestId } = renderWithTheme(withNav(<K25_BackupSync />, navigate), mode);
     await findByTestId('where-cloud');
     expect(getByText('Sync to cloud')).toBeTruthy();
     expect(getByText('Bacchat Cloud')).toBeTruthy();
     expect(getByText('My own server')).toBeTruthy();
     expect(getByText('WHAT TO SYNC')).toBeTruthy();
-    expect(getAllByText('Coming soon')).toHaveLength(2);
+    expect(queryByText('Coming soon')).toBeNull();
     expect(getByTestId('where-cloud').props.accessibilityState.checked).toBe(true);
     fireEvent.press(getByTestId('where-own'));
     expect(getByTestId('where-own').props.accessibilityState.checked).toBe(false);

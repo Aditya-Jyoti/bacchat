@@ -15,6 +15,7 @@ import {
   spendable,
   upcoming,
 } from '../../data/db/queries';
+import { ledger } from '../../data/db/queries/balances';
 import { dateKey, daysInMonth, monthKey, startOfDay } from '../../data/db/dates';
 import { rupees } from './aggregates';
 
@@ -147,7 +148,7 @@ export function createAdvisorTools(db: BacchatDb, now: () => number = Date.now):
     },
 
     async card_dues() {
-      const [accounts, debts] = await Promise.all([db.accounts.list(), db.debts.list()]);
+      const { accounts, debts } = await ledger(db);
       const cardIds = new Set(accounts.filter((a) => a.kind === 'card').map((a) => a.id));
       const today = startOfDay(now());
       const cards = debts

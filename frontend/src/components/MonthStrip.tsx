@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useTheme } from '../theme';
+import { t } from '../lib/i18n';
 
 export type MonthStripDot = { index: number; kind: 'sip' | 'bill' };
 
@@ -37,10 +38,10 @@ export function MonthStrip({
   for (let i = 0; i < days.length; i += 7) rows.push(days.slice(i, i + 7).map((_, j) => i + j));
   const summary = dots
     .filter((d) => visibleKinds.includes(d.kind))
-    .map((d) => `${days[d.index]} ${d.kind === 'sip' ? 'SIP' : 'bill or card due'}`)
+    .map((d) => `${days[d.index]} ${d.kind === 'sip' ? t('componentsUi.sip') : t('componentsUi.billOrCardDue')}`)
     .join(', ');
   return (
-    <View testID={testID} accessibilityLabel={`Calendar. Today is ${days[todayIndex]}. ${summary}`}>
+    <View testID={testID} accessibilityLabel={t('componentsUi.calendarSummary', { today: days[todayIndex], summary })}>
       <View style={{ flexDirection: 'row', marginBottom: 4 }}>
         {weekdays.map((w, i) => (
           <Text key={i} style={[typography.labelSmall, { flex: 1, textAlign: 'center', color: colors.onSurfaceVariant }]}>
@@ -59,7 +60,7 @@ export function MonthStrip({
                 key={i}
                 testID={`month-cell-${i}`}
                 accessibilityRole="button"
-                accessibilityLabel={`${days[i]}${today ? ', today' : ''}${dot ? (dot.kind === 'sip' ? ', SIP' : ', bill due') : ''}`}
+                accessibilityLabel={`${days[i]}${today ? `, ${t('componentsUi.todayWord')}` : ''}${dot ? (dot.kind === 'sip' ? `, ${t('componentsUi.sip')}` : `, ${t('componentsUi.billDue')}`) : ''}`}
                 onPress={() => {
                   setSelected(i);
                   onSelect?.(i);

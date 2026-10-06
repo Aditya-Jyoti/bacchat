@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AccessibilityInfo, Animated, View, type DimensionValue } from 'react-native';
 
 import { useTheme } from '../theme';
+import { t } from '../lib/i18n';
 
 export type SkeletonLoaderProps = {
   width?: DimensionValue;
@@ -50,7 +51,7 @@ export type SkeletonRowsProps = { count?: number; testID?: string };
 /** List-row skeletons: a 40dp circle and two text bars. Announces "Loading" once. */
 export function SkeletonRows({ count = 3, testID = 'skeleton-rows' }: SkeletonRowsProps): React.JSX.Element {
   return (
-    <View testID={testID} accessible accessibilityLabel="Loading" accessibilityRole="progressbar">
+    <View testID={testID} accessible accessibilityLabel={t('componentsUi.loading')} accessibilityRole="progressbar">
       {Array.from({ length: count }, (_, i) => (
         <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingVertical: 8 }}>
           <SkeletonLoader width={40} height={40} radius={20} testID="skeleton-circle" />

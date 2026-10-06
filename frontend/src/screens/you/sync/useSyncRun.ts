@@ -38,7 +38,7 @@ export function useSyncRun(autoRun: boolean): SyncRun {
 
   const loadDevices = useCallback(async (h: SyncHandle): Promise<void> => {
     try {
-      const list = await h.client.listDevices();
+      const list = (await h.client.listDevices?.()) ?? [];
       useSyncStatus.getState().setDevices(list);
       if (alive.current) setDevices(list);
     } catch {
@@ -89,6 +89,7 @@ export function useSyncRun(autoRun: boolean): SyncRun {
       const h = handleRef.current;
       if (!h) return false;
       try {
+        if (!h.client.deleteDevice) return false;
         await h.client.deleteDevice(id);
         await loadDevices(h);
         return true;

@@ -26,6 +26,8 @@ export type Candidate = {
   /** 0..1: how sure we are this is a real transaction read correctly. */
   confidence: number;
   rawRef: string | null;
+  /** Category id suggested by an AI model. Used only when the user's history has no answer. */
+  categoryHint?: string | null;
 };
 
 export type ParseContext = {

@@ -10,6 +10,8 @@ const KEYS: Record<string, string> = {
   max_iterations: 'askUi.errMaxIterations',
   cancelled: 'askUi.errCancelled',
   unknown: 'askUi.errUnknown',
+  no_engine: 'aiUi.errNoEngine',
+  consent_needed: 'aiUi.errConsent',
 };
 
 /** Calm i18n text for an advisor error code. Never shows provider messages. */

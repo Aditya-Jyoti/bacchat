@@ -8,6 +8,7 @@ import { useTheme } from '../../theme';
 import { useGo } from '../useGo';
 import { AssistantMessage } from './ask/AssistantMessage';
 import { useAsk } from './ask/useAsk';
+import { useAiPreferences } from '../../lib/ai';
 import { t } from '../../lib/i18n';
 
 const a = (key: string): string => t(`askUi.${key}`);
@@ -19,6 +20,7 @@ export default function K18_Ask(): React.JSX.Element {
   const [text, setText] = useState('');
   const loading = ask.busy;
   const noKey = ask.hasKey === false;
+  const mode = useAiPreferences((s) => s.aiFeatureModes.advisor ?? s.aiMode);
 
   // Swipe down on the grabber area dismisses the sheet.
   const pan = useMemo(
@@ -70,15 +72,15 @@ export default function K18_Ask(): React.JSX.Element {
           <View
             style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, backgroundColor: colors.surfaceContainerHigh }}
           >
-            <Glyph name="key" size={14} color={colors.onSurfaceVariant} />
-            <Text style={[typography.labelSmall, { fontWeight: '600', color: colors.onSurfaceVariant }]}>{a('badge')}</Text>
+            <Glyph name={mode === 'cloud' ? 'key' : 'phone_android'} size={14} color={colors.onSurfaceVariant} />
+            <Text style={[typography.labelSmall, { fontWeight: '600', color: colors.onSurfaceVariant }]}>{mode === 'cloud' ? a('badge') : mode === 'device' ? t('aiUi.modeDeviceLong') : mode === 'auto' ? t('aiUi.modeAutoLong') : t('aiUi.modeOffLong')}</Text>
           </View>
         </View>
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, gap: 12 }}>
           {noKey ? (
             <View testID="ask-nokey" style={{ gap: 10 }}>
-              <Text style={[typography.bodyMedium, { color: colors.onSurface, lineHeight: 22 }]}>{a('noKeyLine')}</Text>
+              <Text style={[typography.bodyMedium, { color: colors.onSurface, lineHeight: 22 }]}>{mode === 'cloud' ? a('noKeyLine') : t('aiUi.noEngineLine')}</Text>
               <Pressable
                 testID="ask-open-settings"
                 accessibilityRole="button"

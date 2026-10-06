@@ -4,3 +4,4 @@ export * from './i18n';
 export * from './storage';
 export * from './persistence';
 export * from './preferences';
+export * from './useLocale';

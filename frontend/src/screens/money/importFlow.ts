@@ -7,12 +7,13 @@
  *   commitImport  write the result: New entries, second sources, resolved conflicts, trust rules
  */
 import { screenshotRows } from '../../data';
-import type { BacchatDb, Entry, EntrySourceRef, PayMethod } from '../../data/db';
+import type { BacchatDb, Entry, EntrySourceRef, PayMethod, ScreenshotRecord } from '../../data/db';
 import { addDays, startOfDay } from '../../data/db/dates';
 import { newId } from '../../data/db/ids';
 import { formatRupees } from '../../lib/format';
 import { parseOcrLines, planScreenshotImport, type ImportPlan, type ImportPlanItem, type ScreenRow } from '../../lib/ingest';
 import { normalizeMerchant } from '../../lib/reconciliation';
+import { sha256, toHex, utf8 } from '../../lib/sync/targets/sha256';
 
 /** Reads an image and returns the text lines found. May be async (a real OCR engine). */
 export type OcrEngine = (imageUri: string | null) => string[] | Promise<string[]>;
@@ -123,6 +124,34 @@ export async function importDefaults(db: BacchatDb): Promise<ImportDefaults> {
   return { method: 'cash', accountId: cash?.id ?? null, upiId: null };
 }
 
+/** Where a read screenshot lives on this phone. Only metadata is recorded (see recordScreenshot). */
+export type ShotMeta = { uri: string; sizeBytes?: number | null; readAt: number };
+
+/** Stable hash of the extracted rows, so the same screenshot read twice is one record. */
+export function screenshotRowsHash(rows: readonly ScreenRow[]): string {
+  const canon = rows
+    .map((r) => `${normalizeMerchant(r.merchant)}|${r.amountPaise}|${r.direction}|${r.at}`)
+    .sort()
+    .join('\n');
+  return toHex(sha256(utf8(canon))).slice(0, 32);
+}
+
+/** Records that a screenshot was read: its reference URI and the rows hash. No image bytes, no row text. */
+export async function recordScreenshot(db: BacchatDb, rows: readonly ScreenRow[], meta: ShotMeta): Promise<ScreenshotRecord> {
+  const rowsHash = screenshotRowsHash(rows);
+  const id = `shot-${rowsHash}`;
+  const prev = await db.screenshots.get(id);
+  return db.screenshots.put({
+    id,
+    uri: meta.uri || prev?.uri || '',
+    rowsHash,
+    rowCount: rows.length,
+    readAt: prev?.readAt ?? meta.readAt,
+    sizeBytes: meta.sizeBytes ?? prev?.sizeBytes ?? null,
+    imageBlob: prev?.imageBlob ?? null,
+  });
+}
+
 export type CommitResult = { added: number; matched: number; resolved: number; trusted: number };
 
 function newEntry(item: ImportPlanItem, categoryId: string | null, review: boolean, defaults: ImportDefaults): Entry {
@@ -152,7 +181,7 @@ const RESOLVED: EntrySourceRef = { kind: 'shot', rawRef: 'resolved' };
  * guess), Matched rows gain a second source, conflicts follow the choice, and each merchant is
  * taught its category. Throws if a conflict has no choice, so nothing is written half way.
  */
-export async function commitImport(db: BacchatDb, loaded: LoadedPlan, d: Decisions, defaults: ImportDefaults): Promise<CommitResult> {
+export async function commitImport(db: BacchatDb, loaded: LoadedPlan, d: Decisions, defaults: ImportDefaults, shot?: ShotMeta): Promise<CommitResult> {
   const { plan } = loaded;
   if (unresolved(plan, d).length > 0) throw new Error('Resolve every conflict first.');
   const result: CommitResult = { added: 0, matched: 0, resolved: 0, trusted: 0 };
@@ -189,6 +218,13 @@ export async function commitImport(db: BacchatDb, loaded: LoadedPlan, d: Decisio
         await db.entries.addSource(item.againstId, RESOLVED);
       }
       result.resolved += 1;
+    }
+  }
+  if (shot) {
+    try {
+      await recordScreenshot(db, plan.items.map((it) => it.row), shot);
+    } catch {
+      // The record is a convenience; the import already succeeded.
     }
   }
   return result;

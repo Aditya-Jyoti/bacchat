@@ -6,6 +6,7 @@ import { netWorth as sampleNetWorth, netWorthSeries as sampleSeries } from '../.
 import type { BacchatDb } from '../../data/db';
 import { addMonths, dayOfMonth, daysInMonth, startOfDay } from '../../data/db/dates';
 import { netWorth, type BudgetAlert } from '../../data/db/queries';
+import { ledger } from '../../data/db/queries/balances';
 import { nextDueDate } from '../../data/db/queries/upcoming';
 import { formatRupees } from '../../lib/format';
 import { t } from '../../lib/i18n';
@@ -81,7 +82,7 @@ export type DuesInsight = { count: number; totalPaise: number; days: number; ban
 
 /** Card bills that are due soon and what could pay them, or null when no card owes anything. */
 export async function duesInsight(db: BacchatDb, now: number): Promise<DuesInsight | null> {
-  const [debts, accounts] = await Promise.all([db.debts.list(), db.accounts.list()]);
+  const { accounts, debts } = await ledger(db);
   const cards = new Set(accounts.filter((a) => a.kind === 'card').map((a) => a.id));
   const owing = debts.filter((d) => cards.has(d.accountId) && d.outstandingPaise > 0);
   if (owing.length === 0) return null;

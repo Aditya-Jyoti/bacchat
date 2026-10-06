@@ -3,7 +3,7 @@ import type { Entry } from '../models';
 import { addMonths, daysInMonth, dayOfMonth, startOfMonth } from '../dates';
 
 /** Spend entries only: money out. Refunds and income are not spend. */
-const isSpend = (e: Entry): boolean => e.direction === 'out';
+const isSpend = (e: Entry): boolean => e.direction === 'out' && !e.transferToAccountId;
 
 export type CategorySpend = {
   categoryId: string | null;

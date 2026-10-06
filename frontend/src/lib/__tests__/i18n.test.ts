@@ -28,12 +28,12 @@ describe('i18n', () => {
 describe('i18n bundles', () => {
   afterEach(() => setLocale('en'));
 
-  it('serves the Hindi skeleton and falls back to English for missing keys', () => {
+  it('serves the Hindi bundle and falls back to English for missing keys', () => {
     registerBundle('hi', hi);
     setLocale('hi');
     expect(t('tabs.home')).toBe('\u0939\u094B\u092E');
     expect(t('homeUi.greeting')).toContain('\u0930\u093E\u0939\u0941\u0932');
-    expect(t('goalsUi.title')).toBe('Goals');
+    expect(t('sample.rupeeExample')).toBe(en.sample.rupeeExample); // listed in HI_FALLBACK, so English
   });
 
   it('has an English value for every key used by the screens bundles', () => {

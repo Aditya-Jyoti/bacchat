@@ -46,6 +46,11 @@ export const MIGRATIONS: Migration[] = [
       'CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY NOT NULL, v TEXT NOT NULL)',
     ],
   },
+  {
+    // Additive: history sets that sync but had no local table yet.
+    version: 2,
+    statements: [plain('screenshots'), plain('asks'), 'CREATE INDEX IF NOT EXISTS idx_asks_at ON asks (updatedAt)'],
+  },
 ];
 
 export const LATEST_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;

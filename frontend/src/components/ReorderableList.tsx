@@ -6,6 +6,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming, type SharedValu
 import { useTheme } from '../theme';
 import { Glyph } from './Glyph';
 import { useReduceMotion } from './useReduceMotion';
+import { t } from '../lib/i18n';
 
 export type ReorderableListProps<T> = {
   data: readonly T[];
@@ -91,11 +92,11 @@ export function ReorderableList<T>({
         <View
           accessible
           accessibilityRole="adjustable"
-          accessibilityLabel={`Reorder ${getLabel(item)}`}
-          accessibilityHint="Drag to reorder"
+          accessibilityLabel={t('componentsUi.reorder', { name: getLabel(item) })}
+          accessibilityHint={t('componentsUi.dragToReorder')}
           accessibilityActions={[
-            { name: 'decrement', label: 'Move up' },
-            { name: 'increment', label: 'Move down' },
+            { name: 'decrement', label: t('componentsUi.moveUp') },
+            { name: 'increment', label: t('componentsUi.moveDown') },
           ]}
           onAccessibilityAction={(e) => {
             if (e.nativeEvent.actionName === 'decrement') move(index, index - 1);

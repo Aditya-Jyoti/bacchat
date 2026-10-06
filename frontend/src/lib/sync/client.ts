@@ -1,5 +1,6 @@
 /** Typed HTTP client for Bacchat Cloud (backend/src/app.ts). Fetch is injected for tests. */
 import { fromBase64, toBase64 } from './bytes';
+import type { SyncTarget, TargetCapabilities } from './target';
 
 export type FetchLike = (
   url: string,
@@ -114,7 +115,9 @@ function defaultFetch(): FetchLike {
   return ((url: string, init?: object) => fetch(url, init as RequestInit)) as unknown as FetchLike;
 }
 
-export class SyncClient {
+export class SyncClient implements SyncTarget {
+  readonly kind = 'cloud' as const;
+  readonly capabilities: TargetCapabilities = { register: true, pairing: true, devices: true, storageCap: true };
   private readonly baseUrl: string;
   private readonly fetchFn: FetchLike;
   private token: string | undefined;
@@ -227,6 +230,11 @@ export class SyncClient {
 
   async listBlobs(): Promise<BlobList> {
     return (await this.request('GET', '/v1/blobs')).data;
+  }
+
+  /** Bacchat Cloud keeps blobs for the life of the account; individual blobs cannot be deleted. */
+  async deleteBlob(_name: string): Promise<void> {
+    throw new SyncHttpError(405, 'not_supported', 'Bacchat Cloud does not delete single backup files.');
   }
 
   async listDevices(): Promise<DeviceInfo[]> {

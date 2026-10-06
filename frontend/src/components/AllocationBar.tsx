@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, View } from 'react-native';
 
 import { useTheme } from '../theme';
+import { t } from '../lib/i18n';
 
 export type AllocationSegment = {
   name: string;
@@ -18,7 +19,7 @@ export type AllocationBarProps = { segments: readonly AllocationSegment[] };
 /** 8dp stacked bar (3dp gaps, 4dp minimum segment) with a two-column legend. */
 export function AllocationBar({ segments }: AllocationBarProps): React.JSX.Element {
   const { colors, typography } = useTheme();
-  const summary = segments.map((s) => `${s.name} ${s.amountText}, ${Math.round(s.percent)} percent`).join('. ');
+  const summary = segments.map((s) => t('componentsUi.segmentPercent', { name: s.name, amount: s.amountText, pct: Math.round(s.percent) })).join('. ');
   return (
     <View accessible accessibilityLabel={`Asset allocation. ${summary}`} testID="allocation-bar">
       <View style={{ flexDirection: 'row', gap: 3, height: 8 }}>

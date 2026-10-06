@@ -67,3 +67,17 @@ The per-screen table is in [screens.md](screens.md) (29 rows including the debug
 | Goals | k12, k13, k14 | 3 | 0 | 0 |
 | You | k23, k10, k11, k15, k16, k17, k24, k25, k26 | 9 | 0 | 0 |
 | Debug | k20, k29 | 2 | 0 | 0 |
+
+
+## AI engine (cloud key, on-device model, both)
+
+| Item | Status | Notes |
+|---|---|---|
+| Provider layer (Anthropic, OpenAI-compatible, on-device) | Done in TypeScript | Mocked fetch and native in tests |
+| Router, modes, per-feature overrides, consent gate | Done | Default mode cloud keeps existing advisor behaviour |
+| Redaction before cloud, verified, never logged | Done | Tested |
+| Hybrid extraction and category suggestions | Done | Rules first, validated model reading, wired into ingestService |
+| Settings AI section and model manager | Done | Hindi falls back to English |
+| Ask shows which engine answered | Done | Caption under each answer |
+| On-device engine (llama.rn) | Wired, not run | Needs a device build and a downloaded model |
+| Model URLs and checksums | Placeholders | Pin before release |

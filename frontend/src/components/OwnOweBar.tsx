@@ -3,6 +3,7 @@ import { Text, View } from 'react-native';
 
 import { formatRupees } from '../lib/format';
 import { useTheme } from '../theme';
+import { t } from '../lib/i18n';
 
 export type OwnOweBarProps = {
   /** What you own, integer paise. */
@@ -20,7 +21,7 @@ export function OwnOweBar({ ownPaise, owePaise, height = 8, showLegend = true }:
   const total = Math.max(1, ownPaise + owePaise);
   const ownFlex = Math.max(0, ownPaise) / total;
   const oweFlex = Math.max(0, owePaise) / total;
-  const summary = `You own ${formatRupees(ownPaise)}, you owe ${formatRupees(owePaise)}`;
+  const summary = t('componentsUi.ownOweSummary', { own: formatRupees(ownPaise), owe: formatRupees(owePaise) });
   return (
     <View accessible accessibilityLabel={summary} testID="own-owe-bar">
       <View style={{ flexDirection: 'row', gap: 3, height }}>
@@ -33,8 +34,8 @@ export function OwnOweBar({ ownPaise, owePaise, height = 8, showLegend = true }:
       {showLegend ? (
         <View style={{ flexDirection: 'row', gap: 16, marginTop: 8 }}>
           {[
-            ['You own', colors.primary],
-            ['You owe', colors.chart3],
+            [t('componentsUi.youOwn'), colors.primary],
+            [t('componentsUi.youOwe'), colors.chart3],
           ].map(([label, c]) => (
             <View key={label} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c }} />

@@ -13,6 +13,8 @@ export const ERROR_TEXT: Record<string, string> = {
   bad_request: 'The provider could not use that request. Try asking in a different way.',
   max_iterations: 'That took more steps than expected, so we stopped. Try a narrower question.',
   cancelled: 'Stopped.',
+  no_engine: 'No AI is set up yet. Pick one in Settings.',
+  consent_needed: 'Allow your AI provider to read messages in Settings first.',
   unknown: 'Something went wrong. Nothing was changed.',
 };
 

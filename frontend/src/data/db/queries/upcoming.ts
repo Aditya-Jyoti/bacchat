@@ -1,5 +1,6 @@
 import type { BacchatDb } from '../repositories';
 import type { Cadence, EntryDirection, Recurring } from '../models';
+import { ledger } from './balances';
 import { addDays, addMonthsClamped, dateKey, parseDateKey, startOfDay } from '../dates';
 
 export type UpcomingKind = 'sip' | 'bill' | 'monthly' | 'cardDue';
@@ -64,7 +65,7 @@ export function nextDueDate(dueDay: number, from: number): number {
 export async function upcoming(db: BacchatDb, now: number, days = 45): Promise<UpcomingItem[]> {
   const from = startOfDay(now);
   const to = addDays(from, days);
-  const [recs, debts, accounts] = await Promise.all([db.recurring.list(), db.debts.list(), db.accounts.list()]);
+  const [recs, { accounts, debts }] = await Promise.all([db.recurring.list(), ledger(db)]);
   const items: UpcomingItem[] = [];
   for (const r of recs) {
     for (const t of occurrences(r, from, to)) {

@@ -4,7 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { ScreenScaffold } from '../../components';
 import { formatRupees } from '../../lib/format';
-import { useNow } from '../../services';
+import { useNow, useProfile } from '../../services';
 import { useTheme } from '../../theme';
 import { Glyph } from './parts/Glyph';
 import { GroupCaption, YouRow } from './parts/YouRow';
@@ -20,6 +20,7 @@ export default function K23_You(): React.JSX.Element {
   const now = useNow();
   const budgetTotal = useBudget((b) => b.totalPaise);
   const backup = useBackupCard();
+  const profile = useProfile();
   const stats = [
     { value: counts ? String(monthsSince(counts.firstAt, now)) : '', labelKey: 'youUi.statMonths' },
     { value: counts ? grouped(counts.entries) : '', labelKey: 'youUi.statEntries' },
@@ -42,9 +43,12 @@ export default function K23_You(): React.JSX.Element {
         <View
           style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: colors.primaryContainer, alignItems: 'center', justifyContent: 'center' }}
         >
-          <Text style={{ fontFamily: 'YoungSerif_400Regular', fontSize: 30, color: colors.onPrimaryContainer }}>R</Text>
-          <View
+          <Text style={{ fontFamily: 'YoungSerif_400Regular', fontSize: 30, color: colors.onPrimaryContainer }}>{profile.initial || t('homeLive.initialFallback')}</Text>
+          <Pressable
+            testID="you-edit-profile"
+            accessibilityRole="button"
             accessibilityLabel={t('youUi.editProfile')}
+            onPress={() => go('k24')}
             style={{
               position: 'absolute',
               right: -2,
@@ -60,10 +64,10 @@ export default function K23_You(): React.JSX.Element {
             }}
           >
             <Glyph name="edit" size={16} color={colors.onSurface} />
-          </View>
+          </Pressable>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={[typography.headlineSmall, { color: colors.onSurface }]}>{t('youUi.name')}</Text>
+          <Text style={[typography.headlineSmall, { color: colors.onSurface }]}>{profile.fullName || t('youUi.nameEmpty')}</Text>
           <Text style={[typography.bodyMedium, { fontSize: 13, color: colors.onSurfaceVariant }]}>{profileLine(counts)}</Text>
         </View>
       </View>
