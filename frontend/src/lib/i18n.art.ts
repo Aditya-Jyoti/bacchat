@@ -1,0 +1,20 @@
+/** Spoken descriptions of the line illustrations. */
+export const artUi = {
+  tiffin: 'Illustration of a steel tiffin carrier',
+  coin: 'Illustration of a rupee coin',
+  khata: 'Illustration of a khata notebook with a pencil',
+  empty_entries: 'Illustration of an open notebook with no entries yet',
+  empty_goals: 'Illustration of an empty jar waiting for savings',
+  empty_budget: 'Illustration of an empty wallet',
+  empty_accounts: 'Illustration of a small bank building',
+  empty_search: 'Illustration of a magnifying glass with nothing found',
+  empty_upcoming: 'Illustration of a calendar with nothing coming up',
+  goal_reached: 'Illustration of a full jar of coins with sparkles',
+  sync_done: 'Illustration of a cloud with a tick, backup finished',
+  chai: 'Illustration of a glass of chai',
+  beachChair: 'Illustration of a beach chair and a coconut',
+  galleryIllustrations: 'Illustrations',
+  galleryIllustrationsNote: 'Ink line drawings over one blob. Empty states, welcome and success moments only.',
+  galleryIcons: 'India icons',
+  galleryIconsNote: 'Custom outline icons on the 24 grid, drawn at 1.5.',
+} as const;

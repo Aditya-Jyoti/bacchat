@@ -4,7 +4,7 @@
  * a stub with the design's sample rows) or from pasted text in the route params (text). Rows go to
  * the import session for k8.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { Amount } from '../../components/Amount';
@@ -12,9 +12,9 @@ import { CategoryIcon } from '../../components/CategoryIcon';
 import { formatDateShort, formatTime } from '../../lib/format';
 import type { ScreenRow } from '../../lib/ingest';
 import { t } from '../../lib/i18n';
-import { useNow } from '../../services';
+import { useNow, useServices } from '../../services';
 import { useTheme } from '../../theme';
-import { getOcrEngine, rowsFromText, type OcrEngine } from './importFlow';
+import { cleanRowNames, getOcrEngine, rowsFromText, type OcrEngine } from './importFlow';
 import { useImportSession } from './parts/importSession';
 import { useMoneyNav } from './parts/nav';
 import { S, fmt } from './parts/strings';
@@ -36,6 +36,7 @@ export default function K7_ReadingScreenshot({ ocr }: { ocr?: OcrEngine } = {}):
   const { colors, typography, spacing } = useTheme();
   const nav = useMoneyNav();
   const now = useNow();
+  const { ai } = useServices();
   const start = useImportSession((st) => st.start);
   const uri = typeof nav.params.uri === 'string' ? nav.params.uri : null;
   const pasted = typeof nav.params.text === 'string' ? nav.params.text : null;
@@ -64,16 +65,30 @@ export default function K7_ReadingScreenshot({ ocr }: { ocr?: OcrEngine } = {}):
   }, [rows, source, now]);
 
   const total = rows?.length ?? 0;
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   useEffect(() => {
     if (!rows || total === 0) return;
     const id = setTimeout(() => {
       if (line >= total) {
-        start(rows, uri);
-        replace('k8');
+        // A real screenshot gets its payee names tidied by the AI engine when one is ready and allowed
+        // (router consent rules apply); names only, never amounts. Any failure keeps the names as read.
+        const finish = (r: ScreenRow[]): void => {
+          if (!mounted.current) return;
+          start(r, uri);
+          replace('k8');
+        };
+        if (uri) void cleanRowNames(rows, ai.cleanOcr).then(finish);
+        else finish(rows);
       } else setLine((l) => l + 1);
     }, READ_STEP_MS);
     return () => clearTimeout(id);
-  }, [line, total, rows, replace, start, uri]);
+  }, [line, total, rows, replace, start, uri, ai]);
 
   // Rows appear a few lines behind the reading line (fewer when there are only a few rows).
   const lag = Math.min(4, Math.max(0, total - 1));

@@ -1,16 +1,13 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { DarkTheme, DefaultTheme, NavigationContainer, type NavigationState, type PartialState, type Theme } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, NavigationContainer, type Theme } from '@react-navigation/native';
 import { createNativeStackNavigator, type NativeStackNavigationOptions } from '@react-navigation/native-stack';
-import React, { useEffect } from 'react';
+import React from 'react';
 
-import type { Locale } from '../lib/i18n';
-import { useLocale } from '../lib/useLocale';
 import { useTheme } from '../theme';
 import { REGISTERED_SCREENS, SCREEN_COMPONENTS } from './registry';
 import { linking } from './linking';
 import { useMoneySegment } from './moneySegment';
 import { MAIN_ROUTE, ROUTES, type ScreenDef } from './screenManifest';
-import { restorableState } from './keepState';
 import { TabBar } from './TabBar';
 
 const Root = createNativeStackNavigator();
@@ -65,35 +62,8 @@ export function RootNavigator(): React.JSX.Element {
   );
 }
 
-/** Navigation state that survives the re-mount a language change causes. Cleared when the navigator goes away. */
-const keep = {
-  state: undefined as NavigationState | PartialState<NavigationState> | undefined,
-  locale: undefined as Locale | undefined,
-  launchLinkUsed: false,
-  /** The launch link already did its job; never replay it after a language change. */
-  linkingFor(locale: Locale): typeof linking {
-    if (this.locale === undefined) this.locale = locale;
-    else if (this.locale !== locale) {
-      this.locale = locale;
-      this.launchLinkUsed = true;
-    }
-    return this.launchLinkUsed ? noLaunchLink : linking;
-  },
-  reset(): void {
-    keep.state = undefined;
-    keep.locale = undefined;
-    keep.launchLinkUsed = false;
-  },
-};
-const noLaunchLink: typeof linking = { ...linking, getInitialURL: () => null };
-
 export function AppNavigation(): React.JSX.Element {
   const { colors, dark } = useTheme();
-  // Text comes from t() while rendering, so a language change re-mounts the navigator under a new key.
-  // The navigation state is kept and restored, so the person stays on the same screen and stack.
-  const locale = useLocale();
-  const linkingOptions = keep.linkingFor(locale);
-  useEffect(() => keep.reset, []);
   const navTheme: Theme = {
     ...(dark ? DarkTheme : DefaultTheme),
     colors: {
@@ -108,13 +78,8 @@ export function AppNavigation(): React.JSX.Element {
   };
   return (
     <NavigationContainer
-      key={locale}
       theme={navTheme}
-      linking={linkingOptions}
-      initialState={keep.state}
-      onStateChange={(state) => {
-        keep.state = state ? restorableState(state) : undefined;
-      }}
+      linking={linking}
     >
       <RootNavigator />
     </NavigationContainer>

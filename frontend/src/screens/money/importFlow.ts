@@ -40,6 +40,21 @@ export function rowsFromText(text: string | readonly string[], referenceDay: num
   return parseOcrLines(text, { referenceDay });
 }
 
+/** Tidies payee names only. Amounts, times, directions and the raw lines are never touched. */
+export async function cleanRowNames(rows: readonly ScreenRow[], clean: (names: readonly string[]) => Promise<readonly string[]>): Promise<ScreenRow[]> {
+  if (rows.length === 0) return [];
+  try {
+    const names = await clean(rows.map((r) => r.merchant));
+    if (names.length !== rows.length) return [...rows];
+    return rows.map((r, i) => {
+      const next = (names[i] ?? '').trim();
+      return next ? { ...r, merchant: next } : r;
+    });
+  } catch {
+    return [...rows];
+  }
+}
+
 export type LoadedPlan = {
   plan: ImportPlan;
   /** The saved entries each Matched or Conflict row was compared with, by id. */

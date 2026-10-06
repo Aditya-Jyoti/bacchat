@@ -1,6 +1,6 @@
 /** k10: Accounts. Net worth equation, "Yours to spend", what you own, what you owe, UPI IDs. */
 import React from 'react';
-import { Text, type TextStyle } from 'react-native';
+import { Text, View, type TextStyle } from 'react-native';
 
 import { SkeletonRows } from '../../components/SkeletonLoader';
 import { StackScreen } from '../../components/StackScreen';
@@ -14,6 +14,7 @@ import { UpiRow } from './sections/UpiRow';
 import { YoursToSpend } from './sections/YoursToSpend';
 import { useAccountsData } from './useAccountsData';
 import { t } from '../../lib/i18n';
+import { EmptyAccounts } from '../../components/illustrations';
 
 export default function K10_Accounts(): React.JSX.Element {
   const { colors, typography } = useTheme();
@@ -42,7 +43,10 @@ export default function K10_Accounts(): React.JSX.Element {
           <YoursToSpend banksPaise={d.banksPaise} duesPaise={d.duesPaise} />
           <GroupHeader title={t('youUi.whatOwn')} total={formatRupees(d.ownPaise)} />
           {d.own.length === 0 ? (
-            <Text testID="accounts-empty" style={[muted, { paddingVertical: 12 }]}>{t('accountsUi.noAccounts')}</Text>
+            <View>
+              <EmptyAccounts height={110} />
+              <Text testID="accounts-empty" style={[muted, { paddingVertical: 12 }]}>{t('accountsUi.noAccounts')}</Text>
+            </View>
           ) : null}
           {d.own.map((a) => (
             <AccountRow key={a.id} name={a.name} kind={a.kindText} icon={a.icon} amount={formatRupees(a.paise)} />

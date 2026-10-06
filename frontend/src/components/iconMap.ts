@@ -1,6 +1,8 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import type { ComponentProps } from 'react';
 
+import { isCustomIcon } from './icons/registry';
+
 export type MaterialIconName = ComponentProps<typeof MaterialIcons>['name'];
 
 /**
@@ -25,6 +27,7 @@ export function resolveIconName(symbol: string): MaterialIconName {
 }
 
 export function isKnownIcon(symbol: string): boolean {
+  if (isCustomIcon(symbol)) return true;
   const candidate = OVERRIDES[symbol] ?? symbol.replace(/_/g, '-');
   return candidate in glyphs;
 }

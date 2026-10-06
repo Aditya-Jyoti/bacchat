@@ -96,8 +96,9 @@ describe.each(['light', 'dark'] as const)('k12 Goals (%s)', (mode) => {
   });
 
   it('shows a calm empty state with no goals', async () => {
-    const { findByTestId } = renderWithTheme(<K12_Goals />, mode, { servicesOptions: { seed: false } });
+    const { findByTestId, getByLabelText } = renderWithTheme(<K12_Goals />, mode, { servicesOptions: { seed: false } });
     expect(await findByTestId('goals-empty')).toBeTruthy();
+    expect(getByLabelText(/Illustration of an empty jar/)).toBeTruthy();
   });
 });
 
@@ -173,7 +174,7 @@ describe.each(['light', 'dark'] as const)('k13 Goal detail (%s)', (mode) => {
   });
 
   it('shows the jar celebration once the goal is reached', async () => {
-    const { getByTestId, queryByTestId, getByText, services } = await open();
+    const { getByTestId, queryByTestId, getByText, getByLabelText, services } = await open();
     expect(queryByTestId('goal-reached')).toBeNull();
     for (let i = 0; i < 4; i++) {
       const before = await savedOf(services, GOA);
@@ -184,7 +185,7 @@ describe.each(['light', 'dark'] as const)('k13 Goal detail (%s)', (mode) => {
     await waitFor(() => expect(getByTestId('goal-reached')).toBeTruthy());
     expect(getByText('You did it.')).toBeTruthy();
     expect(getByTestId('set-aside-more').props.accessibilityState.disabled).toBe(true);
-    expect(getByTestId('jar-fill')).toBeTruthy();
+    expect(getByLabelText(/full jar of coins/)).toBeTruthy();
   });
 });
 

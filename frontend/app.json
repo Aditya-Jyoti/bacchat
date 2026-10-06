@@ -13,6 +13,15 @@
         "android.permission.READ_SMS",
         "android.permission.RECEIVE_SMS",
         "android.permission.POST_NOTIFICATIONS"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-foreground.png",
+        "monochromeImage": "./assets/adaptive-monochrome.png",
+        "backgroundColor": "#F8EEEA"
+      },
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
       ]
     },
     "extra": {
@@ -23,11 +32,33 @@
     "plugins": [
       "expo-font",
       "expo-secure-store",
-      ["expo-sqlite", { "useSQLCipher": true }],
+      [
+        "expo-sqlite",
+        {
+          "useSQLCipher": true
+        }
+      ],
       "expo-local-authentication",
       "react-native-libsodium",
       "./plugins/withShareIntent",
-      "./plugins/withShortcuts"
-    ]
+      "./plugins/withShortcuts",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#F8EEEA",
+          "dark": {
+            "image": "./assets/splash-icon-dark.png",
+            "backgroundColor": "#1A1310"
+          }
+        }
+      ],
+      "./plugins/withGoogleOAuthRedirect",
+      "./plugins/withHardenedManifest",
+      "./plugins/withNotificationIcon"
+    ],
+    "icon": "./assets/icon.png"
   }
 }

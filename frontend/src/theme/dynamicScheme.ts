@@ -40,6 +40,8 @@ export type DynamicColors = Partial<
 export type DynamicSchemeSource = {
   /** Returns the system scheme for the mode, or null when unavailable (below Android 12). */
   getScheme(mode: ColorMode): DynamicColors | null;
+  /** Re-read the system palettes (the wallpaper may have changed). True when they differ from before. */
+  refresh?(): boolean;
 };
 
 export const stubDynamicScheme: DynamicSchemeSource = {
@@ -107,13 +109,18 @@ export function schemeFromPalettes(palettes: SystemPalettes | null, mode: ColorM
   return out;
 }
 
-/** A source over any palette reader (injected in tests). Palettes are read once and cached. */
+/** A source over any palette reader (injected in tests). Palettes are cached until refresh() is called. */
 export function createDynamicSchemeSource(read: () => SystemPalettes | null): DynamicSchemeSource {
   let cached: SystemPalettes | null | undefined;
   return {
     getScheme(mode) {
       if (cached === undefined) cached = read();
       return schemeFromPalettes(cached, mode);
+    },
+    refresh() {
+      const before = JSON.stringify(cached ?? null);
+      cached = read();
+      return JSON.stringify(cached ?? null) !== before;
     },
   };
 }

@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useMemo } from 'react';
-import { useColorScheme } from 'react-native';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { AppState, useColorScheme, type AppStateStatus } from 'react-native';
 import { PaperProvider, type MD3Theme } from 'react-native-paper';
 
 import { stubDynamicScheme, type DynamicSchemeSource } from './dynamicScheme';
@@ -9,7 +9,7 @@ import { resolveColors } from './resolveColors';
 import { shapes, type Shapes } from './shapes';
 import { spacing, type Spacing } from './spacing';
 import type { BacchatColors, ColorMode } from './types';
-import { typographyFor, type Typography } from './typography';
+import { typography, type Typography } from './typography';
 
 export type BacchatTheme = {
   mode: ColorMode;
@@ -33,18 +33,15 @@ export type ThemeProviderProps = {
   preference?: 'system' | ColorMode;
   dynamicScheme?: DynamicSchemeSource | null;
   seedHue?: number;
-  /** Language, for the type scale (Hindi gets its own serif). Defaults to English. */
-  locale?: 'en' | 'hi';
 };
 
 export function buildTheme(
   mode: ColorMode,
   dynamicScheme: DynamicSchemeSource | null,
   seedHue: number = DEFAULT_SEED_HUE,
-  locale: 'en' | 'hi' = 'en',
 ): BacchatTheme {
   const { colors, source } = resolveColors(mode, dynamicScheme, seedHue);
-  const scale = typographyFor(locale);
+  const scale = typography;
   return {
     mode,
     dark: mode === 'dark',
@@ -63,14 +60,27 @@ export function ThemeProvider({
   preference = 'system',
   dynamicScheme = stubDynamicScheme,
   seedHue = DEFAULT_SEED_HUE,
-  locale = 'en',
 }: ThemeProviderProps): React.JSX.Element {
   const os = useColorScheme();
   const resolvedMode: ColorMode =
     mode ?? (preference !== 'system' ? preference : os === 'dark' ? 'dark' : 'light');
+  // The wallpaper can change while the app is in the background: read it again on return.
+  const [wallpaperRev, setWallpaperRev] = useState(0);
+  useEffect(() => {
+    if (!dynamicScheme?.refresh) return undefined;
+    let last: AppStateStatus = 'active';
+    const sub = AppState.addEventListener('change', (next) => {
+      const returning = next === 'active' && last !== 'active';
+      last = next;
+      if (returning && dynamicScheme.refresh?.()) setWallpaperRev((r) => r + 1);
+    });
+    return () => sub.remove();
+  }, [dynamicScheme]);
   const theme = useMemo(
-    () => buildTheme(resolvedMode, dynamicScheme, seedHue, locale),
-    [resolvedMode, dynamicScheme, seedHue, locale],
+    () => buildTheme(resolvedMode, dynamicScheme, seedHue),
+    // wallpaperRev forces a rebuild when the wallpaper palettes changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [resolvedMode, dynamicScheme, seedHue, wallpaperRev],
   );
   return (
     <ThemeContext.Provider value={theme}>

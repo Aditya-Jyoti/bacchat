@@ -33,6 +33,7 @@ import {
   type LlmProvider,
   type ModelSpec,
 } from '../lib/ai';
+import type { NetworkProbe } from '../lib/sync/engine';
 import type { Candidate } from '../lib/ingest';
 import type { EmailInput } from '../lib/ingest/email';
 import { createModelFs, createStreamingFetch } from './modelFiles';
@@ -70,6 +71,8 @@ export type AiServiceOptions = {
   downloadFetch?: DownloadFetch | null;
   /** Override preferences (tests). Default: the persisted store. */
   prefs?: () => AiPrefsData;
+  /** Network seam for Wi-Fi-only model downloads (the same NetworkProbe sync uses). */
+  probe?: NetworkProbe;
 };
 
 const LOCAL_HOST = /^(?:localhost|127\.|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|.*\.local$)/i;
@@ -90,7 +93,7 @@ export function createAiService(o: AiServiceOptions) {
     const fs = o.downloadFs !== undefined ? o.downloadFs : createModelFs();
     const f = o.downloadFetch !== undefined ? o.downloadFetch : createStreamingFetch();
     // Without a streaming fetch the manager still lists and deletes files; a download then ends in a network error.
-    downloads = fs ? new ModelDownloadManager({ fs, fetch: f ?? (async () => Promise.reject(new Error('No streaming fetch.'))) }) : null;
+    downloads = fs ? new ModelDownloadManager({ fs, fetch: f ?? (async () => Promise.reject(new Error('No streaming fetch.'))), probe: o.probe, wifiOnly: () => prefs().aiModelsWifiOnly }) : null;
     return downloads;
   };
 

@@ -40,6 +40,8 @@ export type AiPrefsData = {
   aiActiveModelId: string | null;
   /** Epoch ms of the last time a message was read by rules only because consent was missing. */
   aiConsentSkippedAt: number | null;
+  /** Download on-device models only on Wi-Fi (they are large). On by default. */
+  aiModelsWifiOnly: boolean;
 };
 
 type AiPrefsState = AiPrefsData & {
@@ -52,6 +54,7 @@ type AiPrefsState = AiPrefsData & {
   setAutoCloudFallback: (on: boolean) => void;
   setActiveModelId: (id: string | null) => void;
   noteConsentSkipped: (at: number) => void;
+  setModelsWifiOnly: (on: boolean) => void;
   reset: () => void;
 };
 
@@ -66,6 +69,7 @@ export const DEFAULT_AI_PREFS: AiPrefsData = {
   aiAutoCloudFallback: true,
   aiActiveModelId: null,
   aiConsentSkippedAt: null,
+  aiModelsWifiOnly: true,
 };
 
 /** One consent per provider; a self-hosted endpoint is a different provider per host. */
@@ -106,6 +110,7 @@ export const useAiPreferences = registerPersisted(
         setAutoCloudFallback: (aiAutoCloudFallback) => set({ aiAutoCloudFallback }),
         setActiveModelId: (aiActiveModelId) => set({ aiActiveModelId }),
         noteConsentSkipped: (aiConsentSkippedAt) => set({ aiConsentSkippedAt }),
+        setModelsWifiOnly: (aiModelsWifiOnly) => set({ aiModelsWifiOnly }),
         reset: () => set({ ...DEFAULT_AI_PREFS }),
       }),
       {

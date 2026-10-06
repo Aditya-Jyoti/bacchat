@@ -12,6 +12,7 @@ import { YouRow } from './parts/YouRow';
 import { useKidNav } from './parts/useKidNav';
 import { formatDateShort, formatTime } from '../../lib/format';
 import { t } from '../../lib/i18n';
+import { SyncDone } from '../../components/illustrations';
 import { useSyncStatus } from '../../lib/sync';
 import { ConflictSection } from './sync/ConflictSection';
 import { useSyncRun } from './sync/useSyncRun';
@@ -106,6 +107,11 @@ export default function K26_Syncing(): React.JSX.Element {
             </Svg>
             <Glyph name="cloud_upload" size={32} color={colors.primary} />
           </View>
+          {finished ? (
+            <View testID="sync-done-art" style={{ alignSelf: 'stretch', marginTop: 8 }}>
+              <SyncDone height={110} />
+            </View>
+          ) : null}
           <Text style={[typography.titleMedium, { fontSize: 22, lineHeight: 28, marginTop: 14, color: colors.onSurface }]}>{heading}</Text>
           {line ? (
             <Text testID="sync-line" style={[typography.bodyMedium, { fontSize: 13, color: colors.onSurfaceVariant, marginTop: 4, textAlign: 'center' }]}>

@@ -12,7 +12,10 @@ import { GroupCaption, YouRow } from './parts/YouRow';
 import { useKidNav } from './parts/useKidNav';
 import { AdvisorSection } from './settings/AdvisorSection';
 import { AiSection } from './settings/AiSection';
-import { LanguageSection } from './settings/LanguageSection';
+import { AskHistorySection } from './settings/AskHistorySection';
+import { ModelWifiSection } from './settings/ModelWifiSection';
+import { NpsNavSection } from './settings/NpsNavSection';
+import { NameSection } from './settings/NameSection';
 import { ServerSection } from './settings/ServerSection';
 import { SmsSection } from './settings/SmsSection';
 import { authenticate, canUseAppLock, useServices } from '../../services';
@@ -23,7 +26,7 @@ type SwitchId = 'wallpaper' | 'sms' | 'email' | 'upi' | 'nudges' | 'reminders' |
 const SWITCHES: Record<SwitchId, { icon: string; title: string; sub: string }> = {
   wallpaper: { icon: 'palette', title: 'settingsUi.wallpaperTitle', sub: 'settingsUi.wallpaperSub' },
   sms: { icon: 'sms', title: 'settingsUi.smsTitle', sub: 'settingsUi.smsSub' },
-  email: { icon: 'mail', title: 'settingsUi.emailTitle', sub: 'rahul.sharma@gmail.com' },
+  email: { icon: 'mail', title: 'settingsUi.emailTitle', sub: 'moreUi.emailSub' },
   upi: { icon: 'notifications_active', title: 'settingsUi.upiTitle', sub: 'settingsUi.upiSub' },
   nudges: { icon: 'spa', title: 'settingsUi.nudgesTitle', sub: 'settingsUi.nudgesSub' },
   reminders: { icon: 'event', title: 'settingsUi.remindersTitle', sub: 'settingsUi.remindersSub' },
@@ -76,11 +79,9 @@ export default function K24_Settings(): React.JSX.Element {
   const sw = (id: SwitchId) => {
     const row = SWITCHES[id];
     const title = t(row.title);
-    // The email row shows the account address as is; every other subtitle is a bundle key.
     const sub =
       id === 'wallpaper' && !on.wallpaper ? t('settingsUi.wallpaperOff')
       : id === 'lock' && lockNote ? lockNote
-      : id === 'email' ? row.sub
       : t(row.sub);
     return (
       <YouRow
@@ -121,7 +122,7 @@ export default function K24_Settings(): React.JSX.Element {
         {colorSource === 'dynamic' && on.wallpaper ? t('settingsUi.coloursDynamic') : t('settingsUi.coloursKhata')}
       </Text>
       <YouRow icon="currency_rupee" title={t('settingsUi.numberFormat')} subtitle={t('settingsUi.numberFormatSub')} onPress={() => undefined} />
-      <LanguageSection />
+      <NameSection />
       <GroupCaption>{t('settingsUi.autoAdd')}</GroupCaption>
       <SmsSection />
       {(['email', 'upi'] as const).map(sw)}
@@ -140,8 +141,11 @@ export default function K24_Settings(): React.JSX.Element {
         {`${t('privacy.onDevice')} ${t('settingsUi.smsChoice')}`}
       </Text>
       <AiSection />
+      <ModelWifiSection />
+      <AskHistorySection />
       <AdvisorSection />
       <ServerSection />
+      <NpsNavSection />
       <GroupCaption>{t('settingsUi.data')}</GroupCaption>
       <YouRow icon="ios_share" title={t('settingsUi.export')} subtitle={t('settingsUi.exportSub')} onPress={() => undefined} />
       <YouRow icon="upload_file" title={t('settingsUi.import_')} subtitle={t('settingsUi.importSub')} onPress={() => undefined} />

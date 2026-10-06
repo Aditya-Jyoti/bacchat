@@ -81,7 +81,7 @@ Values are oklch, with the sRGB hex they convert to. "Key" is the short name use
 | labelLarge | Figtree 600, 14, tabular figures | Rs 1,249 |
 | bodySmall | Figtree 400, 12/16, onSurfaceVariant | Eating out, ICICI credit card |
 
-Hindi: strings must be Hindi-ready. A Hindi-capable serif to pair with Young Serif is an open question (Tiro Devanagari Hindi is a candidate).
+Language: English only. All strings go through the t() layer.
 
 ## Shape, spacing, elevation
 

@@ -95,6 +95,8 @@ class BacchatSmsModule : Module() {
     @Volatile
     private var live: BacchatSmsModule? = null
 
+    fun isLive(): Boolean = live != null
+
     /** Called by the receiver. Reaches JS only when the module is alive; the queue covers the rest. */
     fun deliver(id: String, address: String, body: String, receivedAt: Long) {
       live?.sendEvent(

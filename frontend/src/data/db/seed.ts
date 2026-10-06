@@ -5,6 +5,7 @@
  * method, the UPI ids, cash flow (May to Sep) and the profile counts follow the sample; see
  * docs/decisions.md for the figures the sample cannot satisfy together.
  */
+import { indiaCategoryIcons } from '../categoryIconCatalog';
 import * as S from '../sampleData';
 import type { EntryItem } from '../types';
 import type { BacchatDb } from './repositories';
@@ -78,6 +79,8 @@ export async function seedFromSampleData(db: BacchatDb): Promise<void> {
   S.spend.forEach((c) => addCat(c.name, c.icon));
   S.budgets.forEach((b) => addCat(b.name, b.icon));
   S.categoryIcons.forEach(([icon, name]) => addCat(name, icon));
+  // India-specific categories use the custom icons; they stay unused until tagged.
+  indiaCategoryIcons.forEach(([icon, name]) => addCat(name, icon));
   S.entryDays.forEach((d) => d.items.forEach((i) => addCat(i.category, i.icon)));
   addCat('Entertainment', 'movie');
   addCat('Income', 'payments');
@@ -88,6 +91,7 @@ export async function seedFromSampleData(db: BacchatDb): Promise<void> {
   S.spend.forEach((c) => nameOf.set(slug(c.name), c.name));
   S.budgets.forEach((b) => nameOf.set(slug(b.name), b.name));
   S.categoryIcons.forEach(([, n]) => nameOf.set(slug(n), n));
+  indiaCategoryIcons.forEach(([, n]) => nameOf.set(slug(n), n));
   S.entryDays.forEach((d) => d.items.forEach((i) => nameOf.set(slug(i.category), i.category)));
   nameOf.set('entertainment', 'Entertainment');
   nameOf.set('income', 'Income');

@@ -24,6 +24,7 @@ import {
 import { useTheme } from '../../../theme';
 import { MONTH_NAMES } from '../../money/parts/dates';
 import { EMPTY_LOOKUPS, useLookups } from '../../money/parts/live';
+import { useAiInsightText } from '../aiInsight';
 import { useBudgetAlerts } from '../alertsStore';
 import { homeCopy } from '../copy';
 import { alertCopy, duesCopy, monthFraction, useDuesInsight } from '../liveData';
@@ -75,6 +76,7 @@ function Insight({ arrange }: SectionsProps): React.JSX.Element {
   const db = useWriters();
   const now = useNow();
   const dues = useDuesInsight();
+  const aiText = useAiInsightText(dues.data);
   const alerts = useBudgetAlerts((s) => s.alerts);
   const asked = useRef(false);
   useEffect(() => {
@@ -102,7 +104,7 @@ function Insight({ arrange }: SectionsProps): React.JSX.Element {
       ))}
       {dues.data ? (
         <View style={{ marginTop: alerts.length ? 10 : 0 }}>
-          <Banner variant="insight">{duesCopy(dues.data)}</Banner>
+          <Banner variant="insight" testID="banner-insight">{aiText ?? duesCopy(dues.data)}</Banner>
         </View>
       ) : null}
     </Pressable>

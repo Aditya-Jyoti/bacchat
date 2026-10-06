@@ -8,6 +8,7 @@ import { useEntries, useNow, useWriters } from '../../services';
 import { useTheme } from '../../theme';
 import { EntryRow } from './parts/EntryRow';
 import { EMPTY_LOOKUPS, monthWindow, rowFor, shortDayLabel, viaLabel, useLookups } from './parts/live';
+import { EmptySearch } from '../../components/illustrations';
 import { useMoneyNav } from './parts/nav';
 import { AMOUNT_RANGES, SOURCE_FILTERS, loadRecent, matchesQuery, pushRecent } from './parts/searchData';
 import { S, fmt } from './parts/strings';
@@ -103,7 +104,10 @@ export default function K19_Search(): React.JSX.Element {
           <Text testID="result-total" style={[serif(20), { color: colors.onSurface }]}>{formatRupees(total)}</Text>
         </View>
         {results.length === 0 && query.trim() ? (
-          <Text testID="search-empty" style={[typography.bodyMedium, { color: colors.onSurfaceVariant, paddingVertical: spacing.lg }]}>{S.noEntries}</Text>
+          <View style={{ paddingTop: spacing.lg }}>
+            <EmptySearch height={110} />
+            <Text testID="search-empty" style={[typography.bodyMedium, { color: colors.onSurfaceVariant, paddingVertical: spacing.md }]}>{S.noEntries}</Text>
+          </View>
         ) : null}
         {results.map((e) => (
           <EntryRow key={e.id} {...rowFor(e, lk, { sub: `${shortDayLabel(e.at, now)} \u00B7 ${viaLabel(e, lk)}` })} />

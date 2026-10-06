@@ -39,7 +39,11 @@ object SmsNotifier {
       open,
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
-    val icon = context.applicationInfo.icon.takeIf { it != 0 } ?: android.R.drawable.ic_dialog_info
+    // White-on-transparent small icon copied in by plugins/withNotificationIcon; fall back to the app icon.
+    val statIcon = context.resources.getIdentifier("ic_stat_bacchat", "drawable", context.packageName)
+    val icon = statIcon.takeIf { it != 0 }
+      ?: context.applicationInfo.icon.takeIf { it != 0 }
+      ?: android.R.drawable.ic_dialog_info
     val n = NotificationCompat.Builder(context, CHANNEL_ID)
       .setSmallIcon(icon)
       .setContentTitle(title)

@@ -13,6 +13,7 @@ export * from './ingestService';
 export * from './ingestPending';
 export * from './emailSource';
 export * from './shareService';
+export * from './useAppLifecycle';
 export * from './useNativeEntryPoints';
 export * from './appLock';
 export * from './googleAuth';

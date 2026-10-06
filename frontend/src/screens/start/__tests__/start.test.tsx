@@ -27,7 +27,7 @@ describe.each(['light', 'dark'] as const)('k21 Splash (%s)', (mode) => {
   it('shows the brand and the privacy line', () => {
     const { getByText } = renderWithTheme(<K21_Splash />, mode);
     expect(getByText('Bacchat')).toBeTruthy();
-    expect(getByText(/a calm money notebook/)).toBeTruthy();
+    expect(getByText(/A calm money notebook/)).toBeTruthy();
     expect(getByText('Opening your notebook on this phone')).toBeTruthy();
   });
 

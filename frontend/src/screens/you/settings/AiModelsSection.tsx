@@ -24,6 +24,7 @@ const ERR: Record<string, string> = {
   incomplete: 'aiUi.errIncomplete',
   checksum: 'aiUi.errChecksum',
   write: 'aiUi.errWrite',
+  wifi: 'moreUi.errWifi',
 };
 
 export function AiModelsSection(): React.JSX.Element {

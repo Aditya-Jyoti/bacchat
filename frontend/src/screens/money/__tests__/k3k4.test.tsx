@@ -230,8 +230,9 @@ describe.each(['light', 'dark'] as const)('k4 Money Entries (%s)', (mode) => {
   });
 
   it('shows an empty state when nothing matches', async () => {
-    const { findByTestId } = await renderLive(<K4 />, mode, { category: 'Nothing' });
+    const { findByTestId, getByLabelText } = await renderLive(<K4 />, mode, { category: 'Nothing' });
     expect(await findByTestId('entries-empty')).toBeTruthy();
+    expect(getByLabelText(/Illustration of an open notebook/)).toBeTruthy();
   });
 
   it('navigates: search, add by hand, from screenshot, long-press', async () => {

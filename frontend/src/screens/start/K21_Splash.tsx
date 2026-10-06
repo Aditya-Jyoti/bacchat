@@ -45,7 +45,7 @@ export default function K21_Splash(): React.JSX.Element {
         </View>
         <Text style={[typography.displayMedium, { fontSize: 44, lineHeight: 44, color: colors.onSurface, marginTop: 28 }]}>{t('startUi.name')}</Text>
         <Text style={[typography.bodyLarge, { color: colors.onSurfaceVariant, marginTop: 8, textAlign: 'center' }]}>
-          {t('startUi.subtitle', { hindi: '\u092C\u091A\u0924' })}
+          {t('startUi.subtitle')}
         </Text>
       </View>
       <View style={{ paddingHorizontal: 48, paddingBottom: 56, alignItems: 'center', gap: 16 }}>

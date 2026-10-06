@@ -4,6 +4,7 @@ import { createMemoryDb, type BacchatDb } from '../../../data/db';
 import {
   EMPTY_DECISIONS,
   addCount,
+  cleanRowNames,
   commitImport,
   conflictIndexes,
   getOcrEngine,
@@ -168,5 +169,24 @@ describe('commitImport', () => {
     const db = createMemoryDb();
     await db.accounts.put({ id: 'c', name: 'Cash', kind: 'cash', balancePaise: 0, icon: 'payments' });
     expect(await importDefaults(db)).toEqual({ method: 'cash', accountId: 'c', upiId: null });
+  });
+});
+
+describe('cleanRowNames', () => {
+  const ref = new Date(2026, 9, 24, 12, 0).getTime();
+  const rows = () => rowsFromText(['SWIGGY INSTAMART 0ORDER  \u20B9486  1:42 pm', 'Namma Metro  \u20B9120  9:10 am'], ref);
+
+  it('changes display names only, never amounts or times', async () => {
+    const before = rows();
+    const out = await cleanRowNames(before, async (names) => names.map((n) => (n.startsWith('SWIGGY') ? 'Swiggy Instamart' : n)));
+    expect(out.map((r) => r.merchant)).toEqual(expect.arrayContaining(['Swiggy Instamart']));
+    expect(out.map((r) => [r.amountPaise, r.at, r.direction])).toEqual(before.map((r) => [r.amountPaise, r.at, r.direction]));
+  });
+
+  it('keeps the names as read when the helper fails or answers the wrong length', async () => {
+    const before = rows();
+    expect(await cleanRowNames(before, async () => Promise.reject(new Error('x')))).toEqual(before);
+    expect(await cleanRowNames(before, async () => ['only one'])).toEqual(before);
+    expect(await cleanRowNames([], async () => [])).toEqual([]);
   });
 });

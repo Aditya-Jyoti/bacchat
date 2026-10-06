@@ -65,4 +65,4 @@ Calm and unintimidating tone; icon-led categorisation (about 180 icons); hand-dr
 
 v1: the 12 features above on-device, sample-data-driven UI for all screens, encrypted sync via the Bacchat backend.
 
-Later: loans and EMIs with amortisation, Hindi localisation, full illustration set, Google Drive and WebDAV/S3 sync targets, live NAV fetching.
+Later: loans and EMIs with amortisation, full illustration set, Google Drive and WebDAV/S3 sync targets, live NAV fetching.

@@ -133,8 +133,9 @@ describe.each(['light', 'dark'] as const)('k10 Accounts (%s)', (mode) => {
   });
 
   it('shows a calm empty line with no accounts', async () => {
-    const { findByTestId } = renderWithTheme(<K10_Accounts />, mode, { servicesOptions: { seed: false } });
+    const { findByTestId, getByLabelText } = renderWithTheme(<K10_Accounts />, mode, { servicesOptions: { seed: false } });
     expect(await findByTestId('accounts-empty')).toBeTruthy();
+    expect(getByLabelText(/Illustration of a small bank building/)).toBeTruthy();
   });
 
   it('plus opens Add account and back goes back', async () => {
@@ -307,8 +308,9 @@ describe.each(['light', 'dark'] as const)('k15 Budget (%s)', (mode) => {
   });
 
   it('shows a calm line when there are no category budgets', async () => {
-    const { findByTestId } = renderWithTheme(<K15_Budget />, mode, { servicesOptions: { seed: false } });
+    const { findByTestId, getByLabelText } = renderWithTheme(<K15_Budget />, mode, { servicesOptions: { seed: false } });
     expect(await findByTestId('budget-empty')).toBeTruthy();
+    expect(getByLabelText(/Illustration of an empty wallet/)).toBeTruthy();
   });
 
   it('the pencil opens Edit budget', async () => {

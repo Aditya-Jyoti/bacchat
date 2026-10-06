@@ -17,9 +17,11 @@ import { useTheme } from '../../theme';
 import { EntryRow } from './parts/EntryRow';
 import { MoneyHeader } from './parts/MoneyHeader';
 import { PasteMessage } from './parts/PasteMessage';
+import { PendingBanner } from './pending/PendingBanner';
 import { PendingRow } from './parts/PendingRow';
 import { Snackbar } from './parts/Snackbar';
 import { EMPTY_LOOKUPS, dayHeading, groupByDay, monthWindow, monthsBack, rowFor, useEarliestEntry, useLookups } from './parts/live';
+import { EmptyEntries } from '../../components/illustrations';
 import { parseFilter, type EntryFilter } from './parts/entries';
 import { useMoneyNav } from './parts/nav';
 import { S, fmt } from './parts/strings';
@@ -120,11 +122,15 @@ export default function K4_MoneyEntries(): React.JSX.Element {
             <FilterChip key={c.id} testID={`chip-${c.id}`} label={c.label} icon={c.icon} selected={filter === c.id} onPress={() => setFilter(c.id)} />
           ))}
         </ScrollView>
+        <PendingBanner />
         {loading ? <SkeletonRows count={5} /> : null}
         {!loading && groups.length === 0 ? (
-          <Text testID="entries-empty" style={[typography.bodyMedium, { color: colors.onSurfaceVariant, marginTop: spacing.xxl }]}>
-            {S.noEntries}
-          </Text>
+          <View style={{ marginTop: spacing.xxl }}>
+            <EmptyEntries height={120} />
+            <Text testID="entries-empty" style={[typography.bodyMedium, { color: colors.onSurfaceVariant, marginTop: spacing.md }]}>
+              {S.noEntries}
+            </Text>
+          </View>
         ) : null}
         {showPaste ? <PasteMessage testID="entries-paste" /> : null}
         {groups.map((g) => {

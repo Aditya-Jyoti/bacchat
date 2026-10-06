@@ -13,5 +13,8 @@
         <action android:name="android.provider.Telephony.SMS_RECEIVED" />
       </intent-filter>
     </receiver>
+
+    <!-- Runs the JS task for a message received while the app is closed. Started only by SmsReceiver. -->
+    <service android:name="app.bacchat.sms.SmsHeadlessService" android:exported="false" />
   </application>
 </manifest>

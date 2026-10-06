@@ -21,6 +21,7 @@ import { ingestCandidate, parseSms, type Candidate, type IngestOutcome } from '.
 import { usePreferences } from '../lib/preferences';
 import { RULE_ACCEPT_CONFIDENCE } from '../lib/ai/extract';
 import type { Extractor } from './aiService';
+import type { ObservableDb } from './observable';
 import { pasteEmailSource, splitPastedEmail } from './emailSource';
 import { addPending, listPending, resolvePending, type PendingChoice, type PendingItem } from './ingestPending';
 
@@ -133,6 +134,8 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
   };
 
   let sub: SmsSubscription | null = null;
+  /** The pending list lives in the meta table, which does not announce writes: tell watchers by hand. */
+  const poke = (): void => (db as Partial<ObservableDb>).notify?.();
 
   async function ingest(c: Candidate): Promise<MessageResult> {
     let outcome: IngestOutcome;
@@ -153,6 +156,7 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
       case 'conflict': {
         const item: PendingItem = { id: c.rawRef ?? `pending:${now()}`, candidate: c, againstId: outcome.against.id, addedAt: now() };
         const fresh = await addPending(db, item);
+        if (fresh) poke();
         return fresh ? { kind: 'pending', item } : { kind: 'duplicate' };
       }
     }
@@ -311,7 +315,12 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
     },
 
     pending: () => listPending(db),
-    resolve: (id, choice) => enqueue(() => resolvePending(db, id, choice)),
+    resolve: (id, choice) =>
+      enqueue(async () => {
+        const r = await resolvePending(db, id, choice);
+        poke();
+        return r;
+      }),
     idle: () => chain.then(() => undefined),
   };
   return service;

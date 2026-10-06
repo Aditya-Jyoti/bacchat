@@ -123,7 +123,7 @@ describe.each(['light', 'dark'] as const)('you screens (%s)', (mode) => {
   });
 
   it('k17 lists upcoming from the database, filters by chip and shows cash flow', async () => {
-    const { getByText, getAllByTestId, getByTestId, queryByTestId, findAllByTestId, getAllByText } = renderWithTheme(<K17_ComingUp />, mode);
+    const { getByText, getAllByTestId, getByTestId, queryByTestId, findAllByTestId, getAllByText, getByLabelText } = renderWithTheme(<K17_ComingUp />, mode);
     expect(getByText('Coming up')).toBeTruthy();
     expect(getByText('Cash flow')).toBeTruthy();
     expect(getByText('last 6 months')).toBeTruthy();
@@ -145,6 +145,7 @@ describe.each(['light', 'dark'] as const)('you screens (%s)', (mode) => {
     fireEvent.press(getByTestId('filter-sip'));
     expect(queryByTestId('upcoming-item')).toBeNull();
     expect(getByTestId('upcoming-empty')).toBeTruthy();
+    expect(getByLabelText(/Illustration of a calendar/)).toBeTruthy();
     fireEvent.press(getByTestId('paired-col-5'));
     expect(getByTestId('paired-tooltip')).toBeTruthy();
   });

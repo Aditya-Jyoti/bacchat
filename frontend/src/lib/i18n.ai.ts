@@ -1,4 +1,4 @@
-/** UI text for the AI settings, the engine caption in Ask and the model manager. Hindi falls back to English for now. */
+/** UI text for the AI settings, the engine caption in Ask and the model manager. */
 export const aiUi = {
   caption: 'AI ENGINE',
   modeLabel: 'Where AI runs',

@@ -1,12 +1,12 @@
 /**
- * Minimal i18n. All UI text lives here, keyed by dotted path. Hindi-ready: add a `hi` bundle
- * with the same keys and call setLocale('hi'). Missing keys fall back to English, then the key.
- * Strings avoid idioms that do not translate. The rupee sign is written as an escape.
+ * UI string layer. All UI text lives here (English), keyed by dotted path, and screens read it
+ * through t(). A missing key returns the key. The rupee sign is written as an escape.
  */
 
 import { aiUi } from './i18n.ai';
+import { artUi } from './i18n.art';
+import { moreUi } from './i18n.more';
 
-export type Locale = 'en' | 'hi';
 
 export const en = {
   app: { name: 'Bacchat', tagline: 'Your money notebook' },
@@ -296,7 +296,7 @@ export const en = {
   startUi: {
     appMark: 'Bacchat app mark',
     name: 'Bacchat',
-    subtitle: '{hindi} \u00B7 a calm money notebook',
+    subtitle: 'A calm money notebook',
     opening: 'Opening',
     openingLine: 'Opening your notebook on this phone',
     hero: 'Write money down.\nWorry less.',
@@ -417,10 +417,6 @@ export const en = {
     serverHelp: 'Leave empty to use Bacchat Cloud. Self-hosted servers work too.',
     serverSave: 'Save address',
     serverBad: 'Enter an address that starts with http:// or https://.',
-    language: 'Language',
-    languageSub: 'Language of the app',
-    languageEnglish: 'English',
-    languageHindi: '\u0939\u093F\u0928\u094D\u0926\u0940',
   },
   accountsUi: {
     typeBank: 'Bank',
@@ -789,7 +785,7 @@ export const en = {
     todayWord: 'today',
     billDue: 'bill due',
   },
-  /** Debug galleries (k20, k29). Developer-facing; Hindi falls back to English. */
+  /** Debug galleries (k20, k29). Developer-facing. */
   galleryUi: {
     khataComponents: 'Khata components',
     interactionsOverlays: 'Interactions & overlays',
@@ -994,38 +990,23 @@ export const en = {
     fromAnyAppsShareMenu: 'From any app\'s share menu',
   },
   aiUi,
+  artUi,
+  moreUi,
   sample: { rupeeExample: 'Rs \u20B912,34,567' },
 } as const;
 
-type Bundle = Record<string, unknown>;
-
-const bundles: Record<Locale, Bundle | undefined> = { en, hi: undefined };
-let current: Locale = 'en';
-
-export function registerBundle(locale: Locale, bundle: Bundle): void {
-  bundles[locale] = bundle;
-}
-
-export function setLocale(locale: Locale): void {
-  current = locale;
-}
-
-export function getLocale(): Locale {
-  return current;
-}
-
-function lookup(bundle: Bundle | undefined, key: string): string | undefined {
-  let node: unknown = bundle;
+function lookup(key: string): string | undefined {
+  let node: unknown = en;
   for (const part of key.split('.')) {
-    if (node && typeof node === 'object' && part in (node as Bundle)) node = (node as Bundle)[part];
+    if (node && typeof node === 'object' && part in (node as Record<string, unknown>)) node = (node as Record<string, unknown>)[part];
     else return undefined;
   }
   return typeof node === 'string' ? node : undefined;
 }
 
-/** Translate a dotted key, with {name} placeholders filled from params. */
+/** Look up a dotted key, with {name} placeholders filled from params. Unknown keys return the key. */
 export function t(key: string, params?: Record<string, string | number>): string {
-  const raw = lookup(bundles[current], key) ?? lookup(bundles.en, key) ?? key;
+  const raw = lookup(key) ?? key;
   if (!params) return raw;
   return raw.replace(/\{(\w+)\}/g, (m, name: string) => (name in params ? String(params[name]) : m));
 }

@@ -11,6 +11,7 @@ import { t } from '../../../lib/i18n';
 import { usePreferences } from '../../../lib/preferences';
 import { useIngestService } from '../../../services';
 import { useTheme } from '../../../theme';
+import { PendingConflictsSheet } from '../../money/pending/PendingConflictsSheet';
 import { PasteMessage } from '../../money/parts/PasteMessage';
 import { YouRow } from '../parts/YouRow';
 
@@ -20,6 +21,7 @@ export function SmsSection(): React.JSX.Element {
   const on = usePreferences((s) => s.smsIngestEnabled);
   const [note, setNote] = useState<string | null>(null);
   const [pending, setPending] = useState(0);
+  const [sheet, setSheet] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -54,10 +56,21 @@ export function SmsSection(): React.JSX.Element {
         <Text testID="settings-sms-note" style={[typography.bodySmall, { color: colors.onSurfaceVariant, paddingTop: 6 }]}>{note}</Text>
       ) : null}
       {pending > 0 ? (
-        <Text testID="settings-sms-pending" style={[typography.bodySmall, { color: colors.onSurfaceVariant, paddingTop: 6 }]}>
-          {t('ingestUi.pendingCount', { n: pending })}
-        </Text>
+        <YouRow
+          testID="settings-sms-pending"
+          icon="help"
+          title={t('moreUi.pendingTitle')}
+          subtitle={t('moreUi.pendingRow', { n: pending })}
+          onPress={() => setSheet(true)}
+        />
       ) : null}
+      <PendingConflictsSheet
+        visible={sheet}
+        onClose={() => {
+          setSheet(false);
+          void ingest.pending().then((p) => setPending(p.length));
+        }}
+      />
       <PasteMessage testID="settings-paste" />
     </View>
   );

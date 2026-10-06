@@ -11,6 +11,7 @@ import { useTheme } from '../../theme';
 import { useScreenNav } from '../shared/useScreenNav';
 import { GoalRow } from './sections/GoalRow';
 import { isReached } from './goalTypes';
+import { EmptyGoals } from '../../components/illustrations';
 import { dueInsight } from './sections/dueInsight';
 import { useGoalsData } from './useGoalsData';
 import { t } from '../../lib/i18n';
@@ -69,9 +70,12 @@ export default function K12_Goals(): React.JSX.Element {
             shown.map((g) => <GoalRow key={g.id} goal={g} onPress={() => nav.go('k13', { id: g.id })} />)
           )}
           {!loading && shown.length === 0 ? (
-            <Text testID="goals-empty" style={[typography.bodyMedium, { color: colors.onSurfaceVariant, paddingVertical: 24 }]}>
-              {t('goalsUi.noGoals')}
-            </Text>
+            <View style={{ paddingTop: 12 }}>
+              <EmptyGoals height={120} />
+              <Text testID="goals-empty" style={[typography.bodyMedium, { color: colors.onSurfaceVariant, paddingVertical: 16 }]}>
+                {t('goalsUi.noGoals')}
+              </Text>
+            </View>
           ) : null}
         </View>
         {tab === 'active' && insightText ? (

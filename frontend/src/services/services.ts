@@ -105,7 +105,7 @@ function build(raw: BacchatDb, opts: ServicesOptions, state: BuildState): Servic
   let syncKey = '';
   const google = opts.googleTokens ?? createGoogleTokenProvider({ secure, clientId: getGoogleClientId });
   let sync: SyncHandle | null = null;
-  const ai = createAiService({ secure, settings, db, fetch: fetchImpl, ...opts.ai });
+  const ai = createAiService({ secure, settings, db, fetch: fetchImpl, probe: opts.probe, ...opts.ai });
   ai.subscribe(() => {
     advisor = null;
   });

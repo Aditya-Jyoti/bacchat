@@ -3,6 +3,7 @@
  * verification, progress events. Works against injected fetch and file APIs, so the logic is
  * tested without a device. Nothing here knows about the network except through `fetch`.
  */
+import type { NetworkProbe } from '../../sync/engine';
 import type { ModelSpec } from './registry';
 
 export type DownloadFs = {
@@ -29,7 +30,7 @@ export type DownloadResponse = {
 export type DownloadFetch = (url: string, init: { headers?: Record<string, string>; signal?: AbortSignal }) => Promise<DownloadResponse>;
 
 export type DownloadStatus = 'idle' | 'downloading' | 'verifying' | 'paused' | 'done' | 'error';
-export type DownloadErrorCode = 'network' | 'http' | 'space' | 'incomplete' | 'checksum' | 'write';
+export type DownloadErrorCode = 'network' | 'http' | 'space' | 'incomplete' | 'checksum' | 'write' | 'wifi';
 
 export type DownloadState = {
   id: string;
@@ -51,6 +52,10 @@ export type DownloadManagerOptions = {
   fetch: DownloadFetch;
   /** Minimum change in fraction between progress events. Default 0.005. */
   progressStep?: number;
+  /** Network seam (the same one sync uses). Only consulted when wifiOnly() is true. */
+  probe?: NetworkProbe;
+  /** Read at every start, so a changed setting applies to the next download. */
+  wifiOnly?: () => boolean;
 };
 
 const idle = (id: string): DownloadState => ({ id, status: 'idle', receivedBytes: 0, totalBytes: 0, fraction: 0 });
@@ -131,6 +136,7 @@ export class ModelDownloadManager {
     const entry = { ctl, intent: null as 'pause' | 'cancel' | null };
     this.active.set(spec.id, entry);
     try {
+      if (!(await this.networkAllowed())) return this.fail(spec.id, 'wifi');
       const done = await fs.stat(spec.fileName);
       if (done.exists && done.size > 0) return this.set(spec.id, { status: 'done', receivedBytes: done.size, totalBytes: done.size, error: undefined, unverified: !spec.sha256 }, true);
 
@@ -191,6 +197,17 @@ export class ModelDownloadManager {
       return this.fail(spec.id, isWrite(e) ? 'write' : 'network');
     } finally {
       this.active.delete(spec.id);
+    }
+  }
+
+  /** False only when Wi-Fi-only is on and the probe says we are not on Wi-Fi. No probe or a probe error allows it. */
+  private async networkAllowed(): Promise<boolean> {
+    const { probe, wifiOnly } = this.o;
+    if (!probe || !wifiOnly?.()) return true;
+    try {
+      return (await probe()) === 'wifi';
+    } catch {
+      return true;
     }
   }
 

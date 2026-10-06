@@ -109,3 +109,42 @@ Copy this block above the line, fill it in, keep entries short.
 - AI router: user's API key (Anthropic or any OpenAI-compatible endpoint), on-device model (llama.rn), auto and per-feature modes; consent, redaction and hallucination checks for SMS and email extraction.
 - Tests: frontend 1413 pass in 99 suites, backend 37 pass.
 - Not verified: all Kotlin and Gradle, llama.rn and libsodium device builds, real Drive, WebDAV, S3 and Nextcloud servers, live AMFI and NPS endpoints (blocked by the sandbox proxy), model URLs and checksums.
+
+## 2026-10-06 (D1) Background SMS via headless JS
+- bacchat-sms: SmsHeadlessService.kt (HeadlessJsTaskService, task key BacchatSmsHeadless, uses the app ReactHost under new arch). SmsReceiver starts it only when the module is not alive (app closed); still queues first, so a failed start is picked up next launch. Service declared non-exported in the module manifest.
+- JS: src/services/smsHeadless.ts (runSmsHeadlessTask reuses ingestService.processSms with notify, lazily created services, preference guard, acknowledges on success), registered in index.ts. 6 new tests. Kotlin not compiled here (no SDK).
+
+## 2026-10-06 Translations removed
+
+- Removed Hindi bundle, locale preference (prefs v2 migration drops old `locale`), useLocale, keepState and the locale-keyed navigator remount, language toggle (LanguageSection became NameSection, name field kept), Tiro Devanagari font and dependency, typographyFor/ThemeProvider locale. t() is now English-only. Docs and CLAUDE.md updated, ADR appended. Typecheck, lint and tests run (see final report).
+
+## 2026-10-06 (D2-D4) OAuth redirect plugin, app assets, manifest hardening
+- plugins: withGoogleOAuthRedirect, withHardenedManifest, withNotificationIcon (tests in plugins/__tests__). app.json: icon, adaptiveIcon (+monochrome), expo-splash-screen (light/dark), blockedPermissions, plugins registered. expo-splash-screen added to package.json.
+- scripts/make-assets.py generates assets/ (icon, adaptive foreground/monochrome, notification icon, splash light/dark).
+- Verified with a scratch prebuild (deleted): mipmap launcher+monochrome webp, splash drawables incl. night, ic_stat_bacchat, allowBackup=false, cleartext off, OAuth filter present with a test client id, removed permissions marked tools:node=remove. Kotlin not compiled (no SDK).
+
+## 2026-10-06 (agent B, part 1-2)
+- k24: new rows via section files (AskHistorySection, ModelWifiSection, NpsNavSection); aiModelsWifiOnly preference (AI prefs); ModelDownloadManager honours it through the NetworkProbe seam (error 'wifi', calm message). Tests: settingsMore, wifiOnly.
+- Pending ingest conflicts: calm sheet in the k9 visual pattern (screens/money/pending/), banner on k4, row in k24 SMS section. ingestService pokes db watchers after add/resolve. Test: pendingConflicts. All green.
+
+## 2026-10-06 (agent B, part 3-4)
+- cleanOcr wired into k7 (real screenshots only, names only via cleanRowNames in importFlow; router consent rules apply). Home insight card: optional AI wording (screens/home/aiInsight.ts), totals only, cached, rules text is the fallback. Tests added; no network.
+- Lifecycle: useAppLifecycle (services) unloads the on-device model on background, mounted in App.tsx; ThemeProvider re-reads wallpaper palettes on return to foreground (DynamicSchemeSource.refresh). Wi-Fi-only model downloads via NetworkProbe seam (see earlier entry). Tests added.
+
+## 2026-10-06 Illustrations and India icons (agent C)
+- Added 11 ink-line illustrations over one primaryContainer blob (Tiffin, Coin, Khata, EmptyEntries/Goals/Budget/Accounts/Search/Upcoming, GoalReached, SyncDone) via InkScene; chai moved to components/illustrations (start/ChaiIllustration re-exports).
+- Wired into k4, k12, k15, k10, k19, k17 empty states, k13 reached moment and k26 done state with accessibility labels (lib/i18n.art.ts).
+- 25 custom India icons (components/icons: paths, CustomIcon, registry); CategoryIcon, Glyph and the you/money icon helpers draw custom icons first, Material Symbols stay as fallback.
+- data/categoryIconCatalog.ts: 180 icons (all resolve, tested); k14 icon picker uses it; India categories seeded.
+- k29 gallery gains Illustrations and India icons cards. Tests: artwork.test.tsx plus empty-state assertions. Full suite green except other agents' aiInsight work in progress.
+
+## 2026-10-06 (cleanup round: no translations, gaps closed)
+
+- Translations removed by user decision (Hindi bundle, language toggle, Devanagari font); strings still go through the English t() layer.
+- Settings rows (local Ask history, NPS URL, Wi-Fi-only model downloads), pending SMS conflicts sheet and k4 banner, OCR name clean-up and AI insight wired into screens, model unload on background, wallpaper colours refresh on foreground.
+- Real Wi-Fi/cellular probe (expo-network) wired into the app, so Wi-Fi-only sync and model downloads are enforced.
+- 14 illustrations, 25 India-specific icons and a 180-icon catalog used in empty states and pickers.
+- Background SMS via headless JS, Google OAuth redirect plugin, app icon and splash assets, hardened manifest (no backup, no cleartext).
+- Android scaffold regenerated (frontend/android).
+- Tests: frontend 1524 pass in 103 suites, backend 37 pass; typecheck and lint clean.
+- Unverified: all Kotlin and Gradle, device behaviour, real WebDAV/S3/Drive servers, live AMFI/NPS endpoints, model checksums. FLAG_SECURE not implemented.

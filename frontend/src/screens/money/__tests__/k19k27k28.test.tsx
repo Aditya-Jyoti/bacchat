@@ -61,11 +61,12 @@ describe.each(['light', 'dark'] as const)('k19 Search (%s)', (mode) => {
   });
 
   it('finds by category name and clear empties the list', async () => {
-    const { getByTestId, findByText, queryByText } = await renderLive(<K19 />, mode);
+    const { getByTestId, findByText, queryByText, getByLabelText } = await renderLive(<K19 />, mode);
     fireEvent.changeText(getByTestId('search-input'), 'fruit');
     expect(await findByText('Ramesh Fruits')).toBeTruthy();
     fireEvent.changeText(getByTestId('search-input'), 'zzz');
     await waitFor(() => expect(getByTestId('search-empty')).toBeTruthy());
+    expect(getByLabelText(/Illustration of a magnifying glass/)).toBeTruthy();
     expect(getByTestId('result-total').props.children).toBe(`${R}0`);
     fireEvent.changeText(getByTestId('search-input'), 'blinkit');
     expect(await findByText('Blinkit')).toBeTruthy();

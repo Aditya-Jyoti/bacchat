@@ -29,7 +29,8 @@ flowchart LR
 - [x] M6 Backend and Docker: API from backend.md, SQLite storage, cap, tests, Dockerfile, compose
 - [x] M7 Sync client (done and wired into k25, k26): Argon2id and XChaCha20-Poly1305, push and pull with baseVersion, k25, k26, k9 conflict reuse
 - [x] M8 Native Android modules (written, not compiled in this sandbox): SMS and notification reader, share intent, Material You dynamic colour, keystore and biometrics, launcher shortcut
-- [ ] M9 Polish and accessibility (Hindi, lock and profile done; device checks pending): TalkBack summaries, 200% font scale, reduce motion, contrast audit, empty states, illustrations
+- [ ] M9 Polish and accessibility (lock, profile, art, icons, assets done; device checks and TalkBack audit pending)
+- [x] App gaps (TS): k24 rows (Ask history, NPS NAV address, Wi-Fi only models), pending ingest conflicts sheet and k4 banner, cleanOcr in k7, AI insight text on Home, background unload, wallpaper re-read on foreground (real network probe still to wire)
 
 ## App services (done)
 
@@ -49,10 +50,10 @@ src/services provides the provider, reactive query hooks, NAV refresh, advisor a
 |---|---|---|
 | Android SDK unreachable in the sandbox | Cannot build or run the app here | Rely on Jest, typecheck and lint here; verify on a real device later |
 | Docker daemon unavailable in the sandbox | Cannot build or run the image here | Test backend as a Node process; validate the image with `npm run demo` against a running container |
-| Fonts (Young Serif, Figtree) not yet bundled; Hindi serif pairing open | Typography falls back to system fonts | Add font files via expo-font; keep fallbacks; resolve open question 4 |
+| Fonts (Young Serif, Figtree) not yet bundled | Typography falls back to system fonts | Add font files via expo-font; keep fallbacks |
 | Material You native module | Third-party module or small local module, needs a device | Warm fallback palette is always available; record choice in decisions.md |
 | SQLCipher library choice | Affects native build and migrations | Pick between op-sqlite and expo-sqlite with SQLCipher in M1 |
-| Illustrations and India-specific icons not commissioned | Empty states use placeholders | Open questions 3 in CLAUDE.md |
+| Illustrations and India-specific icons are first-pass in-house drawings (12 scenes, 25 icons) | Commission final art to replace them; the components keep the same props | Open questions 3 in CLAUDE.md |
 | Hosting and free cap for Bacchat Cloud | Policy not fixed | Default 500 MB per account; self-hosting supported |
 
 ## Screen status summary
@@ -77,7 +78,7 @@ The per-screen table is in [screens.md](screens.md) (29 rows including the debug
 | Router, modes, per-feature overrides, consent gate | Done | Default mode cloud keeps existing advisor behaviour |
 | Redaction before cloud, verified, never logged | Done | Tested |
 | Hybrid extraction and category suggestions | Done | Rules first, validated model reading, wired into ingestService |
-| Settings AI section and model manager | Done | Hindi falls back to English |
+| Settings AI section and model manager | Done | |
 | Ask shows which engine answered | Done | Caption under each answer |
 | On-device engine (llama.rn) | Wired, not run | Needs a device build and a downloaded model |
 | Model URLs and checksums | Placeholders | Pin before release |

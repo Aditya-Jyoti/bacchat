@@ -152,7 +152,7 @@ Standard M3 first (buttons, FAB, outlined text fields, dropdown menus, search ba
 
 ## Voice and copy
 
-Second person, plain words, one idea per line, name the next step. Say "Eating out went Rs 640 past its budget. A couple of home dinners evens it out." not "Budget exceeded by 10.7%!". Say "Which Amazon payment is right?" not "Duplicate transaction conflict detected". Say "Kept on this phone." not "bank-grade security". Say "Yours to spend" not "Available liquidity". Use Indian grouping and dates like "Sat, 24 Oct". All UI strings go through an i18n layer and must be Hindi-ready (no idioms that do not translate).
+Second person, plain words, one idea per line, name the next step. Say "Eating out went Rs 640 past its budget. A couple of home dinners evens it out." not "Budget exceeded by 10.7%!". Say "Which Amazon payment is right?" not "Duplicate transaction conflict detected". Say "Kept on this phone." not "bank-grade security". Say "Yours to spend" not "Available liquidity". Use Indian grouping and dates like "Sat, 24 Oct". All UI strings go through the t() layer (English keys in `frontend/src/lib/i18n.ts`). The app is English only.
 
 ## Accessibility
 
@@ -180,4 +180,3 @@ Touch targets at least 48 (keypad keys 44 tall with 6 gaps). Meaning never relie
 1. Should loans and EMIs get their own owe type with an amortisation view, or stay a manual balance for v1?
 2. Bacchat Cloud hosting: who runs it and what is the free storage cap? (The backend is built so anyone can self-host it.)
 3. Commissioning the illustration set (about 12 pieces) and the custom India-specific icons (about 25).
-4. Which Hindi-capable serif pairs with Young Serif (Tiro Devanagari Hindi is a candidate).

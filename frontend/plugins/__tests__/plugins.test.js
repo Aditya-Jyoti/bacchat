@@ -2,6 +2,8 @@
 /* global describe, it, expect */
 const withShareIntent = require('../withShareIntent');
 const withShortcuts = require('../withShortcuts');
+const withHardenedManifest = require('../withHardenedManifest');
+const withGoogleOAuthRedirect = require('../withGoogleOAuthRedirect');
 
 const manifest = () => ({
   manifest: {
@@ -44,5 +46,40 @@ describe('withShortcuts', () => {
     expect(xml).toContain('android:data="bacchat://add"');
     expect(xml).toContain('android:targetClass="app.bacchat.MainActivity"');
     expect(xml).toContain('android:shortcutId="add_entry"');
+  });
+});
+
+describe('withGoogleOAuthRedirect', () => {
+  const filters = (m) => m.manifest.application[0].activity[0]['intent-filter'];
+
+  it('reverses the client id into the redirect scheme', () => {
+    expect(withGoogleOAuthRedirect.redirectScheme('123-abc.apps.googleusercontent.com')).toBe('com.googleusercontent.apps.123-abc');
+    expect(withGoogleOAuthRedirect.redirectScheme('123-abc')).toBe('com.googleusercontent.apps.123-abc');
+  });
+
+  it('adds a browsable filter for the scheme once', () => {
+    const id = '123-abc.apps.googleusercontent.com';
+    const m = withGoogleOAuthRedirect.addOAuthRedirect(withGoogleOAuthRedirect.addOAuthRedirect(manifest(), id), id);
+    const added = filters(m).filter((f) => f.data);
+    expect(added).toHaveLength(1);
+    expect(added[0].data[0].$).toEqual({ 'android:scheme': 'com.googleusercontent.apps.123-abc', 'android:path': '/oauthredirect' });
+    expect(added[0].category.map((c) => c.$['android:name'])).toContain('android.intent.category.BROWSABLE');
+  });
+
+  it('does nothing when the client id is empty', () => {
+    for (const id of ['', '  ', undefined]) {
+      const m = withGoogleOAuthRedirect.addOAuthRedirect(manifest(), id);
+      expect(filters(m)).toHaveLength(1);
+    }
+  });
+});
+
+describe('withHardenedManifest', () => {
+  it('turns off backup and clear-text traffic', () => {
+    const m = manifest();
+    m.manifest.application[0].$ = { 'android:allowBackup': 'true' };
+    withHardenedManifest.hardenManifest(m);
+    expect(m.manifest.application[0].$['android:allowBackup']).toBe('false');
+    expect(m.manifest.application[0].$['android:usesCleartextTraffic']).toBe('false');
   });
 });

@@ -13,7 +13,7 @@ const NOW = new Date(2026, 10, 3, 8, 15).getTime();
 const real = { seed: false, now: () => NOW };
 
 beforeEach(() => {
-  usePreferences.setState({ profileName: '', locale: 'en' });
+  usePreferences.setState({ profileName: '' });
   useFirstRun.setState({ seen: false });
 });
 
@@ -66,11 +66,4 @@ describe('profile name', () => {
     await waitFor(() => expect(usePreferences.getState().profileName).toBe('Asha'));
   });
 
-  it('Settings language row switches the stored language', () => {
-    const s = renderWithTheme(<K24_Settings />, 'light', { servicesOptions: real });
-    fireEvent.press(s.getByTestId('language-hi'));
-    expect(usePreferences.getState().locale).toBe('hi');
-    fireEvent.press(s.getByTestId('language-en'));
-    expect(usePreferences.getState().locale).toBe('en');
-  });
 });

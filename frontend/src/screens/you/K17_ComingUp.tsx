@@ -15,6 +15,7 @@ import { AppBar } from './parts/AppBar';
 import { monthShort } from './parts/monthName';
 import { useKidNav } from './parts/useKidNav';
 import { t } from '../../lib/i18n';
+import { EmptyUpcoming } from '../../components/illustrations';
 
 const DOT = '\u00B7';
 /** The calendar strip is four weeks, starting six days before today so today sits in the first row. */
@@ -79,7 +80,10 @@ export default function K17_ComingUp(): React.JSX.Element {
       <View style={{ marginTop: 6 }}>
         {up.loading && !up.data ? <SkeletonRows count={4} /> : null}
         {up.data && items.length === 0 ? (
-          <Text testID="upcoming-empty" style={[typography.bodyMedium, { color: colors.onSurfaceVariant, paddingVertical: 16 }]}>{t('budgetUi.nothingUpcoming')}</Text>
+          <View>
+            <EmptyUpcoming height={110} />
+            <Text testID="upcoming-empty" style={[typography.bodyMedium, { color: colors.onSurfaceVariant, paddingVertical: 12 }]}>{t('budgetUi.nothingUpcoming')}</Text>
+          </View>
         ) : null}
         {items.map((u) => (
           <View

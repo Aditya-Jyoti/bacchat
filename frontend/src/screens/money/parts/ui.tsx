@@ -3,11 +3,14 @@ import React from 'react';
 import { Pressable, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 
+import { CustomIcon } from '../../../components/icons/CustomIcon';
+import { isCustomIcon } from '../../../components/icons/registry';
 import { resolveIconName } from '../../../components/iconMap';
 import { useTheme } from '../../../theme';
 
 /** Material Symbols icon by design name, in a theme colour. */
 export function Icon({ name, size = 22, color }: { name: string; size?: number; color: string }): React.JSX.Element {
+  if (isCustomIcon(name)) return <CustomIcon name={name} size={size} color={color} />;
   return <MaterialIcons name={resolveIconName(name)} size={size} color={color} />;
 }
 

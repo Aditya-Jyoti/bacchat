@@ -3,7 +3,7 @@ import { Pressable, View } from 'react-native';
 
 import { CategoryIcon } from '../../../components/CategoryIcon';
 import { Glyph } from '../../../components/Glyph';
-import { categoryIcons } from '../../../data';
+import { categoryIconCatalog } from '../../../data';
 import { useTheme } from '../../../theme';
 import { t } from '../../../lib/i18n';
 
@@ -15,7 +15,7 @@ export type IconPickerProps = { value: string; onChange: (icon: string) => void 
 export function IconPicker({ value, onChange }: IconPickerProps): React.JSX.Element {
   const { colors } = useTheme();
   const [more, setMore] = useState(false);
-  const names = more ? [...QUICK, ...categoryIcons.map(([n]) => n).filter((n) => !QUICK.includes(n as never))] : QUICK;
+  const names = more ? [...QUICK, ...categoryIconCatalog.map(([n]) => n).filter((n) => !QUICK.includes(n as never))] : QUICK;
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
       {names.map((n) => (

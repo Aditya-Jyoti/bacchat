@@ -188,6 +188,7 @@ suite.each(['light', 'dark'] as const)('k25 and k26 against the real backend (%s
     const navigate = jest.fn();
     const r = renderWithTheme(screen(<K26_Syncing />, navigate), mode, { services });
     await r.findByText('All backed up', undefined, { timeout: 15000 });
+    expect(r.getByLabelText(/Illustration of a cloud with a tick/)).toBeTruthy();
     expect(useSyncStatus.getState().lastSyncAt).not.toBeNull();
     expect(r.getAllByTestId(/^step-done/).length).toBe(5);
     await r.findByText('Test phone \u00B7 this phone');

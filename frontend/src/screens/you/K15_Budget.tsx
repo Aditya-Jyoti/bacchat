@@ -17,6 +17,7 @@ import { BudgetRow } from './sections/BudgetRow';
 import { CautionBanner } from './sections/CautionBanner';
 import { useBudgetData, useCategoryMap } from './useBudgetData';
 import { t } from '../../lib/i18n';
+import { EmptyBudget } from '../../components/illustrations';
 
 export default function K15_Budget(): React.JSX.Element {
   const { colors, typography } = useTheme();
@@ -108,7 +109,10 @@ export default function K15_Budget(): React.JSX.Element {
           })}
           <View style={{ marginTop: 6 }}>
             {d.rows.length === 0 ? (
-              <Text testID="budget-empty" style={[muted, { paddingVertical: 16 }]}>{t('budgetUi.noBudgets')}</Text>
+              <View>
+                <EmptyBudget height={110} />
+                <Text testID="budget-empty" style={[muted, { paddingVertical: 12 }]}>{t('budgetUi.noBudgets')}</Text>
+              </View>
             ) : null}
             {d.rows.map((r) => (
               <BudgetRow key={r.budgetId} name={r.name} icon={r.icon} spentPaise={r.spentPaise} limitPaise={r.limitPaise} />

@@ -34,7 +34,7 @@ beforeEach(async () => {
   useBudget.getState().reset();
   useFirstRun.setState({ seen: false });
   useMoneySegment.setState({ last: 'summary' });
-  usePreferences.setState({ theme: 'system', locale: 'en' });
+  usePreferences.setState({ theme: 'system' });
   await flush();
 });
 
@@ -99,15 +99,26 @@ describe('persisted stores round-trip', () => {
     expect(useBudget.getState()).toMatchObject({ totalPaise: 123400, nudge: '80', rollover: false });
   });
 
-  it('theme and language preference', async () => {
+  it('theme preference', async () => {
     await roundTrip(
       () => {
         usePreferences.getState().setTheme('dark');
-        usePreferences.getState().setLocale('hi');
       },
-      () => usePreferences.setState({ theme: 'system', locale: 'en' }),
+      () => usePreferences.setState({ theme: 'system' }),
     );
-    expect(usePreferences.getState()).toMatchObject({ theme: 'dark', locale: 'hi' });
+    expect(usePreferences.getState()).toMatchObject({ theme: 'dark' });
+  });
+
+  it('ignores an old persisted locale', async () => {
+    const mem = createMemoryStorage({
+      'bacchat.preferences': JSON.stringify({ state: { theme: 'dark', locale: 'hi', profileName: 'Asha' }, version: 1 }),
+    });
+    setStorage(mem);
+    await hydrateAll();
+    const st = usePreferences.getState() as unknown as Record<string, unknown>;
+    expect(st.theme).toBe('dark');
+    expect(st.profileName).toBe('Asha');
+    expect('locale' in st).toBe(false);
   });
 });
 
