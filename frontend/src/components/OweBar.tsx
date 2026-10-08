@@ -15,7 +15,7 @@ export type OweBarProps = {
 /** Used-of-limit bar for card dues: 4dp track in surfaceContainerHigh, chart3 fill, caption at 11. */
 export function OweBar({ fraction, caption, indent = 48 }: OweBarProps): React.JSX.Element {
   const { colors, typography } = useTheme();
-  const f = Math.max(0, Math.min(1, fraction));
+  const f = Number.isFinite(fraction) ? Math.max(0, Math.min(1, fraction)) : 0;
   return (
     <View
       accessible

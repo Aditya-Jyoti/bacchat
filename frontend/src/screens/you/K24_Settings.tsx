@@ -69,8 +69,22 @@ export default function K24_Settings(): React.JSX.Element {
     if (r === 'ok') setLockOn(true);
     else setLockNote(t('settingsUi.lockNotConfirmed'));
   };
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const { settings } = useServices();
+  const [confirm, setConfirm] = useState<'all' | 'sample' | null>(null);
+  const [busy, setBusy] = useState(false);
+  const services = useServices();
+  const { settings } = services;
+  const sampleOn = services.isSample();
+  const wipe = async (): Promise<void> => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await services.clearAllData();
+    } finally {
+      setBusy(false);
+      setConfirm(null);
+    }
+    go('k1');
+  };
   const [syncOn, setSyncOn] = useState(settings.isSyncEnabled());
   useEffect(() => {
     return settings.subscribe(() => setSyncOn(settings.isSyncEnabled()));
@@ -149,6 +163,15 @@ export default function K24_Settings(): React.JSX.Element {
       <GroupCaption>{t('settingsUi.data')}</GroupCaption>
       <YouRow icon="ios_share" title={t('settingsUi.export')} subtitle={t('settingsUi.exportSub')} onPress={() => undefined} />
       <YouRow icon="upload_file" title={t('settingsUi.import_')} subtitle={t('settingsUi.importSub')} onPress={() => undefined} />
+      {sampleOn ? (
+        <YouRow
+          testID="settings-clear-sample"
+          icon="auto_delete"
+          title={t('settingsUi.clearSample')}
+          subtitle={t('settingsUi.clearSampleSub')}
+          onPress={() => setConfirm('sample')}
+        />
+      ) : null}
       <View style={{ paddingVertical: 16 }}>
         <Button
           testID="settings-delete"
@@ -157,22 +180,24 @@ export default function K24_Settings(): React.JSX.Element {
           textColor={colors.error}
           style={{ borderColor: colors.outline }}
           contentStyle={{ height: 48 }}
-          onPress={() => setConfirmDelete(true)}
+          onPress={() => setConfirm('all')}
         >
           {t('settingsUi.deleteAll')}
         </Button>
       </View>
       <Portal>
-        <Dialog visible={confirmDelete} onDismiss={() => setConfirmDelete(false)} style={{ borderRadius: 28 }}>
-          <Dialog.Title>{t('settingsUi.deleteTitle')}</Dialog.Title>
+        <Dialog visible={confirm !== null} onDismiss={() => setConfirm(null)} style={{ borderRadius: 28 }}>
+          <Dialog.Title>{t(confirm === 'sample' ? 'settingsUi.clearSampleTitle' : 'settingsUi.deleteTitle')}</Dialog.Title>
           <Dialog.Content>
             <Text style={[typography.bodyMedium, { color: colors.onSurfaceVariant }]}>
-              {t('settingsUi.deleteBody')}
+              {t(confirm === 'sample' ? 'settingsUi.clearSampleBody' : 'settingsUi.deleteBody')}
             </Text>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button testID="settings-delete-keep" onPress={() => setConfirmDelete(false)}>{t('settingsUi.keep')}</Button>
-            <Button testID="settings-delete-confirm" textColor={colors.error} onPress={() => setConfirmDelete(false)}>{t('settingsUi.delete')}</Button>
+            <Button testID="settings-delete-keep" onPress={() => setConfirm(null)}>{t('settingsUi.keep')}</Button>
+            <Button testID="settings-delete-confirm" disabled={busy} textColor={colors.error} onPress={() => void wipe()}>
+              {t(confirm === 'sample' ? 'settingsUi.clearSampleConfirm' : 'settingsUi.delete')}
+            </Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>

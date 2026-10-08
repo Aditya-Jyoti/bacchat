@@ -1,132 +1,172 @@
 # Architecture
 
-How Bacchat is put together. Items marked "planned" are intended design and may change as the code lands; see [decisions.md](decisions.md) for the reasoning and [backend.md](backend.md) for the sync service.
+How Bacchat is put together, as built. See [decisions.md](decisions.md) for the reasoning and [backend.md](backend.md) for the sync service. Things that could not be checked in the build sandbox are listed in section 14.
 
 ## 1. System context
 
-Everything runs on the phone by default. The only network traffic is anonymous public NAV fetches, optional encrypted sync, and optional calls to the user's own AI provider.
+Everything runs on the phone by default. The only network traffic is anonymous public NAV fetches, optional encrypted sync, and optional calls to the user's own AI provider (or a model downloaded from a URL, once).
 
 ```mermaid
 flowchart LR
     U[User] --> APP[Bacchat app on Android]
     APP --> DB[(SQLCipher database on device)]
-    APP --> KS[Android Keystore]
+    APP --> KS[Android Keystore via secure store]
     APP -->|encrypted blobs, opt-in| BE[Bacchat Cloud backend]
     APP -->|encrypted blobs, opt-in| GD[Google Drive app folder]
     APP -->|encrypted blobs, opt-in| WS[WebDAV or S3 server]
-    APP -->|anonymous GET| NAV[AMFI daily NAV file and NPS NAV pages]
-    APP -->|aggregates only, own API key| AI[User's AI provider]
-    SMS[SMS and notifications] -->|read on device| APP
-    SH[Share intent from other apps] --> APP
+    APP -->|anonymous GET| NAV[AMFI NAVAll file and NPS NAV file]
+    APP -->|aggregates or redacted text, own key| AI[User's AI provider]
+    APP -->|on-device GGUF model| LLM[llama.rn]
+    SMS[SMS received] -->|read on device| APP
+    SH[Share sheet image] --> APP
 ```
+
+Email is read from text the user pastes or shares; there is no mailbox integration (see section 7).
 
 ## 2. Frontend layering
 
-Dependencies point downward only. Screens never touch the database or native modules directly.
+Dependencies point downward. Screens read data through hooks from `services/` and never open the database or call native modules directly.
 
 ```mermaid
 flowchart TD
-    SC[screens: one folder per tab, one component per k-id] --> CO[components: shared and custom]
-    SC --> ST[state store: zustand]
-    CO --> TH[theme: colour, type, shape]
-    SC --> TH
-    ST --> RE[data: repositories]
-    RE --> DB[(local database, SQLCipher)]
-    ST --> LI[lib: format, reconcile, sync client, AI client]
-    LI --> RE
-    LI --> NM[native modules]
-    NM --> N1[SMS and notification reader]
-    NM --> N2[share intent receiver]
-    NM --> N3[keystore and biometrics]
-    NM --> N4[Material You dynamic colour]
-    NAV[navigation] --> SC
+    NAV[navigation: manifest, registry, linking] --> SC
+    SC[screens: one folder per tab, one component per k-id] --> CO[components: shared and custom, icons, illustrations]
+    SC --> SV[services: AppServicesProvider, useDbQuery, hooks]
+    SC --> TH[theme: colours, type, shapes, spacing]
+    CO --> TH
+    SV --> DATA[data/db: repositories, queries, schema]
+    SV --> LI[lib: format, reconciliation, ingest, ai, sync, nav]
+    LI --> DATA
+    DATA --> DRV[SqlDriver: expo-sqlite with SQLCipher, sql.js in Jest]
+    SV --> NM[modules: dynamic colour, SMS, share, OCR, LLM]
+    SV --> PLUG[plugins: Android manifest and shortcut config]
+    ST[zustand stores with AsyncStorage persistence] --> SC
 ```
 
-Folder map (planned, matches CLAUDE.md): `frontend/src/theme`, `components`, `screens`, `navigation`, `data`, `lib`.
+State: database reads go through `useDbQuery`, which re-runs when the observable database emits a write. Small preferences (theme, AI mode, Home order, Money segment, budgets view, first run) are zustand stores persisted to AsyncStorage via `lib/persistence` and hydrated before first paint. Secrets (DB key, API keys, sync token and master key) go in the secure store only.
+
+Folder map (`frontend/`):
+
+| Path | Holds |
+|---|---|
+| `App.tsx`, `index.ts` | Provider order: fonts and hydration gate, ThemeProvider, AppLockGate, AppServicesProvider, navigation |
+| `src/theme/` | `oklch`, `khataPalette`, `dynamicScheme`, `contrast`, `contrastGuard`, `resolveColors`, `paperTheme`, `typography`, `shapes`, `spacing`, `fonts`, `ThemeProvider` |
+| `src/components/` | Charts, keypad, tooltip, banner, skeleton, rows, tags; `icons/` (25 custom SVG icons), `illustrations/` (ink scenes), `iconMap.ts` |
+| `src/screens/` | `start`, `home`, `money`, `goals`, `you`, `debug`; each screen `K<n>_<Name>.tsx` with helper folders beside it |
+| `src/navigation/` | `screenManifest` (single source of screens), `registry`, `AppNavigator`, `TabBar`, `linking`, `edges`, `navigate`, `moneySegment` |
+| `src/data/` | `db/` (models, schema, repositories, queries, seed, drivers), `sampleData`, `homeConfig`, `categoryIconCatalog` |
+| `src/lib/` | `format`, `reconciliation`, `i18n*`, `preferences`, `persistence`; `ai/`, `ingest/`, `sync/`, `nav/` |
+| `src/services/` | App wiring: services factory, db key, secure store, settings, AI service, ingest service, share service, SMS headless task, OCR hook, app lock, Google auth, model files |
+| `modules/` | Local Expo modules: `bacchat-dynamic-color`, `bacchat-sms`, `bacchat-share`, `bacchat-ocr` (Kotlin), `bacchat-llm` (TypeScript over llama.rn) |
+| `plugins/` | Config plugins: share intent, launcher shortcut, hardened manifest, Google OAuth redirect, notification icon |
 
 ## 3. Theming pipeline
 
 ```mermaid
 flowchart LR
-    A[Wallpaper dynamic scheme via native module] --> B[Convert roles to oklch]
-    B --> C{Contrast at least 4.5 to 1 in both modes?}
-    C -->|yes| D[Clamp surfaces to paper and brown-black]
-    C -->|no| F[khata fallback: khataPalette hue 45]
-    E[Android below 12 or module missing] --> F
-    D --> G[Add fixed roles: caution, chart2 to chart4]
+    A[Android 12+ tonal palettes via bacchat-dynamic-color] --> B[Map tones to roles]
+    B --> C[Clamp surface roles to paper and brown-black]
+    C --> D{Every text pair at least 4.5 to 1?}
+    D -->|yes| E[Dynamic scheme]
+    D -->|no| F[khataPalette seed hue 45]
+    X[Module missing, below Android 12, or wallpaper colours off] --> F
+    E --> G[Fixed roles stay khata: error, caution, chart2 to chart4, scrim]
     F --> G
     G --> H[BacchatTheme]
-    H --> I[Paper MD3 theme adapter]
-    H --> J[useTheme hook for custom components]
+    H --> I[toPaperTheme: react-native-paper MD3Theme]
+    H --> J[useTheme hook]
 ```
 
-- `oklch.ts` converts oklch to sRGB hex. Screens never hold hex values; they read roles from the hook.
-- The Paper adapter maps BacchatTheme roles onto react-native-paper's `MD3Theme` so standard components inherit Khata colours, fonts and shapes.
-- The check runs on every scheme change (wallpaper change, light or dark switch).
+- `modules/bacchat-dynamic-color` returns the system accent1, accent2, accent3, neutral1 and neutral2 tonal palettes. `dynamicScheme.ts` maps tones to roles (for example primary is accent1 tone 600 in light, 200 in dark). Nothing else is taken from the wallpaper.
+- `resolveColors(mode, source)` starts from `khataPalette(45, mode)`, overlays the mapped roles, then clamps each surface role: a light surface brighter than luminance 0.94, or a dark one darker than 0.004, is replaced by the khata value.
+- `schemeHasContrast` checks seven text pairs (onSurface and onSurfaceVariant on surface, plus the on-X roles on primary, primaryContainer, secondaryContainer, tertiaryContainer and inverseSurface) at 4.5:1. Any failure returns the whole khata palette.
+- `ThemeProvider` follows the OS light or dark mode unless the `theme` preference forces one, and re-reads the wallpaper when the app returns from the background. The `wallpaperColors` preference turns dynamic colour off.
+- `oklch.ts` converts oklch to sRGB hex. Screens never hold hex values (lint bans hex literals outside tests); they read roles from `useTheme()`.
 
 ## 4. Navigation structure
 
-Bottom tabs hold a native stack each. The tab bar is visible only on the five tab roots. Sheets and dialogs are modal routes over their parent. The full route table is in [screens.md](screens.md).
+The navigator is flat, not nested per tab. A root native stack starts on k21. Every non-tab screen is a root-stack route; the route `main` hosts a custom-tab-bar bottom tab navigator (home k1, money, goals k12, you k23). The Money tab holds a small stack with k3 and k4 and opens on whichever was last used (`moneySegment`, persisted). Sheets and menus (k9, k18, k27) are transparent modal routes sliding up; the date dialog (k6) is a transparent modal with a fade. The tab bar only exists inside `main`, so it is visible exactly on k1, k3, k4, k12, k23.
 
 ```mermaid
 flowchart TD
-    ROOT[Root stack] --> START[Start stack: k21 Splash, k22 Welcome]
-    ROOT --> TABS[Bottom tabs]
+    ROOT[Root native stack, initial k21] --> START[k21 Splash, k22 Welcome]
+    ROOT --> MAIN[main: bottom tabs with custom TabBar]
+    ROOT --> PUSH[Pushed screens: k2, k5, k7, k8, k10 to k11, k13, k14, k15 to k17, k19, k24 to k26, k28]
     ROOT --> MOD[Modal routes: k6, k9, k18, k27]
-    TABS --> T1[Home stack: k1, k2]
-    TABS --> T2[Money stack: k3 and k4 toggle, k5, k7, k8, k19, k28]
-    TABS --> T3[Goals stack: k12, k13, k14]
-    TABS --> T4[You stack: k23, k10, k11, k15, k16, k17, k24, k25, k26]
+    ROOT --> DBG[Debug galleries: k20, k29]
+    MAIN --> T1[home: k1]
+    MAIN --> T2[money: stack of k3 and k4]
+    MAIN --> T3[goals: k12]
+    MAIN --> T4[you: k23]
 ```
 
-Deep links (planned): share image to k7, "From SMS" notification to k4 filtered to To review, launcher shortcut to k5.
+`screenManifest.ts` is the single table of screens (k-id, route, group, kind); `registry.ts` maps each k-id to its component; `edges.ts` lists the non-tab transitions that [screens.md](screens.md) draws. Back always pops to the parent. k20 and k29 are developer component galleries; no UI link leads to them.
+
+Deep links (`navigation/linking.ts`, scheme `bacchat://`):
+
+| Link | Opens | Used by |
+|---|---|---|
+| `bacchat://add` | k5 Add entry | Launcher shortcut "Add entry" (`plugins/withShortcuts`) |
+| `bacchat://import?uri=<encoded>` | k7 Reading screenshot | `shareService`, after an image arrives through the share sheet |
+| `bacchat://entries?filter=review` | k4 Entries, To review filter | "From SMS" notification |
+| `bacchat://home`, `money`, `goals`, `you` | Tab roots | Convenience |
+
+Non-k-id surfaces: the lock screen (`LockScreen`, shown by `AppLockGate` over the whole app), the pending conflicts sheet and banner on k4 (`screens/money/pending`), and dialogs inside k25 (pairing code, recovery key). They are listed in [screens.md](screens.md).
 
 ## 5. Data model
 
-Money is integer paise. Every table carries `id`, `updatedAt`, `deletedAt` (tombstone, used by sync). Field lists are planned.
+Money is integer paise. Every table row has `id`, `updatedAt` (epoch ms, stamped by the repository) and an optional `deletedAt` tombstone used by sync. Each table stores the full record as JSON plus a few indexed columns, so new optional fields need no migration. Schema version is in `PRAGMA user_version` (currently 2: version 1 core tables, version 2 adds `screenshots` and `asks`).
 
 ```mermaid
 erDiagram
     ACCOUNT ||--o{ ENTRY : holds
     ACCOUNT ||--o{ FUND_HOLDING : holds
-    ACCOUNT ||--o| DEBT_CARD : "may be"
-    DEBT_CARD ||--o{ ENTRY : "charged to"
+    ACCOUNT ||--o| DEBT_CARD : "may have"
+    ACCOUNT ||--o{ ENTRY : "transfer target"
     ENTRY ||--|{ ENTRY_SOURCE : "seen from"
     CATEGORY ||--o{ ENTRY : tags
     CATEGORY ||--o{ BUDGET : limits
-    MERCHANT ||--o{ ENTRY : paid
-    MERCHANT }o--|| CATEGORY : "usually in"
+    CATEGORY ||--o{ BUDGET_ALERT : "fired for"
+    MERCHANT ||--o{ ENTRY : "learned from"
+    MERCHANT }o--o| CATEGORY : "usually in"
     UPI_ID ||--o{ ENTRY : "moved through"
     GOAL ||--o{ GOAL_ALLOCATION : receives
     ACCOUNT ||--o{ GOAL_ALLOCATION : funds
-    RECURRING }o--|| CATEGORY : "tagged"
+    RECURRING }o--o| CATEGORY : tagged
     RECURRING }o--o| ACCOUNT : "paid from"
+    SCREENSHOT }o--o{ ENTRY : "read into"
 
     ACCOUNT {
         string id
         string name
         string kind
         int balancePaise
+        int openingBalancePaise
+        string last4
     }
     DEBT_CARD {
         string accountId
         int dueDay
         int outstandingPaise
+        int openingOutstandingPaise
         int limitPaise
     }
     ENTRY {
         string id
         int amountPaise
         string direction
-        datetime at
-        string note
-        bool toReview
+        int at
+        string merchant
+        string categoryId
+        string accountId
+        string transferToAccountId
+        string method
+        string status
+        bool aiAdded
     }
     ENTRY_SOURCE {
-        string entryId
         string kind
         string rawRef
-        bool aiAdded
     }
     CATEGORY {
         string id
@@ -134,15 +174,17 @@ erDiagram
         string icon
     }
     MERCHANT {
-        string id
-        string name
+        string key
         string categoryId
+        int count
+        int totalPaise
+        int lastAt
     }
     GOAL {
         string id
         string name
         int targetPaise
-        date targetDate
+        string targetDate
     }
     GOAL_ALLOCATION {
         string goalId
@@ -153,12 +195,18 @@ erDiagram
         string categoryId
         int monthlyPaise
     }
+    BUDGET_ALERT {
+        string categoryId
+        string month
+        int firedAt
+    }
     RECURRING {
         string id
         string title
         int amountPaise
         string cadence
-        date nextDue
+        string nextDue
+        string kind
     }
     UPI_ID {
         string id
@@ -166,18 +214,38 @@ erDiagram
         string label
     }
     FUND_HOLDING {
-        string id
         string schemeCode
+        string kind
         int unitsMicro
-        int lastNavPaise
+        int lastNavMicro
+        string lastNavDate
+    }
+    SCREENSHOT {
+        string uri
+        string rowsHash
+        int rowCount
+        string imageBlob
+    }
+    ASK {
+        string question
+        string answer
+        int askedAt
     }
 ```
 
-`ENTRY_SOURCE.kind` is one of SMS, Email, Screenshot, By hand. An entry matched by a second source gains another row here rather than a duplicate entry. Screenshots themselves stay on the device and do not sync by default.
+Notes:
+- `ENTRY_SOURCE` is not a table; it is the `sources` array inside an entry (`kind` is `sms`, `mail`, `shot` or `hand`; `rawRef` is an opaque reference to the raw message). A second source on an existing entry is another array item, not a duplicate entry.
+- `status` is `confirmed` or `toReview`; `aiAdded` marks entries added by a parser or model.
+- `direction` is `out` or `in`. A transfer sets `transferToAccountId`: it leaves `accountId`, enters the target and is not spend.
+- Balances are derived. `openingBalancePaise` (accounts) and `openingOutstandingPaise` (debts) are the balance before the first entry; the current figure is opening plus the effect of every live entry (`data/db/queries/balances.ts`). Nothing edits `balancePaise` to follow entries.
+- NAVs are stored as `lastNavMicro` (rupees times 1e6) and units as `unitsMicro`, because NAVs have four decimals and paise would lose precision. Valuation rounds to paise at the end.
+- Tables without a diagram link: `merchants` (history used to infer categories), `alerts` (one overspend alert per category per month), `meta` (key-value: seed flag, pending SMS conflicts). `ASK` holds Ask history, kept only if the user turns that on; screenshots keep metadata only, image bytes sync only with "Original screenshots" on.
+- Indexes: entries on `(at)`, `(accountId, at)`, `(categoryId, at)`; merchants on `key`; alerts on `(categoryId, month)`; asks on `updatedAt`.
+- Fresh installs are seeded with sample data (a visible "sample" mode) until the user leaves it (`exitSampleMode`).
 
 ## 6. Reconciliation (screenshot import)
 
-A screenshot is read with on-device OCR (k7), parsed into candidate rows, then each row is compared with entries on the same day. Rule: amount (exact) + time (within 10 minutes) + merchant (fuzzy).
+A screenshot is read with on-device OCR (ML Kit through `modules/bacchat-ocr`; a stub engine is used when the module is absent), parsed into candidate rows, then each row is compared with entries on the same day. Rule: amount (exact) + time (within 10 minutes) + merchant (fuzzy, similarity at least 0.75).
 
 ```mermaid
 flowchart TD
@@ -199,8 +267,8 @@ flowchart TD
 sequenceDiagram
     actor User
     participant K7 as k7 Reading
-    participant OCR as OCR parser
-    participant REC as reconcile lib
+    participant OCR as OCR and row parser
+    participant REC as reconciliation
     participant REPO as repositories
     participant K8 as k8 Review
     participant K9 as k9 Conflict sheet
@@ -219,40 +287,43 @@ sequenceDiagram
     K8->>REPO: Insert New rows, add sources to Matched, apply resolutions
 ```
 
-The reconcile function is pure (rows and entries in, classification out) so it is unit tested without UI. Thresholds are constants in one file.
+`lib/reconciliation.ts` is pure (rows and entries in, classification out), so it is unit tested without UI. `TIME_WINDOW_MS` and `MERCHANT_THRESHOLD` are constants in that file.
 
-## 7. SMS and email AI ingestion
+## 7. SMS and email ingestion
 
-Reading happens on the device. The default parser is rule-based; the user's own AI model is used only if they enable it, and then only the message text needed to extract a transaction is sent (planned, opt-in).
+Reading happens on the device. Rules (`lib/ingest`: `parseSms`, `parseEmail`, `categorise`) run first. A model is used only when the AI router allows it (section 13).
 
 ```mermaid
 sequenceDiagram
     participant OS as Android
-    participant NM as SMS and notification module
-    participant P as Parser
-    participant AI as User AI provider (optional)
-    participant REC as reconcile lib
+    participant NM as bacchat-sms module
+    participant IS as ingestService
+    participant P as parseSms and extractor
     participant DB as Local database
     participant UI as k4 Entries
-    OS->>NM: New SMS or bank notification
-    NM->>P: Message text and time
-    P->>P: Rules: amount, merchant, direction, card or UPI id
-    alt rules cannot parse and AI enabled
-        P->>AI: Redacted message text
-        AI-->>P: Structured fields
-    end
-    P->>REC: Candidate entry
-    REC->>DB: Look for same-day match
-    alt matched
-        REC->>DB: Add source to existing entry
+    OS->>NM: SMS received (app open or closed)
+    NM->>IS: Raw message (headless task if app is closed)
+    IS->>P: Text and time
+    P-->>IS: Candidate with confidence
+    IS->>DB: ingestCandidate against same-day entries
+    alt same rawRef seen before
+        DB-->>IS: duplicate, no-op
+    else all three signals agree
+        DB->>DB: Add source to existing entry
+    else two of three agree
+        IS->>DB: Park in pending list (meta table)
+        DB-->>UI: Banner and pending conflicts sheet, user picks
     else new
-        REC->>DB: Insert entry with toReview true, source SMS
+        IS->>DB: Insert entry, status toReview, aiAdded, source SMS
+        IS->>OS: Calm local notification, link to k4 To review
     end
-    DB-->>UI: Entry shows dashed outline and To review tag
     UI->>DB: User confirms by tap or swipe right
 ```
 
-Rules: AI-added entries are flagged until confirmed. A notification "From SMS" deep links to k4 filtered to To review. The reader needs the SMS or notification-listener permission; without it the rest of the app works.
+- SMS reading is off by default (Settings, k24). Turning it on runs a one-time backfill scan. The app asks for `READ_SMS`, `RECEIVE_SMS` and `POST_NOTIFICATIONS`; without them the rest of the app works.
+- A message that clashes with an existing entry is never inserted on its own. It waits in the pending list on this phone until the user chooses keep existing or keep both.
+- Email: there is no mailbox integration. `services/emailSource.ts` defines the interface a future provider would fill, and the working path is pasting or sharing an email into the app, which goes through `parseEmail`.
+- AI-added entries are flagged To review and shown with a dashed outline until confirmed.
 
 ## 8. AI advisor
 
@@ -262,14 +333,14 @@ The advisor is an MCP-style client inside the app. Tools are read-only functions
 sequenceDiagram
     actor User
     participant K18 as k18 Ask sheet
-    participant AIC as AI client (lib)
+    participant AIC as advisor loop (lib/ai/client)
     participant T as Read-only tools
     participant DB as Local database
-    participant P as User's AI provider
+    participant P as Engine chosen by the router
     User->>K18: Ask a question
     K18->>AIC: Question
-    AIC->>P: Question, tool list, own API key
-    P-->>AIC: Call tool goals or cash_flow or card_dues or affordability
+    AIC->>P: Question, tool list
+    P-->>AIC: Call a tool
     AIC->>T: Run tool
     T->>DB: Query
     DB-->>T: Rows
@@ -280,105 +351,129 @@ sequenceDiagram
     AIC-->>K18: Answer
 ```
 
-- Tools are read-only; there is no tool that writes or deletes.
-- Only aggregates leave the device (totals, counts, dates). No raw SMS text, account names or UPI handles. The sheet says so.
-- The API key is stored in the Keystore-backed secure store, never in the database or sync blobs.
+- Five tools, all read-only: `goals`, `cash_flow`, `card_dues`, `affordability`, `spend_summary`. There is no tool that writes or deletes, and a test asserts none is registered.
+- Only aggregates leave the device (totals, counts, dates). Each result is scanned for payee names, account names, UPI ids, notes and message references and blocked on a hit. The sheet says so.
+- The Anthropic key is stored in the secure store (Android Keystore), never in the database, preferences or sync blobs. Ask history is optional and local (`asks` table).
 - Opened from the Ask pill, an Ask row in You, and insight cards. Always a bottom sheet, never a takeover.
 
 ## 9. Sync
 
-Sync is off by default. The client derives a key from a passphrase, encrypts each blob locally, and exchanges it with a server that cannot read it. Blob names are opaque (planned: one blob per table snapshot or per change batch).
+Sync is off by default. The engine talks to a `SyncTarget`, never to a concrete server, so every target stores the same opaque ciphertext blobs.
+
+```mermaid
+flowchart LR
+    ENG[SyncEngine] --> TGT{SyncTarget}
+    TGT --> C[SyncClient: Bacchat Cloud REST]
+    TGT --> ENV[EnvelopeTarget over an object store]
+    ENV --> W[WebDAV]
+    ENV --> S3[S3-compatible, SigV4]
+    ENV --> GD[Google Drive appDataFolder]
+```
+
+Key hierarchy. A random 32-byte master key encrypts every blob. The master key is wrapped twice and the wraps are stored in a public `keyring` blob: once by a key derived from the passphrase with Argon2id (salt and cost parameters in the keyring), once by a random recovery key shown to the user at setup (base32). Changing the passphrase re-wraps the master key and never re-encrypts data. A second phone joins with a pairing code (Bacchat Cloud) and the passphrase or recovery key, and opens the keyring.
+
+```mermaid
+flowchart LR
+    PP[Passphrase] -->|Argon2id with salt| PK[Pass key]
+    RK[Recovery key, 32 random bytes] -->|wraps| MK[Master key, 32 bytes]
+    PK -->|wraps| MK
+    MK -->|XChaCha20-Poly1305, name as associated data| BL[Data blobs]
+    PK --> KR[keyring blob: salt, params, both wraps]
+```
+
+Data sets and blobs: `entries` (with `accounts` and `goals`), `categories`, `budgets` and `rules`, `screenshots` (image bytes only with the option on), and `asks` (history, off by default). The K25 checkboxes choose which groups sync, plus a Wi-Fi-only switch.
 
 ```mermaid
 sequenceDiagram
     actor User
-    participant App as Sync client
-    participant K as Key derivation
-    participant S as Server (Bacchat Cloud, Drive or WebDAV/S3)
-    User->>App: Set passphrase (k25)
-    App->>K: Argon2id(passphrase, salt)
-    K-->>App: 256-bit key (kept in Keystore)
-    App-->>User: Offer recovery key
-    User->>App: Sync now (k26)
-    App->>S: GET /v1/blobs (names, versions)
-    S-->>App: Remote versions
-    App->>App: Pull newer blobs, decrypt XChaCha20-Poly1305
-    App->>App: Merge with local changes
-    App->>S: PUT /v1/blobs/:name with baseVersion
-    alt baseVersion is current
-        S-->>App: 200 new version
-    else someone else pushed first
-        S-->>App: 409 with current version
-        App->>S: GET /v1/blobs/:name
-        App->>User: k9 resolve pattern (keep A, keep B, both)
-        User-->>App: Resolution
-        App->>S: PUT with updated baseVersion
+    participant App as SyncEngine
+    participant S as SyncTarget
+    User->>App: Sync now (k25), progress in k26
+    App->>S: listBlobs
+    S-->>App: Remote names, versions
+    loop each enabled data set
+        App->>S: getBlob if remote is newer
+        App->>App: Decrypt, three-way merge per row against last synced snapshot
+        App->>S: putBlob with baseVersion
+        alt baseVersion is current
+            S-->>App: new version
+        else someone pushed first
+            S-->>App: version conflict
+            App->>S: getBlob and merge again
+        end
     end
+    App-->>User: synced, or conflicts to resolve in the k9 pattern
 ```
 
-- Nonce: 24 random bytes per blob (XChaCha20 permits random nonces). Blob name is bound as associated data.
-- Last-writer-wins is not used for conflicting rows; the user resolves them with the k9 pattern.
-- Screenshots are excluded unless the user turns them on.
+- Merge is per row against the snapshot from the last sync. A row changed on one side takes that change (deletions are tombstones). A row changed on both sides becomes a conflict, resolved with keep A, keep B or both. A `newest` policy (last writer wins) exists but the default is `ask`.
+- Nonce: 24 random bytes per blob write. Blob name and format version are bound as associated data (`bacchat/blob/v1/<name>`).
+- Rollback guard: if the remote version is older than the one this phone last saw, the engine stops with `RollbackError` instead of overwriting.
+- Targets without a version counter (WebDAV, S3, Drive) keep the integer version inside a small JSON envelope and use ETag preconditions (`If-None-Match: *` to create, `If-Match` to replace). Drive has no reliable conditional write, so files are write-once (`<name>.v<N>.bacchat`) and the oldest creator wins a race.
+- Credentials, target config and the master key are held together in the secure store; preferences hold only the on/off switch and the checkboxes.
+- Blobs are not compressed before encryption.
 
 ## 10. Security model
 
 ```mermaid
 flowchart TD
     subgraph Device
-      DB[(SQLCipher database)] --- DK[DB key in Keystore]
-      LOCK[Optional biometric app lock] --> DK
-      AK[AI API key in secure store]
-      SK[Sync key from passphrase]
+      DB[(SQLCipher database)] --- DK[DB key in secure store]
+      LOCK[Optional app lock: biometric or screen lock] --> UI[App UI]
+      AK[AI API keys in secure store]
+      SK[Sync master key in secure store]
+      MF[Manifest: backup off, no clear text HTTP]
     end
     subgraph Network
       ENC[Ciphertext blobs only]
     end
     SK --> ENC
-    ENC --> SRV[Server sees names, sizes, versions, account token]
+    ENC --> SRV[Server sees names, sizes, versions, device names, IP]
 ```
 
 | Asset | Protection |
 |---|---|
-| Local data | SQLCipher at rest; key in Android Keystore; optional biometric lock |
+| Local data | SQLCipher at rest; random 256-bit key generated once and kept in the Android Keystore through expo-secure-store; Android backup is switched off by `withHardenedManifest` so the database and key never ride along |
+| App lock | Optional. `expo-local-authentication` prompt on cold start and after 60 s in the background; the app stays mounted but hidden from TalkBack while locked |
 | Sync data | Encrypted on device before upload; server never has the key |
-| Passphrase | Never leaves the device; Argon2id stretches it; recovery key offered |
-| AI key | Secure store; sent only to the chosen provider |
-| Account on server | Random token from register; stored as a hash on the server |
-| Public fetches | Anonymous; no identifiers sent |
+| Passphrase | Never leaves the device; Argon2id stretches it; recovery key offered at setup |
+| AI keys | Secure store; sent only to the chosen provider; never logged |
+| Message text | Redacted before any cloud call, consent per provider, on-device model sees the original text (section 13) |
+| Account on server | Random 256-bit token returned once; server stores its SHA-256 hash |
+| Public fetches | Anonymous GET; no identifiers sent |
 
-Out of scope: a rooted or compromised phone, and weak passphrases chosen by the user (the UI nudges toward the recovery key). See [backend.md](backend.md) for the server threat model.
+Out of scope: a rooted or compromised phone, and weak passphrases (the UI shows strength and nudges toward the recovery key). See [backend.md](backend.md) for the server threat model.
 
 ## 11. Deployment
 
+There is no CI in this repository. Images and app builds are made locally.
+
 ```mermaid
 flowchart LR
-    DEV[Developer] --> GH[GitHub repo and Actions]
-    GH -->|docker build| IMG[bacchat-backend image]
+    DEV[Developer] -->|docker build| IMG[bacchat-backend image]
     IMG --> C
     subgraph HOST[Docker host]
-      C[Container: Node 20, port 8080]
+      C[Container: Node 20, port 8080, non-root]
       V[(Volume mounted at /data)]
       C --- V
     end
     PHONE[Bacchat app] -->|HTTPS via reverse proxy| C
-    GH -->|EAS or local build| APK[Android build]
+    DEV -->|npx expo run:android| APK[Android dev build]
     APK --> PHONE
 ```
 
-TLS is terminated by a reverse proxy in front of the container (planned guidance in backend.md). The app can point at any compatible host, so self-hosting is first class.
+TLS is terminated by a reverse proxy in front of the container (see [backend.md](backend.md)). The app can point at any compatible host, so self-hosting is first class. The app is a development build: native modules mean Expo Go does not work.
 
 ## 12. Performance and offline notes
 
-- Offline first: every screen works with no network. Network failures only affect NAV refresh, AI and sync, and each shows a calm inline state.
-- Lists use `FlatList` or FlashList with fixed row heights (56-60) so Entries scales to tens of thousands of rows. Summaries are computed by SQL aggregates, not in JS loops.
-- Index entries on `(at)`, `(accountId, at)` and `(categoryId, at)` (planned).
-- Charts are small SVG components; scrubbing updates a shared value so no full re-render per frame. Skia only where SVG is too slow.
-- SQLCipher open and key derivation happen behind the splash (k21); first paint uses cached Home data.
-- NAV refresh is once a day in the background, cached, and skipped on metered or offline connections.
-- Sync pushes only changed blobs and compresses before encrypting. Compressing after encryption is useless, so order matters.
-- Fonts (Young Serif, Figtree) load before the splash hides; fallback to system serif and sans if they fail.
-- Font scale to 200% and reduce motion are honoured; animations use the native driver or Reanimated worklets.
-
+- Offline first: every screen works with no network. Network failures only affect NAV refresh, AI, model download and sync, and each shows a calm inline state.
+- NAV refresh runs at most once per local day (`lastNavRefreshDay`) and the NAV text is cached for 12 hours; on failure the stored NAVs are used and a stale note is shown.
+- Date-range queries use the entries indexes. Summaries and charts are computed in TypeScript over the entries loaded for the range (`data/db/queries`), not by SQL aggregates. Entries lists are plain `ScrollView`s grouped by day. Both are fine for thousands of rows; very large histories would need paging or SQL aggregation (see decisions.md).
+- Charts are small `react-native-svg` components. No Skia.
+- Database open and key creation happen behind the splash; first paint waits for fonts and persisted stores (`useHydrated`).
+- Fonts (Young Serif, Figtree) load through expo-font before the app renders.
+- Font scale to 200% and reduce motion are honoured (`useReduceMotion` swaps motion for fades).
+- Sync pushes only data sets that changed and skips when Wi-Fi-only is on and the phone is on mobile data.
+- The on-device model is loaded lazily on first use and unloaded when the app goes to the background (`useAppLifecycle`).
 
 ## 13. AI routing: cloud key, on-device model, or both
 
@@ -447,3 +542,16 @@ stateDiagram-v2
 ```
 
 Models are never bundled. The registry lists small GGUF models with size, RAM need, licence and chat template. The engine loads a model lazily on the first request and keeps one loaded. Tool use is emulated with a small JSON protocol checked against each tool's schema, with repair attempts; JSON output uses grammar-constrained decoding when the engine supports it.
+
+## 14. Not verified / needs a device
+
+The build sandbox has no Android SDK, no Docker daemon and a restricted network, so these are covered by tests with fakes or by reading only, and need a check on a real phone or network.
+
+- Kotlin native modules: `bacchat-dynamic-color`, `bacchat-sms` (receiver, headless service, notifier), `bacchat-share`, `bacchat-ocr` (ML Kit). Their TypeScript sides are tested with fakes; the Kotlin has never been compiled or run here.
+- `bacchat-llm` over `llama.rn`: loading a GGUF, grammar-constrained JSON, memory behaviour on a low-RAM phone. Model URLs and checksums in the registry are not pinned.
+- Config plugins (`withShareIntent`, `withShortcuts`, `withHardenedManifest`, `withGoogleOAuthRedirect`, `withNotificationIcon`) have unit tests on their output but no prebuild was run.
+- Google Drive sync and sign-in (needs a real OAuth client id in `app.json` extra), and the WebDAV and S3 targets against real servers (tests use recorded fakes).
+- Live NAV sources: the AMFI `NAVAll.txt` parser follows the documented layout and the NPS URL and format are unconfirmed (set `npsNavUrl` if the default is wrong).
+- SQLCipher with the Keystore-held key on a device, and the biometric prompt.
+- The backend Docker image (`docker build`, compose, HEALTHCHECK) has not been built here; run `DEMO_URL=... npm run demo` against a running container.
+- Material Symbols Rounded weight 300: the app currently draws category glyphs from `@expo/vector-icons` MaterialIcons plus the 25 custom icons (see design-system.md).

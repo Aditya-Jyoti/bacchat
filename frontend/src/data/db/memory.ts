@@ -34,6 +34,11 @@ class MemoryRepo<T extends BaseRecord> implements Repository<T> {
   protected rows = new Map<string, T>();
   constructor(protected now: () => number) {}
 
+  /** Drop every row, tombstones included. */
+  wipeRows(): void {
+    this.rows.clear();
+  }
+
   async get(id: string): Promise<T | null> {
     const r = this.rows.get(id);
     return r && !r.deletedAt ? clone(r) : null;
@@ -110,6 +115,9 @@ class MemoryAlerts extends MemoryRepo<BudgetAlertLog> implements AlertLogReposit
 
 class MemoryMeta implements MetaStore {
   private m = new Map<string, string>();
+  wipeKeys(): void {
+    this.m.clear();
+  }
   async get(key: string): Promise<string | null> {
     return this.m.get(key) ?? null;
   }
@@ -121,8 +129,7 @@ class MemoryMeta implements MetaStore {
 /** In-memory database: the default for tests and for the first run before SQLite is ready. */
 export function createMemoryDb(opts: DbOptions = {}): BacchatDb {
   const now = opts.now ?? Date.now;
-  return withDerivedBalances({
-    kind: 'memory',
+  const repos = {
     accounts: new MemoryRepo<Account>(now),
     debts: new MemoryRepo<DebtCard>(now),
     entries: new MemoryEntries(now),
@@ -137,7 +144,16 @@ export function createMemoryDb(opts: DbOptions = {}): BacchatDb {
     alerts: new MemoryAlerts(now),
     screenshots: new MemoryRepo<ScreenshotRecord>(now),
     asks: new MemoryRepo<AskRecord>(now),
-    meta: new MemoryMeta(),
+  };
+  const meta = new MemoryMeta();
+  return withDerivedBalances({
+    kind: 'memory',
+    ...repos,
+    meta,
+    async wipe() {
+      Object.values(repos).forEach((r) => r.wipeRows());
+      meta.wipeKeys();
+    },
     async close() {},
   });
 }

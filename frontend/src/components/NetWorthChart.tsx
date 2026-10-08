@@ -19,10 +19,13 @@ export type NetWorthChartProps = {
 const PAD = 8;
 
 /** 2dp line, pale primaryContainer area, two dashed rules, end dot, scrub tooltip. */
-export function NetWorthChart({ values, labels, formatValue, height = 76 }: NetWorthChartProps): React.JSX.Element {
+export function NetWorthChart({ values: given, labels: givenLabels, formatValue, height = 76 }: NetWorthChartProps): React.JSX.Element {
   const { colors, typography } = useTheme();
   const [width, setWidth] = useState(0);
   const [sel, setSel] = useState<number | null>(null);
+  // A new notebook has no history: nothing becomes a flat line at zero, one point a flat line at that value.
+  const values = useMemo(() => (given.length === 0 ? [0, 0] : given.length === 1 ? [given[0], given[0]] : given.map((v) => (Number.isFinite(v) ? v : 0))), [given]);
+  const labels = useMemo(() => (givenLabels.length >= values.length ? givenLabels : values.map((_, i) => givenLabels[i] ?? givenLabels[givenLabels.length - 1] ?? '')), [givenLabels, values]);
   const n = values.length;
 
   const pts = useMemo(() => {

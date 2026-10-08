@@ -23,7 +23,7 @@ export function SegmentedProgress({
   accessibilityLabel,
 }: SegmentedProgressProps): React.JSX.Element {
   const { colors } = useTheme();
-  const f = Math.max(0, Math.min(1, fraction));
+  const f = Number.isFinite(fraction) ? Math.max(0, Math.min(1, fraction)) : 0;
   return (
     <View
       accessible

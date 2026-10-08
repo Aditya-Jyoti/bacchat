@@ -17,8 +17,8 @@ export type PaceBarProps = {
 /** Budget track: 10dp bar with a "today" marker in onSurface. Over budget passes the caution colour. */
 export function PaceBar({ fraction, todayFraction, color, accessibilityLabel }: PaceBarProps): React.JSX.Element {
   const { colors } = useTheme();
-  const f = Math.max(0, Math.min(1, fraction));
-  const d = Math.max(0, Math.min(1, todayFraction));
+  const f = Number.isFinite(fraction) ? Math.max(0, Math.min(1, fraction)) : 0;
+  const d = Number.isFinite(todayFraction) ? Math.max(0, Math.min(1, todayFraction)) : 0;
   return (
     <View
       accessible

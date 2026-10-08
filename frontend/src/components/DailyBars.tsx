@@ -67,7 +67,7 @@ export function DailyBars({
   const n = values.length;
   const future = Math.max(0, daysInMonth - n);
   const max = Math.max(1, ...values);
-  const unit = (width - GAP * (n + (future ? 0 : -1))) / (n + future);
+  const unit = Math.max(0, (width - GAP * (n + (future ? 0 : -1))) / Math.max(1, n + future));
   const centerOf = (i: number): number => i * (unit + GAP) + unit / 2;
   const show = selectedIndex != null && tooltip != null && width > 0;
   const center = show ? centerOf(selectedIndex) : 0;

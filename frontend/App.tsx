@@ -27,7 +27,8 @@ function Themed(): React.JSX.Element {
   );
 }
 
-const SERVICES_OPTIONS = { probe: createExpoNetworkProbe() };
+// New installs start empty; sample data is added only when the person chooses it on Welcome.
+const SERVICES_OPTIONS = { probe: createExpoNetworkProbe(), seed: false };
 
 export default function App(): React.JSX.Element | null {
   const fontsReady = useBacchatFonts();

@@ -1,7 +1,9 @@
 /** k3: Money - Summary. Month header, daily spend bars with tooltip, spend by category, payment method, top merchants. All from the local database. */
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
+import { Button } from 'react-native-paper';
 
+import { EmptyEntries } from '../../components/illustrations';
 import { ScreenScaffold } from '../../components/ScreenScaffold';
 import { SkeletonLoader } from '../../components/SkeletonLoader';
 import { formatRupees } from '../../lib/format';
@@ -78,9 +80,15 @@ export default function K3_MoneySummary(): React.JSX.Element {
           <MerchantSection merchants={s.merchants} lookups={lk} />
         </View>
       ) : (
-        <Text testID="month-empty" style={[typography.bodyMedium, { color: colors.onSurfaceVariant, marginTop: spacing.xxl }]}>
-          {S.noEntries}
-        </Text>
+        <View style={{ marginTop: spacing.xxl }}>
+          <EmptyEntries height={120} />
+          <Text testID="month-empty" style={[typography.bodyMedium, { color: colors.onSurfaceVariant, marginVertical: spacing.md }]}>
+            {S.noEntries}
+          </Text>
+          <Button testID="summary-add" mode="contained-tonal" icon="plus" onPress={() => nav.go('k5')} contentStyle={{ height: 48 }}>
+            {t('moneyUi.addFirst')}
+          </Button>
+        </View>
       )}
     </ScreenScaffold>
   );

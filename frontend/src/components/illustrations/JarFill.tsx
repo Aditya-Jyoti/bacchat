@@ -18,7 +18,7 @@ const JAR = 'M34 22H86M38 22V30C26 38 24 48 24 60V112C24 122 32 128 42 128H78C88
 /** A jar that fills with primaryContainer coins-water as a goal is reached. Ink line in onPrimaryContainer. */
 export function JarFill({ fraction, animate = false, size = 120 }: JarFillProps): React.JSX.Element {
   const { colors } = useTheme();
-  const target = Math.max(0, Math.min(1, fraction));
+  const target = Number.isFinite(fraction) ? Math.max(0, Math.min(1, fraction)) : 0;
   const [shown, setShown] = useState(animate ? 0 : target);
   const [value] = useState(() => new Animated.Value(animate ? 0 : target));
   useEffect(() => {

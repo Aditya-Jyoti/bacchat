@@ -1,6 +1,6 @@
 # Screens
 
-All 29 screens are implemented with sample data and light/dark tests. Screens are identified by the k-ids from the Khata v2 design. Status values: todo, in progress, done. Update this table as screens land.
+All 29 screens are implemented, read live data from the local database (sample notebook on a fresh install) and have light and dark tests. Screens are identified by the k-ids from the Khata v2 design. The single source for routes and kinds is `frontend/src/navigation/screenManifest.ts`; the arrows below are `navigation/edges.ts`, checked by a test.
 
 ## Navigation
 
@@ -102,9 +102,11 @@ flowchart LR
 
 ## Rules
 
-- Tab bar shows only on k1, k3, k4, k12, k23. Re-tapping the current tab scrolls to top. Money remembers Summary vs Entries.
-- Sheets and dialogs (k6, k9, k18, k27) sit over their parent; swipe down, tap the scrim or press back to return exactly where you were.
-- External entry points: share an image into Bacchat opens k7; a "From SMS" notification opens k4 filtered to To review; the launcher shortcut "Add entry" opens k5.
+- Tab bar shows only on k1, k3, k4, k12, k23 (it lives inside the `main` tab route; every other screen is on the root stack above it). Re-tapping the current tab scrolls to top. Money remembers Summary vs Entries.
+- Sheets and dialogs (k6, k9, k18, k27) are transparent modal routes over their parent; swipe down, tap the scrim or press back to return exactly where you were.
+- External entry points (deep links, see `navigation/linking.ts`): sharing an image opens `bacchat://import?uri=...` (k7); a "From SMS" notification opens `bacchat://entries?filter=review` (k4 filtered to To review); the launcher shortcut "Add entry" opens `bacchat://add` (k5).
+- k4 also accepts route params `filter` (`review`, `sms`, `mail`, `shot`) and `category`.
+- k20 and k29 are developer component galleries registered as routes (`debug/components`, `debug/components2`); nothing in the UI links to them.
 
 ## Screen table
 
@@ -139,3 +141,16 @@ flowchart LR
 | k26 | Syncing | `you/sync/progress` | You | screen | done | |
 | k20 | Component sheet 1 | `debug/components` | Debug | gallery | done | |
 | k29 | Component sheet 2 | `debug/components2` | Debug | gallery | done | |
+
+## Surfaces without a k-id
+
+| Surface | Where | What it is |
+|---|---|---|
+| Lock screen | `screens/start/LockScreen.tsx`, `AppLockGate.tsx` | Covers the whole app on cold start and after 60 s in the background when app lock is on. One line and one button; the app stays mounted underneath and hidden from TalkBack |
+| Pending conflicts banner and sheet | `screens/money/pending/` | On k4, a calm banner when an SMS looks like an entry you already have; opens a k9-style sheet to keep the existing one or both. Nothing is added until you pick |
+| Sync dialogs | `screens/you/sync/` | Pairing code (new phone), recovery key (shown once), join with a passphrase or recovery key, own-server form, forgot passphrase; all inside k25 |
+| Settings sections | `screens/you/settings/` | Name, SMS reading, AI mode and models, Wi-Fi-only model download, Ask history, advisor key, server, NPS source; all inside k24 |
+| Undo snackbar | `screens/money/parts/undoStore.ts` | Undo after deleting entries |
+| Home alerts | `screens/home/alertsStore.ts` | Inline caution banner for overspend; never a modal |
+
+Home (k1) holds net worth pinned first plus six sections the user can reorder and hide in k2: insight, accounts, spend, upcoming, goals, budget.

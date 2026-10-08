@@ -19,7 +19,7 @@ export type AllocationBarProps = { segments: readonly AllocationSegment[] };
 /** 8dp stacked bar (3dp gaps, 4dp minimum segment) with a two-column legend. */
 export function AllocationBar({ segments }: AllocationBarProps): React.JSX.Element {
   const { colors, typography } = useTheme();
-  const summary = segments.map((s) => t('componentsUi.segmentPercent', { name: s.name, amount: s.amountText, pct: Math.round(s.percent) })).join('. ');
+  const summary = segments.map((s) => t('componentsUi.segmentPercent', { name: s.name, amount: s.amountText, pct: Math.round(Number.isFinite(s.percent) ? s.percent : 0) })).join('. ');
   return (
     <View accessible accessibilityLabel={`Asset allocation. ${summary}`} testID="allocation-bar">
       <View style={{ flexDirection: 'row', gap: 3, height: 8 }}>
@@ -27,7 +27,7 @@ export function AllocationBar({ segments }: AllocationBarProps): React.JSX.Eleme
           <View
             key={s.name}
             testID="allocation-seg"
-            style={{ flexBasis: `${s.percent}%`, flexGrow: 0, minWidth: 4, borderRadius: 4, backgroundColor: s.color }}
+            style={{ flexBasis: `${Number.isFinite(s.percent) ? s.percent : 0}%`, flexGrow: 0, minWidth: 4, borderRadius: 4, backgroundColor: s.color }}
           />
         ))}
       </View>

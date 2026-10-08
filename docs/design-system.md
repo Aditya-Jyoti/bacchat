@@ -13,9 +13,9 @@ Direction: **Khata** (a ruled household notebook). Serif numbers, hairline rules
 
 ## Colour
 
-Material You: the whole scheme derives from the wallpaper (`dynamicLightColorScheme` / `dynamicDarkColorScheme`). Bacchat clamps the surface roles to the designed paper and brown-black tones so they never go pure white or black. When dynamic colour is unavailable (below Android 12) or a wallpaper scheme fails the 4.5:1 contrast check, the app uses the warm fallback generated from seed hue 45.
+Material You: on Android 12+ the scheme derives from the wallpaper. The local module `modules/bacchat-dynamic-color` reads the system tonal palettes (accent1 to accent3, neutral1, neutral2) and `theme/dynamicScheme.ts` maps tones to roles (for example primary is accent1 tone 600 in light and 200 in dark). Bacchat clamps the surface roles so they never go pure white or black (a light surface above luminance 0.94 or a dark one below 0.004 is replaced by the khata value). When dynamic colour is unavailable (below Android 12, module missing, or the user turns wallpaper colours off) or the mapped scheme fails the 4.5:1 check on any of seven text pairs, the app uses the whole warm fallback generated from seed hue 45. The check re-runs when the app returns from the background, so a wallpaper change is picked up.
 
-All fallback values are produced by one function of the seed hue (`khataPalette(hue, mode)` in `frontend/src/theme`). Other roles are placed at fixed hue offsets from the seed: secondary +35, tertiary +140, chart3 +75, error fixed at 28, caution fixed at 85/75/65.
+Error, caution, the chart colours and the scrim are never taken from the wallpaper. All fallback values are produced by one function of the seed hue (`khataPalette(hue, mode)` in `frontend/src/theme`). Other roles are placed at fixed hue offsets from the seed: secondary +35, tertiary +140, chart3 +75, error fixed at 28, caution fixed at 85/75/65.
 
 ```mermaid
 flowchart LR
@@ -26,8 +26,8 @@ flowchart LR
     N[Android below 12] --> F
     S --> T[BacchatTheme]
     F --> T
-    X[Fixed roles: caution, chart2-4] --> T
-    T --> M[MaterialTheme.colorScheme + LocalExtendedColors]
+    X[Fixed roles: error, caution, chart2-4, scrim] --> T
+    T --> M[useTheme hook + react-native-paper MD3Theme]
 ```
 
 ### Role table (seed hue 45)
@@ -81,7 +81,7 @@ Values are oklch, with the sRGB hex they convert to. "Key" is the short name use
 | labelLarge | Figtree 600, 14, tabular figures | Rs 1,249 |
 | bodySmall | Figtree 400, 12/16, onSurfaceVariant | Eating out, ICICI credit card |
 
-Language: English only. All strings go through the t() layer.
+Fonts are Young Serif (display, headline, title) and Figtree 400, 500 and 600 (everything else), loaded with expo-font before first render. The other tokens: bodyMedium 14/20, labelMedium 12/16, labelSmall 11/16. Language: English only. All strings go through the t() layer (`lib/i18n.ts` and the `i18n.*.ts` bundles).
 
 ## Shape, spacing, elevation
 
@@ -91,9 +91,10 @@ Language: English only. All strings go through the t() layer.
 
 ## Icons and illustration
 
-- Category icons: outline, 1.5px at 24dp (Material Symbols Rounded, weight 300), round caps, set in a 40dp secondaryContainer circle. The selected icon inverts to primary/onPrimary.
-- About 180 icons. Build from Material Symbols; custom-draw India-specific ones (auto, gas cylinder, pooja, chai glass) on the same 24dp grid with 2dp live-area padding.
-- Illustrations: single-weight ink line drawings of everyday objects (cutting chai glass, steel tiffin, coin, notebook) over one flat blob of primaryContainer, shipped as vector drawables with two tintable layers. Used for empty states, welcome, goal headers and success moments; never decoratively on data screens.
+- Category icons: outline, round caps, set in a 40dp secondaryContainer circle; the selected icon inverts to primary/onPrimary. `Glyph` draws a custom SVG icon when the name is one of ours, otherwise a Material icon.
+- 180 category icons in total (`data/categoryIconCatalog.ts`): 143 finance and everyday icons plus 25 custom India-specific ones drawn as SVG paths on a 24 grid (`components/icons`): auto rickshaw, cooking gas cylinder, pooja thali, chai glass, tiffin, kirana store, sabzi cart, dhobi iron, milk packet, DTH dish, scooter, metro card, diya, rangoli and others.
+- Current deviation: the non-custom glyphs come from `@expo/vector-icons` MaterialIcons (names mapped in `components/iconMap.ts`), not Material Symbols Rounded at weight 300. The custom set is drawn at the intended weight. Swapping the font later only touches `iconMap.ts`.
+- Illustrations (`components/illustrations`): single-weight ink line drawings on one flat blob of primaryContainer, shipped as `react-native-svg` components with two tintable layers (`tint` for the blob, `ink` for the line). Built: chai glass, tiffin, coin, khata notebook, beach chair, and scenes for empty entries, goals, budget, accounts, search and upcoming, plus goal reached, sync done and the jar-fill used only for the goal-reached moment. Used for empty states, welcome, goal headers and success moments; never decoratively on data screens.
 
 ## Data visualisation
 
@@ -105,25 +106,26 @@ Language: English only. All strings go through the t() layer.
 | Daily spend | Rounded day bars, today in chart2, future dashed | Tap for tooltip: total, top 2, vs average, "See entries" |
 | Spend by category | Share bar + rows with change vs last month | Tap row to filter Entries |
 | Budget | 10dp track + "today" marker | Over: caution colour, never red |
-| Goal | Segmented bar (quarter ticks) or ring | Milestones at 25/50/75% |
+| Goal | Segmented bar with quarter ticks | Ticks at 25/50/75% |
 | Cash flow | Paired rounded columns, in and out | Tap month for net kept |
 
 Tooltips use inverseSurface, sit above the touch point, clamp inside the screen, and track the finger with a 2px stem. Compact format (18.2L, 52k) in charts; full Indian grouping in text. Charts expose a TalkBack summary ("Spent Rs 2,890 on Sat 17 Oct, Rs 1,588 above average").
 
 ## Component inventory
 
+All in `frontend/src/components`, one file each, reading colours, type and shapes from `useTheme()`.
+
 ```mermaid
 flowchart TD
-    A[Components] --> B[Standard M3]
-    A --> C[Custom, under 150 lines each]
-    B --> B1[Buttons, FAB, text fields, search]
-    B --> B2[Selection controls, sliders, pickers]
-    B --> B3[Sheets, dialogs, snackbar, tooltips, menus]
-    C --> C1[Charts: NetWorthChart, OwnOweBar, AllocationBar, DailyBars, PairedBarChart]
-    C --> C2[Progress: SegmentedProgress]
-    C --> C3[Input: AmountKeypad, NumberStepper, MonthStrip]
-    C --> C4[Layout: ReorderableColumn, AvatarStack]
-    C --> C5[Support: ChartTooltip, Banner, skeleton]
+    A[Components] --> B[Standard M3 from react-native-paper]
+    A --> C[Custom, small, SVG]
+    B --> B1[Buttons, FAB, text fields, switches, segmented buttons]
+    B --> B2[Dialogs, sheets, snackbar, menus]
+    C --> C1[Charts: NetWorthChart, OwnOweBar, OweBar, AllocationBar, DailyBars, PairedBarChart, PaceBar]
+    C --> C2[Progress: SegmentedProgress, SkeletonLoader]
+    C --> C3[Input: AmountKeypad, NumberStepper, ValueSlider, MonthStrip, OutlinedField, OptionPicker, SegmentedChoice]
+    C --> C4[Layout and rows: ReorderableList, ListRow, SwipeRow, Hairline, SectionHeader, TopBar, ScreenScaffold, StackScreen]
+    C --> C5[Support: ChartTooltip, Banner, Tag, FilterChip, PillButton, AvatarStack, Amount, CategoryIcon, Glyph]
 ```
 
 ## Voice

@@ -84,7 +84,7 @@ Experience goals (borrowed from the philosophy of Fold Money, not its branding o
 - Expo (development builds, TypeScript) with React Native. Native modules are allowed; Expo Go is not the target.
 - Material 3: `react-native-paper` v5 for standard components, themed from our own M3 colour scheme. Do not use its default palette.
 - Material You: wallpaper-derived colours via an Android native module (for example `@pchmn/expo-material3-theme`), with our own fallback palette.
-- Navigation: React Navigation (bottom tabs, native stack, bottom sheets via `@gorhom/bottom-sheet` or Paper modals).
+- Navigation: React Navigation (bottom tabs, native stack; sheets and dialogs are Paper-style modals).
 - Charts and custom drawing: `react-native-svg` (and Skia where needed), each component small and self-contained.
 - Local data: SQLite encrypted with SQLCipher (for example `op-sqlite` or `expo-sqlite` with SQLCipher), key held in the Android Keystore via `expo-secure-store`; app lock with `expo-local-authentication`. Preferences (Home order etc.) in a key-value store.
 - State: Zustand or similar small store; no heavy global framework.

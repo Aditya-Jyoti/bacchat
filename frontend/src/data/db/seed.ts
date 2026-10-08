@@ -16,6 +16,8 @@ import { buildHistory, merchantFor, type EntryDraft } from './seedHistory';
 
 export const SAMPLE_TODAY = new Date(2026, 9, 24, 21, 30).getTime();
 export const SEED_FLAG = 'seeded.sample.v1';
+/** Set when the person cleared or left the sample (clearAllData, exitSampleMode); the sample is never seeded again after it. */
+export const SAMPLE_EXITED_FLAG = 'sample.exited.v1';
 
 export const slug = (name: string): string =>
   name.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -70,39 +72,40 @@ function methodVia(key: string, k: number): { method: PayMethod; accountId: stri
 }
 const micro = (n: number): number => Math.round(n * 1_000_000);
 
-export async function seedFromSampleData(db: BacchatDb): Promise<void> {
-  // Categories: every name used anywhere in the sample.
+/**
+ * The standard category set: the design's spend and budget categories, the icon picker names, the
+ * India-specific ones and a few fixed ones. includeSampleEntries also adds the names used only by the
+ * sample entry list (used when seeding the sample; a real notebook starts with the standard set).
+ */
+export function categoryList(includeSampleEntries: boolean): Omit<Category, 'updatedAt'>[] {
   const catIcons = new Map<string, string>();
+  const nameOf = new Map<string, string>();
   const addCat = (name: string, icon: string): void => {
     if (!catIcons.has(slug(name))) catIcons.set(slug(name), icon);
+    nameOf.set(slug(name), name);
   };
   S.spend.forEach((c) => addCat(c.name, c.icon));
   S.budgets.forEach((b) => addCat(b.name, b.icon));
   S.categoryIcons.forEach(([icon, name]) => addCat(name, icon));
   // India-specific categories use the custom icons; they stay unused until tagged.
   indiaCategoryIcons.forEach(([icon, name]) => addCat(name, icon));
-  S.entryDays.forEach((d) => d.items.forEach((i) => addCat(i.category, i.icon)));
+  if (includeSampleEntries) S.entryDays.forEach((d) => d.items.forEach((i) => addCat(i.category, i.icon)));
   addCat('Entertainment', 'movie');
   addCat('Income', 'payments');
   addCat('Rent', 'home');
   addCat('Investments', 'trending_up');
   addCat('Transfers', 'credit_card');
-  const nameOf = new Map<string, string>();
-  S.spend.forEach((c) => nameOf.set(slug(c.name), c.name));
-  S.budgets.forEach((b) => nameOf.set(slug(b.name), b.name));
-  S.categoryIcons.forEach(([, n]) => nameOf.set(slug(n), n));
-  indiaCategoryIcons.forEach(([, n]) => nameOf.set(slug(n), n));
-  S.entryDays.forEach((d) => d.items.forEach((i) => nameOf.set(slug(i.category), i.category)));
-  nameOf.set('entertainment', 'Entertainment');
-  nameOf.set('income', 'Income');
-  nameOf.set('rent', 'Rent');
-  nameOf.set('investments', 'Investments');
-  nameOf.set('transfers', 'Transfers');
-  const cats: Omit<Category, 'updatedAt'>[] = [...catIcons.entries()].map(([id, icon]) => ({
-    id,
-    name: nameOf.get(id) ?? id,
-    icon,
-  }));
+  return [...catIcons.entries()].map(([id, icon]) => ({ id, name: nameOf.get(id) ?? id, icon }));
+}
+
+/** Put the standard categories into a (usually just wiped) database. No sample entries, accounts or goals. */
+export async function seedStandardCategories(db: BacchatDb): Promise<void> {
+  await db.categories.putMany(categoryList(false));
+}
+
+export async function seedFromSampleData(db: BacchatDb): Promise<void> {
+  // Categories: every name used anywhere in the sample.
+  const cats = categoryList(true);
   await db.categories.putMany(cats);
 
   // Accounts and debts.
@@ -459,6 +462,7 @@ function viaToMethod(
 /** Seed once: does nothing when the flag is already set or the database already has accounts. */
 export async function seedIfEmpty(db: BacchatDb): Promise<boolean> {
   if ((await db.meta.get(SEED_FLAG)) === '1') return false;
+  if ((await db.meta.get(SAMPLE_EXITED_FLAG)) === '1') return false;
   if ((await db.accounts.list()).length > 0) return false;
   await seedFromSampleData(db);
   return true;

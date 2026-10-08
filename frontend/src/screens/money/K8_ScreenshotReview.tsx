@@ -7,6 +7,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
+import { EmptySearch } from '../../components/illustrations';
 import { SkeletonRows } from '../../components/SkeletonLoader';
 import { sourceName } from '../../data';
 import type { Category } from '../../data/db';
@@ -164,6 +165,12 @@ export default function K8_ScreenshotReview(): React.JSX.Element {
           {fmt(t('moneyLive.checkedAgainst'), { n: ctx?.loaded.checked ?? 0 })}
         </Text>
         {!ctx ? <SkeletonRows count={4} /> : null}
+        {ctx && view.length === 0 ? (
+          <View testID="review-empty" style={{ paddingTop: spacing.xl }}>
+            <EmptySearch height={110} />
+            <Text style={[typography.bodyMedium, { color: colors.onSurfaceVariant, paddingTop: spacing.md }]}>{t('moneyUi.readNothing')}</Text>
+          </View>
+        ) : null}
         {view.map(({ item, vm }, i) => {
           const status = item.result.status;
           if (status === 'conflict') {
@@ -211,7 +218,7 @@ export default function K8_ScreenshotReview(): React.JSX.Element {
             style={{ width: '100%' }}
           />
         ) : (
-          <PillButton testID="add-entries" label={fmt(S.addEntries, { n: addN })} disabled={busy} onPress={add} style={{ width: '100%' }} />
+          <PillButton testID="add-entries" label={fmt(S.addEntries, { n: addN })} disabled={busy || addN === 0} onPress={add} style={{ width: '100%' }} />
         )}
       </View>
     </ScreenFrame>

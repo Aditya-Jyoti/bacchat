@@ -78,6 +78,8 @@ export interface BacchatDb {
   screenshots: Repository<ScreenshotRecord>;
   asks: Repository<AskRecord>;
   meta: MetaStore;
+  /** Erase every row of every table, tombstones and meta included (a real wipe, not a soft delete). The schema stays. */
+  wipe(): Promise<void>;
   close(): Promise<void>;
 }
 

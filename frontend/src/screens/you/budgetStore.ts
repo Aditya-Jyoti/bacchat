@@ -14,7 +14,10 @@ type State = {
 
 type Actions = {
   save: (next: State) => void;
+  /** Sample budget back (explore with sample data). */
   reset: () => void;
+  /** No overall budget (a real, empty notebook): total 0 means none set. */
+  clear: () => void;
 };
 
 /** The design's sample monthly budget: Rs 45,000. */
@@ -31,6 +34,9 @@ export const useBudget = registerPersisted(
         },
         reset: () => {
           set(initial());
+        },
+        clear: () => {
+          set({ ...initial(), totalPaise: 0 });
         },
       }),
       {

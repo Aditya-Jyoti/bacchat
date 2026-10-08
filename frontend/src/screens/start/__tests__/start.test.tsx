@@ -1,8 +1,10 @@
 import { NavigationContext } from '@react-navigation/native';
 import React from 'react';
-import { act, fireEvent } from '@testing-library/react-native';
+import { act, fireEvent, waitFor } from '@testing-library/react-native';
 
 import { ROUTES } from '../../../navigation/screenManifest';
+import { usePreferences } from '../../../lib/preferences';
+import { createTestServices } from '../../../services';
 import { renderWithTheme } from '../../../testUtils';
 import { khataPalette } from '../../../theme';
 import { ChaiIllustration } from '../ChaiIllustration';
@@ -58,19 +60,54 @@ describe.each(['light', 'dark'] as const)('k22 Welcome (%s)', (mode) => {
     expect(getByText('Restore from backup')).toBeTruthy();
   });
 
-  it('Start fresh marks the welcome seen and opens Home', () => {
-    const n = nav();
-    const { getByText } = renderWithTheme(wrap(n, <K22_Welcome />), mode);
-    fireEvent.press(getByText('Start fresh'));
-    expect(useFirstRun.getState().seen).toBe(true);
-    expect(n.navigate).toHaveBeenCalledWith('main', { screen: 'home' });
+  it('shows the quiet sample choice', () => {
+    const { getByText } = renderWithTheme(<K22_Welcome />, mode);
+    expect(getByText('Look around with sample data')).toBeTruthy();
   });
 
-  it('Restore from backup opens k25', () => {
+  it('Start fresh saves the name, empties the notebook, marks the welcome seen and opens Home', async () => {
+    usePreferences.setState({ profileName: '' });
     const n = nav();
-    const { getByText } = renderWithTheme(wrap(n, <K22_Welcome />), mode);
+    const { getByText, getByTestId, services } = renderWithTheme(wrap(n, <K22_Welcome />), mode);
+    await services.whenReady();
+    expect((await services.db.accounts.list()).length).toBeGreaterThan(0);
+    fireEvent.changeText(getByTestId('welcome-name'), 'Asha');
+    fireEvent.press(getByText('Start fresh'));
+    await waitFor(() => expect(n.navigate).toHaveBeenCalledWith('main', { screen: 'home' }));
+    expect(useFirstRun.getState().seen).toBe(true);
+    expect(usePreferences.getState().profileName).toBe('Asha');
+    expect(await services.db.accounts.list()).toHaveLength(0);
+    expect(await services.db.entries.list()).toHaveLength(0);
+    expect(services.isSample()).toBe(false);
+  });
+
+  it('Look around with sample data keeps the sample and opens Home', async () => {
+    const n = nav();
+    const { getByText, services } = renderWithTheme(wrap(n, <K22_Welcome />), mode);
+    fireEvent.press(getByText('Look around with sample data'));
+    await waitFor(() => expect(n.navigate).toHaveBeenCalledWith('main', { screen: 'home' }));
+    expect(useFirstRun.getState().seen).toBe(true);
+    expect(services.isSample()).toBe(true);
+    expect((await services.db.accounts.list()).length).toBeGreaterThan(0);
+  });
+
+  it('Look around seeds an empty new install (seed: false)', async () => {
+    const n = nav();
+    const services = createTestServices({ seed: false });
+    const { getByText } = renderWithTheme(wrap(n, <K22_Welcome />), mode, { services });
+    expect(services.isSample()).toBe(false);
+    fireEvent.press(getByText('Look around with sample data'));
+    await waitFor(() => expect(n.navigate).toHaveBeenCalledWith('main', { screen: 'home' }));
+    expect(services.isSample()).toBe(true);
+    expect((await services.db.entries.list()).length).toBeGreaterThan(100);
+  });
+
+  it('Restore from backup starts from an empty notebook and opens k25', async () => {
+    const n = nav();
+    const { getByText, services } = renderWithTheme(wrap(n, <K22_Welcome />), mode);
     fireEvent.press(getByText('Restore from backup'));
-    expect(n.navigate).toHaveBeenCalledWith(ROUTES.k25);
+    await waitFor(() => expect(n.navigate).toHaveBeenCalledWith(ROUTES.k25));
+    expect(await services.db.accounts.list()).toHaveLength(0);
   });
 
   it('illustration tints both layers from the theme', () => {

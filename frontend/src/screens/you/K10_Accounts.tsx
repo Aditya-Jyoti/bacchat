@@ -1,6 +1,7 @@
 /** k10: Accounts. Net worth equation, "Yours to spend", what you own, what you owe, UPI IDs. */
 import React from 'react';
 import { Text, View, type TextStyle } from 'react-native';
+import { Button } from 'react-native-paper';
 
 import { SkeletonRows } from '../../components/SkeletonLoader';
 import { StackScreen } from '../../components/StackScreen';
@@ -46,6 +47,9 @@ export default function K10_Accounts(): React.JSX.Element {
             <View>
               <EmptyAccounts height={110} />
               <Text testID="accounts-empty" style={[muted, { paddingVertical: 12 }]}>{t('accountsUi.noAccounts')}</Text>
+              <Button testID="accounts-empty-add" mode="contained-tonal" icon="plus" onPress={() => nav.go('k11')} contentStyle={{ height: 48 }}>
+                {t('youUi.addAccount')}
+              </Button>
             </View>
           ) : null}
           {d.own.map((a) => (

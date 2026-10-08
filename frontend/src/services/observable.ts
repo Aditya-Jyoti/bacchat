@@ -54,7 +54,15 @@ export function observeDb(db: BacchatDb): ObservableDb {
         return v;
       },
     });
-  const out: Record<string, unknown> = { kind: db.kind, meta: db.meta, close: () => db.close() };
+  const out: Record<string, unknown> = {
+    kind: db.kind,
+    meta: db.meta,
+    wipe: async () => {
+      await db.wipe();
+      notify();
+    },
+    close: () => db.close(),
+  };
   for (const name of REPOS) out[name] = wrap(db[name] as object);
   out.onChange = (l: () => void) => {
     listeners.add(l);

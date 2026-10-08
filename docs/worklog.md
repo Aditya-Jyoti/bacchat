@@ -148,3 +148,24 @@ Copy this block above the line, fill it in, keep entries short.
 - Android scaffold regenerated (frontend/android).
 - Tests: frontend 1524 pass in 103 suites, backend 37 pass; typecheck and lint clean.
 - Unverified: all Kotlin and Gradle, device behaviour, real WebDAV/S3/Drive servers, live AMFI/NPS endpoints, model checksums. FLAG_SECURE not implemented.
+
+## 2026-10-08 (real, empty notebook: clearAllData, Welcome choices, empty-state hardening)
+
+- Problem: the app booted on the sample notebook (Rahul), nothing called exitSampleMode, and Settings "Delete all data" deleted nothing. A real user could never get an empty notebook.
+- `BacchatDb.wipe()` (memory and SQLite) hard-deletes every row and the meta table. `services.clearAllData()` wipes, re-seeds only the standard and India categories, empties the goal plan, budget and alerts stores, clears lastNavRefreshDay, resets sync bookkeeping, leaves sample mode and notifies. `services.seedSample()` is the way back (only into an empty notebook).
+- The app now boots with `seed: false` (also the headless SMS task): a new install starts empty and the sample is added only by "Look around with sample data" on Welcome. A database seeded by an earlier build stays in sample mode until cleared. `seedIfEmpty` never re-seeds after the sample was cleared.
+- K22: Start fresh and Restore from backup call clearAllData (name saved first); new quiet text button seeds the sample. K1: sample note "Showing sample data. Clear it in Settings." linking to K24, and a first-step block (account, entry) on a brand new notebook. K24: Delete all data really deletes and returns Home; "Clear sample data" row only in sample mode.
+- K11 and K14 are pre-filled with the design's example (HDFC Millennia, Goa with friends) only in sample mode; a real notebook starts blank.
+- Empty states with illustration and first action: K3 (EmptyEntries plus Add an entry), K10 (Add account), K15 (EmptyBudget plus Set a budget instead of a row of zeros), K19 (EmptySearch before any entries exist), K8 with an unreadable image. NetWorthChart, DailyBars, AllocationBar, PaceBar, SegmentedProgress, OweBar and JarFill no longer produce NaN with zero, one or non-finite data.
+- Tests: services/clearData (memory and sql.js), navigation/emptyDb (all 29 screens, light and dark, empty db, NaN/undefined scan, empty-state text and illustrations), navigation/firstRunFlow (Splash to Welcome to Start fresh to Home to k11 to k5 to Home with real numbers, and the sample path with Clear sample data), components/emptyCharts, settingsDelete, start (Welcome choices). Full suite 1649 tests green; typecheck and lint clean.
+- Known quirk (unchanged): after k11 saves, k10 opens on top of k11, so Back returns to the form; same pattern for other create screens.
+
+## 2026-10-08 (cleanup and release prep)
+
+- Cleanup: removed unused PlaceholderScreen and the unused @gorhom/bottom-sheet dependency; added .nvmrc, .editorconfig and .gitattributes; regenerated frontend/android.
+- README rewritten for local development: prerequisites with exact versions (JDK 17, Android SDK 36, NDK 27.1.12297006, Node 20.19.4+ or 22.13+), Arch Linux setup, frontend and backend run/test commands, Docker, the backend demo, AI setup, pre-commit checklist, status, license note.
+- Docs synchronised with the code: architecture, backend API (pairing, limits, 413), data model, sync targets, AI router, theming pipeline, navigation, testing results, screens, design system; "planned" wording removed and a "not verified / needs a device" list added.
+- Found and fixed a product gap: nothing ever left sample mode. Added services.clearAllData() and seedSample(), "Start fresh" now creates an empty notebook, "Look around with sample data" keeps the sample, Settings has "Clear sample data" and "Delete all data" (which also forgets the sync link so old data cannot flow back from the cloud).
+- Empty-database hardening: all 29 screens render on an empty database in light and dark with no NaN or crashes; calm empty states with illustrations and first actions; sample-only prefilled forms (K11, K14) no longer invent debt or savings for real users.
+- End-to-end first-run test: Splash, Welcome, Start fresh, add account, add entry, Home shows real numbers.
+- Tests: frontend 1650 pass in 108 suites; backend 37 pass; backend demo 45/45; typecheck and lint clean.

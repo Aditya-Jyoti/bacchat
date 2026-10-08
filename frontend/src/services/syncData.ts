@@ -18,7 +18,7 @@ import type { BaseRecord, NewRecord } from '../data/db/models';
 import type { Repository } from '../data/db/repositories';
 import type { BlobSyncState, LocalDataSource, SyncStateStore } from '../lib/sync/engine';
 import type { DataSetName, SyncRecord } from '../lib/sync/merge';
-import { getJSON, setJSON } from '../lib/storage';
+import { getJSON, removeKey, setJSON } from '../lib/storage';
 
 type Table = {
   table: string;
@@ -59,6 +59,13 @@ function tablesFor(db: BacchatDb, name: DataSetName): { prefixed: boolean; table
 
 const iso = (ms: number): string => new Date(ms).toISOString();
 const APPLIED_KEY = 'bacchat.sync.applied';
+const DATA_SETS: DataSetName[] = ['entries', 'accounts', 'goals', 'budgets', 'categories', 'rules', 'screenshots', 'asks'];
+const stateKey = (n: DataSetName): string => `bacchat.sync.state.${n}`;
+
+/** Forget what was synced before (applied map and per-set merge bases). Used after the notebook is wiped. */
+export async function resetSyncBookkeeping(): Promise<void> {
+  await Promise.all([APPLIED_KEY, ...DATA_SETS.map(stateKey)].map((k) => removeKey(k).catch(() => undefined)));
+}
 
 type Applied = Record<string, [number, number]>;
 
@@ -141,7 +148,7 @@ function sortKeys(r: SyncRecord): Record<string, unknown> {
 
 /** Per-data-set sync bookkeeping (server version and merge base) in the key-value store. */
 export function createSyncStateStore(): SyncStateStore {
-  const key = (n: DataSetName): string => `bacchat.sync.state.${n}`;
+  const key = stateKey;
   return {
     async get(name) {
       return getJSON<BlobSyncState | null>(key(name), null);

@@ -21,7 +21,7 @@ mindmap
       SMS and email reading
     Goals
       Allocation per account
-      Milestones
+      Quarter ticks
     Budget and alerts
       Calm overspend alerts
       Coming up and cash flow
@@ -63,6 +63,23 @@ Calm and unintimidating tone; icon-led categorisation (about 180 icons); hand-dr
 
 ## Scope
 
-v1: the 12 features above on-device, sample-data-driven UI for all screens, encrypted sync via the Bacchat backend.
+v1 as built: all 12 features run on the phone against a local encrypted database. A fresh install opens in a clearly marked sample notebook so every screen has something to show, and the user can leave it to start empty. Encrypted sync works with Bacchat Cloud, WebDAV, S3-compatible servers and Google Drive. Fund and NPS values refresh from public NAV files. AI routes between the user's own cloud key and a model on the phone.
 
-Later: loans and EMIs with amortisation, full illustration set, Google Drive and WebDAV/S3 sync targets, live NAV fetching.
+| Feature | Status in code | Notes |
+|---|---|---|
+| 1 Net worth, funds, SIPs, NPS | Done | NAVs fetched anonymously once a day; the NPS source URL is unverified and is a setting |
+| 2 Goals | Done | Allocation per account, segmented bar with quarter ticks, goal-reached moment |
+| 3 Entries, tags, summaries | Done | Day groups, filters, search, select mode, undo |
+| 4 SMS and email reading | SMS done, email by paste | No mailbox integration; Kotlin receiver not yet run on a device |
+| 5 Screenshot import | Done | ML Kit OCR module, reconciliation, conflict sheet |
+| 6 Spend types and categories | Done | About 180 category icons, 25 of them custom India-specific |
+| 7 Bank accounts by name | Done | No bank linking |
+| 8 UPI ID tracking | Done | Ingress and egress per ID |
+| 9 Overspending alerts | Done | Inline caution banner, at most one per category per month |
+| 10 Budgeting | Done | Per category, pace marker |
+| 11 AI advisor | Done | Own key or on-device model, five read-only tools |
+| 12 Privacy first | Done | SQLCipher, optional app lock, backup off, opt-in encrypted sync |
+
+Also built: Home arrangement (reorder and hide), upcoming and recurring view with cash flow, biometric or screen-lock app lock, launcher shortcut and share-sheet entry, recovery key and passphrase change for sync, pairing a second phone.
+
+Later: loans and EMIs with amortisation (loans are a manual balance for now), a mailbox integration for email, the commissioned illustration set and icons (the current ones are drawn in code), pinned on-device model URLs and checksums.

@@ -1,9 +1,11 @@
 /** k1: Home. Net worth hero, then the sections chosen in k2 (useHomeConfig). */
 import React, { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AllocationBar } from '../../components/AllocationBar';
+import { EmptyAccounts } from '../../components/illustrations';
 import { Glyph } from '../../components/Glyph';
 import { NetWorthChart } from '../../components/NetWorthChart';
 import { useTabScrollToTop } from '../../components/useTabScrollToTop';
@@ -38,6 +40,9 @@ export default function K1_Home(): React.JSX.Element {
     const days = (await db.holdings.list()).map((h) => h.lastNavDate).filter((d): d is string => !!d);
     return days.length ? days.sort().pop() ?? null : null;
   }).data;
+  // A brand new notebook: no accounts and no entries yet. Offer the first step instead of a page of zeros.
+  const counts = useDbQuery(async (db) => ({ accounts: (await db.accounts.list()).length, entries: (await db.entries.list()).length })).data;
+  const isNew = !!counts && counts.accounts === 0 && counts.entries === 0;
   const values = useMemo(() => (series ? series.values.slice(-count) : []), [series, count]);
   const labels = useMemo(() => (series ? series.labels.slice(-count) : []), [series, count]);
   const segments = useMemo(() => {
@@ -163,7 +168,7 @@ export default function K1_Home(): React.JSX.Element {
         </View>
 
         <View style={{ marginTop: 14 }}>
-          {values.length >= 2 ? (
+          {series ? (
             <NetWorthChart values={values} labels={labels} formatValue={(v) => formatRupeesCompact(Math.round(v), { symbol: true })} />
           ) : (
             <SkeletonLoader height={76} />
@@ -204,7 +209,33 @@ export default function K1_Home(): React.JSX.Element {
           <Glyph name="lock" size={14} color={colors.onSurfaceVariant} />
           <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{privacy}</Text>
         </View>
+        {sample ? (
+          <Pressable
+            testID="sample-note"
+            accessibilityRole="link"
+            accessibilityLabel={t('homeUi.sampleNote')}
+            onPress={() => go('k24')}
+            style={{ minHeight: spacing.touchTarget, justifyContent: 'center' }}
+          >
+            <Text style={[typography.bodySmall, { color: colors.primary }]}>{t('homeUi.sampleNote')}</Text>
+          </Pressable>
+        ) : null}
 
+        {isNew ? (
+          <View testID="home-start" style={{ marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.outlineVariant }}>
+            <EmptyAccounts height={120} />
+            <Text style={[typography.titleMedium, { color: colors.onSurface, marginTop: 14 }]}>{t('homeUi.startTitle')}</Text>
+            <Text style={[typography.bodyMedium, { color: colors.onSurfaceVariant, marginTop: 4 }]}>{t('homeUi.startBody')}</Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+              <Button testID="home-add-account" mode="contained-tonal" icon="plus" onPress={() => go('k11')} contentStyle={{ height: 48 }}>
+                {t('youUi.addAccount')}
+              </Button>
+              <Button testID="home-add-entry" mode="outlined" onPress={() => go('k5')} contentStyle={{ height: 48 }}>
+                {t('moneyUi.addFirst')}
+              </Button>
+            </View>
+          </View>
+        ) : null}
         {visibleSections(config).map((id) => renderSection(id, { go, arrange }))}
       </ScrollView>
       <Pressable

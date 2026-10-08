@@ -10,7 +10,7 @@ import { OutlinedField } from '../../components/OutlinedField';
 import { PillButton } from '../../components/PillButton';
 import { StackScreen } from '../../components/StackScreen';
 import { groupIndian } from '../../lib/format';
-import { useWriters } from '../../services';
+import { useServices, useWriters } from '../../services';
 import { useTheme } from '../../theme';
 import { useScreenNav } from '../shared/useScreenNav';
 import { addAccount } from './accountWrites';
@@ -26,12 +26,14 @@ export default function K11_AddAccount(): React.JSX.Element {
   const { colors, typography } = useTheme();
   const nav = useScreenNav();
   const db = useWriters();
-  const [type, setType] = useState<AccountType>('card');
-  const [name, setName] = useState('HDFC Millennia');
+  // The design's example card is only pre-filled while the sample notebook is showing; a real one starts blank.
+  const sample = useServices().isSample();
+  const [type, setType] = useState<AccountType>(sample ? 'card' : 'bank');
+  const [name, setName] = useState(sample ? 'HDFC Millennia' : '');
   const [bank, setBank] = useState('HDFC Bank');
-  const [last4, setLast4] = useState('44');
-  const [limit, setLimit] = useState('100000');
-  const [owed, setOwed] = useState('5180');
+  const [last4, setLast4] = useState(sample ? '44' : '');
+  const [limit, setLimit] = useState(sample ? '100000' : '');
+  const [owed, setOwed] = useState(sample ? '5180' : '');
   const [bill, setBill] = useState('18th');
   const [due, setDue] = useState('5th');
   const [remind, setRemind] = useState(true);

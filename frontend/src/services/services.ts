@@ -4,10 +4,13 @@
  * is a synchronous in-memory variant for tests.
  */
 import { ensureOpeningBalances } from '../data/db/queries/balances';
-import { createMemoryDb, openBacchatDb, seedIfEmpty, SAMPLE_TODAY, SEED_FLAG, dateKey, type BacchatDb, type OpenOptions } from '../data/db';
+import { createMemoryDb, openBacchatDb, seedFromSampleData, seedIfEmpty, seedStandardCategories, SAMPLE_EXITED_FLAG, SAMPLE_TODAY, SEED_FLAG, dateKey, type BacchatDb, type OpenOptions } from '../data/db';
 import { createAdvisor, type Advisor } from '../lib/ai';
 import { createAiService, type AiService, type AiServiceOptions } from './aiService';
 import { usePreferences } from '../lib/preferences';
+import { useGoalPlans } from '../screens/goals/goalPlanStore';
+import { useBudget } from '../screens/you/budgetStore';
+import { useBudgetAlerts } from '../screens/home/alertsStore';
 import { createNavClient, refreshHoldingNavs, type NavClient, type NavFetch, type RefreshResult } from '../lib/nav';
 import { BlobCipher, SyncEngine, createTarget, runSyncWithStatus, useSyncStatus } from '../lib/sync';
 import type { AccessTokenProvider } from '../lib/sync/targets';
@@ -21,11 +24,11 @@ import { observeDb, type ObservableDb } from './observable';
 import { createDbKeyProvider } from './dbKey';
 import { createExpoSecureStore, createMemorySecureStore, type SecureStore } from './secure';
 import { createSettings, type AppSettings, type SyncConfig } from './settings';
-import { createLocalDataSource, createSyncStateStore } from './syncData';
+import { createLocalDataSource, createSyncStateStore, resetSyncBookkeeping } from './syncData';
 import { loadSodium } from './sodium';
 import { expoShotFiles, syncShotImages, type ShotFiles } from './shotImages';
 
-export const SAMPLE_EXITED_FLAG = 'sample.exited.v1';
+export { SAMPLE_EXITED_FLAG };
 
 export type SyncHandle = {
   client: SyncTarget;
@@ -47,6 +50,18 @@ export type Services = {
   isSample(): boolean;
   /** Switch to the real clock (for example after the user clears the sample data). */
   exitSampleMode(): Promise<void>;
+  /**
+   * Delete everything the person has written: all tables and meta in the database, the stores that
+   * hold user data (goal plans, budget, pending alerts), then leave sample mode. Keeps only the
+   * standard category set. Does not touch the database key, first-run state or preferences (apart from
+   * the NAV refresh day), and never touches copies already backed up in the cloud.
+   */
+  clearAllData(): Promise<void>;
+  /**
+   * Fill an empty notebook with the design's sample data and turn sample mode on. Returns false
+   * (and changes nothing) when the notebook already has accounts, entries or goals.
+   */
+  seedSample(): Promise<boolean>;
   /** 'sqlite' when the on-device database opened, 'memory' when it fell back. */
   dbKind: 'memory' | 'sqlite';
   /** Why the database fell back to memory, if it did. */
@@ -71,7 +86,7 @@ export type ServicesOptions = {
   secure?: SecureStore;
   /** Use this database instead of opening one (tests). It is wrapped, and seeded unless seed is false. */
   db?: BacchatDb;
-  /** Seed the design's sample data into an empty db. Default true. */
+  /** Seed the design's sample data into an empty db. Default true. The app passes false: it starts empty and seeds only on request (seedSample). */
   seed?: boolean;
   /** Fixed clock. Overrides the sample-day logic. */
   now?: () => number;
@@ -89,6 +104,14 @@ export type ServicesOptions = {
   /** Override how the SQLite file is opened (tests). */
   open?: OpenOptions['open'];
 };
+
+/** Empty the persisted stores that hold user data. First-run and preferences stay; only the NAV refresh day is cleared. */
+function resetUserStores(): void {
+  useGoalPlans.getState().clear();
+  useBudget.getState().clear();
+  useBudgetAlerts.getState().clear();
+  usePreferences.getState().setLastNavRefreshDay(null);
+}
 
 type BuildState = { dbError: string | null; sample: boolean; ready: () => Promise<void> };
 
@@ -127,6 +150,33 @@ function build(raw: BacchatDb, opts: ServicesOptions, state: BuildState): Servic
       state.sample = false;
       await raw.meta.set(SAMPLE_EXITED_FLAG, '1');
       db.notify();
+    },
+    async clearAllData() {
+      // A lazy test seed must finish before the wipe, or it would refill the notebook afterwards.
+      await state.ready();
+      await db.wipe();
+      await seedStandardCategories(raw);
+      resetUserStores();
+      // Sync bookkeeping describes rows that no longer exist; the next sync starts from the cloud copy.
+      await resetSyncBookkeeping();
+      // Forget the sync link too, otherwise the next sync would pull the old data straight back from the cloud.
+      await settings.setSyncConfig(null);
+      sync = null;
+      syncKey = '';
+      await services.exitSampleMode();
+      advisor = null;
+    },
+    async seedSample() {
+      await state.ready();
+      const [accounts, entries, goals] = await Promise.all([db.accounts.list(), db.entries.list(), db.goals.list()]);
+      if (accounts.length + entries.length + goals.length > 0) return false;
+      await seedFromSampleData(raw);
+      await raw.meta.set(SAMPLE_EXITED_FLAG, '0');
+      state.sample = true;
+      useGoalPlans.getState().reset();
+      useBudget.getState().reset();
+      db.notify();
+      return true;
     },
     whenReady: () => state.ready(),
 
@@ -217,13 +267,14 @@ export async function createServices(opts: ServicesOptions = {}): Promise<Servic
     // Balances then fall back to the stored figures.
   }
   let sample = false;
-  if (opts.seed !== false) {
-    try {
-      await seedIfEmpty(raw);
-      sample = (await raw.meta.get(SEED_FLAG)) === '1' && (await raw.meta.get(SAMPLE_EXITED_FLAG)) !== '1';
-    } catch (e) {
-      dbError ??= e instanceof Error ? e.message : 'Could not prepare the database.';
-    }
+  try {
+    // New installs (seed: false) start empty with just the standard categories; the sample is only
+    // added when the person asks for it on Welcome. A database seeded earlier stays in sample mode.
+    if (opts.seed !== false) await seedIfEmpty(raw);
+    else if ((await raw.categories.list()).length === 0) await seedStandardCategories(raw);
+    sample = (await raw.meta.get(SEED_FLAG)) === '1' && (await raw.meta.get(SAMPLE_EXITED_FLAG)) !== '1';
+  } catch (e) {
+    dbError ??= e instanceof Error ? e.message : 'Could not prepare the database.';
   }
   return build(raw, { ...opts, secure }, { dbError, sample, ready: () => Promise.resolve() });
 }

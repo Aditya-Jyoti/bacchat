@@ -10,7 +10,10 @@ type State = {
 
 type Actions = {
   setMonthly: (goalId: string, paise: number) => void;
+  /** Sample plan back (explore with sample data). */
   reset: () => void;
+  /** No plans at all (a real, empty notebook). */
+  clear: () => void;
 };
 
 /** The design's sample plan for the Goa goal: Rs 5,500 a month. */
@@ -27,6 +30,9 @@ export const useGoalPlans = registerPersisted(
         },
         reset: () => {
           set(initial());
+        },
+        clear: () => {
+          set({ monthly: {} });
         },
       }),
       {

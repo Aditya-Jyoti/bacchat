@@ -28,7 +28,7 @@ import type {
   Repository,
 } from './repositories';
 import type { SqlDriver, SqlValue } from './driver';
-import { runMigrations } from './schema';
+import { runMigrations, TABLES } from './schema';
 import { newId } from './ids';
 import { merchantKey, mergeMerchant } from './merchantKey';
 
@@ -193,6 +193,17 @@ export async function createSqliteDb(driver: SqlDriver, opts: DbOptions = {}): P
     screenshots: new SqliteRepo<ScreenshotRecord>(driver, 'screenshots', now),
     asks: new SqliteRepo<AskRecord>(driver, 'asks', now),
     meta: new SqliteMeta(driver),
+    async wipe() {
+      const tables = [...TABLES, 'entries', 'merchants', 'alerts', 'screenshots', 'asks', 'meta'];
+      await driver.exec('BEGIN');
+      try {
+        for (const t of tables) await driver.exec(`DELETE FROM ${t}`);
+        await driver.exec('COMMIT');
+      } catch (e) {
+        await driver.exec('ROLLBACK');
+        throw e;
+      }
+    },
     close: () => driver.close(),
   });
 }

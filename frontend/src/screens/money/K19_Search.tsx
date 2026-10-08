@@ -103,6 +103,12 @@ export default function K19_Search(): React.JSX.Element {
           <Text testID="result-count" style={[typography.bodyMedium, { color: colors.onSurfaceVariant }]}>{fmt(S.results, { n: results.length })}</Text>
           <Text testID="result-total" style={[serif(20), { color: colors.onSurface }]}>{formatRupees(total)}</Text>
         </View>
+        {results.length === 0 && !query.trim() ? (
+          <View style={{ paddingTop: spacing.lg }}>
+            <EmptySearch height={110} />
+            <Text testID="search-nothing" style={[typography.bodyMedium, { color: colors.onSurfaceVariant, paddingVertical: spacing.md }]}>{t('moneyUi.searchNothingYet')}</Text>
+          </View>
+        ) : null}
         {results.length === 0 && query.trim() ? (
           <View style={{ paddingTop: spacing.lg }}>
             <EmptySearch height={110} />

@@ -28,7 +28,7 @@ let ingestPromise: Promise<IngestService> | null = null;
 /** Services and ingest service for background runs, built on first use and kept for the process. */
 function defaultIngest(): Promise<IngestService> {
   if (!ingestPromise) {
-    ingestPromise = createServices().then((services) =>
+    ingestPromise = createServices({ seed: false }).then((services) =>
       createIngestService({ db: services.db, now: services.now, native: getSmsNative(), extractor: services.ai.extractor }),
     );
     ingestPromise.catch(() => {

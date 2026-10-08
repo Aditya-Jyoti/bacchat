@@ -1,6 +1,7 @@
 /** k15: Budget. Amount left, pace bar with a today marker, caution banner when a category passes its limit, category rows. */
 import React, { useEffect, useRef, useState } from 'react';
 import { Text, View, type TextStyle } from 'react-native';
+import { Button } from 'react-native-paper';
 
 import { PaceBar } from '../../components/PaceBar';
 import { SkeletonRows } from '../../components/SkeletonLoader';
@@ -60,6 +61,8 @@ export default function K15_Budget(): React.JSX.Element {
   const todayFraction = d.daysInMonth > 0 ? d.dayOfMonth / d.daysInMonth : 0;
   const pct = totalPaise > 0 ? Math.round((d.spentPaise / totalPaise) * 100) : 0;
   const muted: TextStyle = { ...typography.bodyMedium, color: colors.onSurfaceVariant };
+  // Nothing set up at all: show one calm prompt instead of a row of zeros.
+  const noBudget = totalPaise <= 0 && d.rows.length === 0;
   return (
     <StackScreen
       testID="screen-k15"
@@ -70,6 +73,15 @@ export default function K15_Budget(): React.JSX.Element {
     >
       {d.loading ? (
         <SkeletonRows count={5} />
+      ) : noBudget ? (
+        <View testID="budget-none" style={{ paddingTop: 12 }}>
+          <EmptyBudget height={130} />
+          <Text testID="budget-empty" style={[typography.titleMedium, { color: colors.onSurface, paddingTop: 16 }]}>{t('budgetUi.noneYet')}</Text>
+          <Text style={[muted, { paddingTop: 4, paddingBottom: 16 }]}>{t('budgetUi.noneBody')}</Text>
+          <Button testID="budget-set" mode="contained-tonal" icon="pencil" onPress={() => nav.go('k16')} contentStyle={{ height: 48 }}>
+            {t('budgetUi.setFirst')}
+          </Button>
+        </View>
       ) : (
         <>
           <Text testID="budget-left" style={[typography.headlineSmall, { fontSize: 34, lineHeight: 39, color: colors.onSurface }]}>

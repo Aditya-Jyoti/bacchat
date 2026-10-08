@@ -9,7 +9,7 @@ import { PillButton } from '../../components/PillButton';
 import { StackScreen } from '../../components/StackScreen';
 import { ValueSlider } from '../../components/ValueSlider';
 import { formatRupees, groupIndian } from '../../lib/format';
-import { useWriters } from '../../services';
+import { useServices, useWriters } from '../../services';
 import { useTheme } from '../../theme';
 import { useScreenNav } from '../shared/useScreenNav';
 import { IconPicker } from './sections/IconPicker';
@@ -40,9 +40,11 @@ export default function K14_NewGoal(): React.JSX.Element {
   const { spendAccounts } = useGoalsData();
   const setMonthlyPlan = useGoalPlans((s) => s.setMonthly);
   const [icon, setIcon] = useState('beach_access');
-  const [name, setName] = useState('Goa with friends');
-  const [target, setTarget] = useState('60000');
-  const [saved, setSaved] = useState('38000');
+  // The design's example goal is only pre-filled while the sample notebook is showing; a real one starts blank.
+  const sample = useServices().isSample();
+  const [name, setName] = useState(sample ? 'Goa with friends' : '');
+  const [target, setTarget] = useState(sample ? '60000' : '');
+  const [saved, setSaved] = useState(sample ? '38000' : '');
   const [monthly, setMonthly] = useState(5500);
   const [months, setMonths] = useState(2);
   // Account ids the user switched on or off. Until they touch it, the first two bank accounts are on.
