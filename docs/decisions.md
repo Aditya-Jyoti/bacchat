@@ -318,3 +318,8 @@ ModelDownloadManager honours the aiModelsWifiOnly preference (default on) throug
 
 - Card and account digits are no longer asked for, so messages are matched to accounts by wording and name (lib/ingest/accountMatch): "credit card" picks a card account, "a/c" / "account" / "savings" / "debit card" a bank account, and the account name's distinctive word (or the SMS sender id) picks which. Ambiguous messages get no account rather than a wrong one. The AI extractor is not involved: it only sees message text, not the owner's accounts.
 - Screenshot imports ask "Paid with" once per import (k8) instead of always filing under the first UPI id or cash.
+
+## Lite and Full builds (2026-11-07)
+
+- Two Android builds from one codebase. Full includes on-device AI (llama.rn); Lite (BACCHAT_LITE=1) leaves it out and is about half the size. Both use the same application id and signing key. Cloud AI (OpenAI-compatible key) works in both.
+- Native libraries are compressed in the APK (legacy packaging). The download is about half; the installed size is a little larger because Android extracts them.

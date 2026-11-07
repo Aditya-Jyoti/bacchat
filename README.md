@@ -85,6 +85,24 @@ npx expo prebuild --platform android --clean
 On first launch the app opens a local database seeded with sample data (a person called Rahul), so every
 screen has something to show. Choose "Start fresh" on the Welcome screen for an empty notebook of your own, or "Look around with sample data" to keep the sample. Settings has "Clear sample data" and "Delete all data".
 
+#### Release APKs (Full and Lite)
+
+Two builds come from the same code. **Full** has on-device AI (llama.rn); **Lite** leaves it out and is
+about half the size. Both use the same app id and key, so either installs over the other and keeps the data.
+
+```bash
+cd frontend/android
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk ANDROID_HOME=$HOME/Android/Sdk NODE_ENV=production
+rm -rf app/build/generated/autolinking build/generated/autolinking   # needed when switching Full <-> Lite
+./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a                   # Full, about 63 MB
+rm -rf app/build/generated/autolinking build/generated/autolinking
+BACCHAT_LITE=1 ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a    # Lite, about 34 MB
+# Output: app/build/outputs/apk/release/app-release.apk. Drop the -P flag for an all-CPU APK.
+```
+
+The Lite switch lives in `frontend/react-native.config.js` and `frontend/android/app/build.gradle`
+(`bacchatLite`). `npx expo prebuild --clean` regenerates `build.gradle`, so re-apply that block after it.
+
 Optional app config in `frontend/app.json` under `expo.extra`:
 
 | Key | Meaning |
