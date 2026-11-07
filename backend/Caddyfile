@@ -1,0 +1,11 @@
+# TLS and reverse proxy for Bacchat Cloud (used by docker-compose.prod.yml).
+{$BACCHAT_DOMAIN} {
+	encode zstd gzip
+	# The service takes bodies up to about 13.997 MB (a 10 MiB blob in base64 plus JSON). Caddy
+	# turns away anything bigger with a 413 itself, before the upload reaches the service.
+	# Raise both together if you raise MAX_BLOB_BYTES.
+	request_body {
+		max_size 14MB
+	}
+	reverse_proxy bacchat-cloud:8080
+}

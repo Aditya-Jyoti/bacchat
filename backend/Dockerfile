@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20-slim AS build
+FROM node:22-slim AS build
 WORKDIR /app
 # better-sqlite3 falls back to compiling from source if no prebuilt binary matches.
 RUN apt-get update \
@@ -13,7 +13,7 @@ COPY src ./src
 RUN npm run build \
     && npm prune --omit=dev
 
-FROM node:20-slim AS runtime
+FROM node:22-slim AS runtime
 ENV NODE_ENV=production \
     DATA_DIR=/data \
     PORT=8080 \

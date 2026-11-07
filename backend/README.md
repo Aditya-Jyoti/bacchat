@@ -15,12 +15,53 @@ DATA_DIR=./data npm run build && DATA_DIR=./data npm start
 npm run typecheck && npm run lint && npm test
 ```
 
-With Docker:
+With Docker, on your own machine (plain HTTP, for trying it out):
 
 ```sh
 docker compose up --build -d      # listens on :8080, data in the named volume bacchat-data
 curl localhost:8080/healthz
+DEMO_URL=http://localhost:8080 npm run demo
 ```
+
+## Host it on a server (HTTPS)
+
+`docker-compose.prod.yml` runs the service behind Caddy, which gets and renews a Let's Encrypt
+certificate on its own. The service itself is not exposed; only ports 80 and 443 are.
+
+1. Get a server with Docker and a domain name. Point the domain's DNS (A and/or AAAA record) at
+   the server and open ports 80 and 443.
+2. Copy this `backend/` folder to the server (or clone the repo), then:
+
+   ```sh
+   cd backend
+   cp .env.example .env              # set BACCHAT_DOMAIN=sync.yourdomain.com
+   docker compose -f docker-compose.prod.yml up -d --build
+   curl https://sync.yourdomain.com/healthz        # {"status":"ok"}
+   ```
+
+3. In the app: You > Backup & sync > Bacchat Cloud, address `https://sync.yourdomain.com`.
+
+Useful commands:
+
+```sh
+docker compose -f docker-compose.prod.yml logs -f              # follow logs
+docker compose -f docker-compose.prod.yml pull caddy && \
+  docker compose -f docker-compose.prod.yml up -d --build       # update after a git pull
+DEMO_URL=https://sync.yourdomain.com npm run demo              # end-to-end check (uses a throwaway account)
+```
+
+Through Caddy, the demo skips its oversized-upload check: Caddy turns the upload away early, which
+Node's fetch reports as a reset rather than a 413. Check it with curl instead; it should print 413:
+
+```sh
+python3 -c "import json,base64,os;print(json.dumps({'baseVersion':0,'ciphertext':base64.b64encode(os.urandom(11<<20)).decode(),'nonce':base64.b64encode(os.urandom(24)).decode()}))" > big.json
+curl -s -o /dev/null -w '%{http_code}\n' -X PUT -H 'content-type: application/json' --data-binary @big.json https://sync.yourdomain.com/v1/blobs/big
+```
+
+To try the production stack locally, `BACCHAT_DOMAIN=localhost` works: Caddy then uses its own
+local certificate (curl needs `-k`).
+
+The image is built on `node:22-slim`. better-sqlite3 13 crashes under Node 20, so 22 is the minimum.
 
 ## Environment variables
 

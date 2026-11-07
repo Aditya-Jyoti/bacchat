@@ -161,8 +161,15 @@ async function main(): Promise<void> {
     check("list reports usedBytes and capBytes", typeof list.body?.usedBytes === "number" && typeof list.body?.capBytes === "number");
 
     section("7. Size limits");
-    const tooBig = await call("PUT", "/v1/blobs/big", { token: tokenA, body: { baseVersion: 0, ciphertext: b64(external ? 11 * 1024 * 1024 : 4096), nonce: nonce() } });
-    check("oversized blob returns 413", tooBig.status === 413, `status ${tooBig.status}`);
+    // Behind the HTTPS proxy (docker-compose.prod.yml) Caddy answers 413 and resets the upload early.
+    // curl reads that 413, but Node's fetch over HTTP/2 sees only the reset and then reuses the dead
+    // connection, so this one upload is skipped there. Check it with curl instead (see README).
+    if (base.startsWith("https:")) {
+      console.log("  SKIP  oversized blob over HTTPS (check it with curl, see README)");
+    } else {
+      const tooBig = await call("PUT", "/v1/blobs/big", { token: tokenA, body: { baseVersion: 0, ciphertext: b64(external ? 11 * 1024 * 1024 : 4096), nonce: nonce() } });
+      check("oversized blob returns 413", tooBig.status === 413, `status ${tooBig.status}`);
+    }
     if (!external) {
       // Cap is 4096 bytes in total: entries (300) + goals (100) already stored.
       const filler = async (name: string, n: number): Promise<Res> =>
