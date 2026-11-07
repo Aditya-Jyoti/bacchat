@@ -5,6 +5,11 @@ import { useAiPreferences } from '../../../lib/ai';
 import { usePreferences } from '../../../lib/preferences';
 import { renderWithTheme } from '../../../testUtils';
 import K24_Settings from '../K24_Settings';
+import { NpsNavSection } from '../settings/NpsNavSection';
+import { useSettingsGroups } from '../parts/SettingsGroup';
+
+// Settings groups start collapsed; these tests reach rows inside them.
+beforeEach(() => useSettingsGroups.getState().openAll());
 
 beforeEach(() => {
   useAiPreferences.getState().reset();
@@ -26,8 +31,13 @@ describe.each(['light', 'dark'] as const)('k24 more settings (%s)', (mode) => {
     expect(useAiPreferences.getState().aiModelsWifiOnly).toBe(false);
   });
 
-  it('saves, rejects and resets the NPS NAV address', () => {
-    const { getByTestId, getByText } = renderWithTheme(<K24_Settings />, mode);
+  it('does not show the NPS NAV address (funds are entered by hand)', () => {
+    const { queryByTestId } = renderWithTheme(<K24_Settings />, mode);
+    expect(queryByTestId('settings-nps')).toBeNull();
+  });
+
+  it('NPS NAV address section (kept for a later price source) saves, rejects and resets', () => {
+    const { getByTestId, getByText } = renderWithTheme(<NpsNavSection />, mode);
     expect(getByTestId('nps-help').props.children).toContain('{DDMMYYYY}');
     fireEvent.changeText(getByTestId('nps-url'), 'not a url');
     fireEvent.press(getByTestId('nps-save'));
@@ -42,10 +52,3 @@ describe.each(['light', 'dark'] as const)('k24 more settings (%s)', (mode) => {
   });
 });
 
-describe('k24 email row', () => {
-  it('shows plain copy, not a sample address', () => {
-    const { getByText, queryByText } = renderWithTheme(<K24_Settings />, 'light');
-    expect(getByText('Paste an email into Entries. Read on this phone only.')).toBeTruthy();
-    expect(queryByText(/rahul/i)).toBeNull();
-  });
-});

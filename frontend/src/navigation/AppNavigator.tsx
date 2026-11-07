@@ -1,11 +1,12 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { DarkTheme, DefaultTheme, NavigationContainer, type Theme } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, NavigationContainer, useNavigationContainerRef, type ParamListBase, type Theme } from '@react-navigation/native';
 import { createNativeStackNavigator, type NativeStackNavigationOptions } from '@react-navigation/native-stack';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { useTheme } from '../theme';
 import { REGISTERED_SCREENS, SCREEN_COMPONENTS } from './registry';
 import { linking } from './linking';
+import { HOLD_ROUTES, usePendingEntry } from './pendingEntry';
 import { useMoneySegment } from './moneySegment';
 import { MAIN_ROUTE, ROUTES, type ScreenDef } from './screenManifest';
 import { TabBar } from './TabBar';
@@ -76,10 +77,22 @@ export function AppNavigation(): React.JSX.Element {
       notification: colors.error,
     },
   };
+  const ref = useNavigationContainerRef<ParamListBase>();
+  const entry = usePendingEntry((s) => s.entry);
+  const [route, setRoute] = useState<string | undefined>(undefined);
+  // Open a pending outside entry (a shared image) once navigation is ready and past splash and welcome.
+  useEffect(() => {
+    if (!entry || !ref.isReady() || !route || HOLD_ROUTES.includes(route)) return;
+    usePendingEntry.getState().set(null);
+    ref.navigate(entry.route, entry.params);
+  }, [entry, route, ref]);
   return (
     <NavigationContainer
+      ref={ref}
       theme={navTheme}
       linking={linking}
+      onReady={() => setRoute(ref.getCurrentRoute()?.name)}
+      onStateChange={() => setRoute(ref.getCurrentRoute()?.name)}
     >
       <RootNavigator />
     </NavigationContainer>

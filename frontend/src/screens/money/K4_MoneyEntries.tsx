@@ -12,7 +12,7 @@ import { SkeletonRows } from '../../components/SkeletonLoader';
 import { useTabScrollToTop } from '../../components/useTabScrollToTop';
 import { formatRupees } from '../../lib/format';
 import { MoneySegmentedControl } from '../../navigation/MoneySegmentedControl';
-import { useEntries, useNow, useToReviewEntries, useWriters, type EntryFilter as DbFilter } from '../../services';
+import { pickScreenshot, useEntries, useNow, useToReviewEntries, useWriters, type EntryFilter as DbFilter } from '../../services';
 import { useTheme } from '../../theme';
 import { EntryRow } from './parts/EntryRow';
 import { MoneyHeader } from './parts/MoneyHeader';
@@ -40,6 +40,11 @@ function dbFilter(f: EntryFilter, categoryId: string | undefined): DbFilter {
 export default function K4_MoneyEntries(): React.JSX.Element {
   const { colors, typography, spacing } = useTheme();
   const nav = useMoneyNav();
+  // Pick a screenshot from the gallery first; k7 opens only with a real image to read.
+  const fromScreenshot = async (): Promise<void> => {
+    const uri = await pickScreenshot();
+    if (uri) nav.open('k7', { uri });
+  };
   const db = useWriters();
   const now = useNow();
   const scrollRef = useRef<ScrollView>(null);
@@ -157,7 +162,8 @@ export default function K4_MoneyEntries(): React.JSX.Element {
                 if (row.pending) {
                   return <PendingRow key={e.id} testID={`entry-${e.merchant}`} row={row} onConfirm={() => void db.entries.confirm(e.id)} onLongPress={open} />;
                 }
-                return <EntryRow key={e.id} testID={`entry-${e.merchant}`} {...row} onLongPress={open} />;
+                // Tap opens the entry to edit; long-press keeps the quick menu.
+                return <EntryRow key={e.id} testID={`entry-${e.merchant}`} {...row} onPress={() => nav.open('k5', { id: e.id })} onLongPress={open} />;
               })}
             </View>
           );
@@ -166,7 +172,7 @@ export default function K4_MoneyEntries(): React.JSX.Element {
       {undo.item ? <Snackbar label={undo.item.label} onUndo={restore} /> : null}
       <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: spacing.lg, paddingVertical: 10, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.outlineVariant }}>
         <PillButton testID="action-hand" label={S.byHand} icon="edit" kind="tonal" onPress={() => nav.go('k5')} style={{ flex: 1, paddingHorizontal: spacing.xl }} />
-        <PillButton testID="action-shot" label={S.fromScreenshot} icon="add_photo_alternate" onPress={() => nav.go('k7')} style={{ flex: 1.3, paddingHorizontal: spacing.xl }} />
+        <PillButton testID="action-shot" label={S.fromScreenshot} icon="add_photo_alternate" onPress={() => void fromScreenshot()} style={{ flex: 1.3, paddingHorizontal: spacing.xl }} />
       </View>
     </ScreenScaffold>
   );

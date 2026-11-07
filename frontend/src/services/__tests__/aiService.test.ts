@@ -24,7 +24,7 @@ function memoryFs(files: Record<string, number> = {}): DownloadFs {
   };
 }
 
-const anthropicReply = (text: string) => ({ stop_reason: 'end_turn', content: [{ type: 'text', text }], usage: { input_tokens: 1, output_tokens: 1 } });
+const anthropicReply = (text: string) => ({ choices: [{ message: { content: text }, finish_reason: 'stop' }], usage: { prompt_tokens: 1, completion_tokens: 1 } });
 const extractJson = (o: Record<string, unknown>) => anthropicReply(JSON.stringify({ isTransaction: true, confidence: 0.8, ...o }));
 
 function fetchLog(replies: unknown[]) {
@@ -74,7 +74,7 @@ describe('advisor engines', () => {
 
   it('off mode has no advisor even with a key', async () => {
     const s = createTestServices();
-    await s.settings.setApiKey('sk-abc');
+    await s.ai.setOpenAiKey('sk-abc');
     expect(await s.createAdvisor()).not.toBeNull();
     s.ai.setMode('off');
     expect(await s.createAdvisor()).toBeNull();
@@ -84,14 +84,14 @@ describe('advisor engines', () => {
     const llm = createFakeLlm([new Error('out of memory')]);
     const { f, calls } = fetchLog([anthropicReply('From the cloud.')]);
     const s = createTestServices({ fetch: f, ai: { onDevice: llm, downloadFs: memoryFs({ [MODEL.fileName]: 100 }), downloadFetch: null } });
-    await s.settings.setApiKey('sk-abc');
+    await s.ai.setOpenAiKey('sk-abc');
     s.ai.setMode('auto');
     s.ai.setActiveModel(MODEL.id);
     const ev = [];
     for await (const e of (await s.createAdvisor())!.ask('Hi')) ev.push(e);
-    expect(ev.at(-1)).toMatchObject({ type: 'done', text: 'From the cloud.', engine: { id: 'anthropic' } });
+    expect(ev.at(-1)).toMatchObject({ type: 'done', text: 'From the cloud.', engine: { id: 'openai' } });
     expect(calls).toHaveLength(1);
-    expect(calls[0].url).toContain('/v1/messages');
+    expect(calls[0].url).toContain('/chat/completions');
   });
 
   it('an OpenAI-compatible provider uses its base URL, model and key, and works for the advisor without text consent', async () => {
@@ -128,7 +128,7 @@ describe('advisor engines', () => {
 
   it('rebuilds the advisor when AI settings change', async () => {
     const s = createTestServices();
-    await s.settings.setApiKey('sk-abc');
+    await s.ai.setOpenAiKey('sk-abc');
     const a = await s.createAdvisor();
     expect(await s.createAdvisor()).toBe(a);
     useAiPreferences.getState().setAutoCloudFallback(false);
@@ -142,7 +142,7 @@ describe('message extraction and consent', () => {
   it('makes no cloud call without consent, then reads the message with redacted text once allowed', async () => {
     const { f, calls } = fetchLog([extractJson({ amount: '1,249', direction: 'out', merchant: 'Amazon Pay India', cardLast4: '4005' })]);
     const s = createTestServices({ fetch: f });
-    await s.settings.setApiKey('sk-abc');
+    await s.ai.setOpenAiKey('sk-abc');
     await s.whenReady();
     expect(s.ai.hasConsent()).toBe(false);
     expect(await s.ai.extractor(AMAZON, { source: 'sms', receivedAt: RX })).toBeNull();
@@ -165,15 +165,14 @@ describe('message extraction and consent', () => {
     expect(calls).toHaveLength(1);
   });
 
-  it('consent is per provider', async () => {
+  it('consent is per provider address', async () => {
     const s = createTestServices();
+    expect(s.ai.currentConsentKey()).toBe('openai:api.openai.com');
     s.ai.grantConsent();
     expect(s.ai.hasConsent()).toBe(true);
     const st = useAiPreferences.getState();
-    st.setCloudProvider('openai');
-    expect(s.ai.hasConsent()).toBe(false);
-    expect(s.ai.currentConsentKey()).toBe('openai:api.openai.com');
     st.setOpenAi({ baseUrl: 'http://192.168.1.20:11434/v1' });
+    expect(s.ai.hasConsent()).toBe(false);
     expect(s.ai.currentConsentKey()).toBe('openai:192.168.1.20:11434');
   });
 
@@ -227,6 +226,6 @@ describe('on-device model management', () => {
   });
 
   it('defaults are sane', () => {
-    expect(DEFAULT_AI_PREFS).toMatchObject({ aiMode: 'cloud', aiCloudProvider: 'anthropic', aiConsent: {}, aiActiveModelId: null });
+    expect(DEFAULT_AI_PREFS).toMatchObject({ aiMode: 'cloud', aiCloudProvider: 'openai', aiConsent: {}, aiActiveModelId: null });
   });
 });

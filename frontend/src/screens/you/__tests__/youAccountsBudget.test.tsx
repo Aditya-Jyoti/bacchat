@@ -74,27 +74,26 @@ async function designBudgetServices(): Promise<Services> {
 describe.each(['light', 'dark'] as const)('k10 Accounts (%s)', (mode) => {
   const c = khataPalette(45, mode);
 
-  it('shows a skeleton, then the net worth equation and the yours-to-spend block', async () => {
-    const { getByText, getByTestId, findByTestId, queryByTestId } = renderWithTheme(<K10_Accounts />, mode);
+  it('shows a skeleton, then net worth and a plain summary of accounts (no own/owe maths, no yours-to-spend)', async () => {
+    const { getByText, getByTestId, findByText, queryByTestId, queryByText } = renderWithTheme(<K10_Accounts />, mode);
     expect(getByTestId('screen-k10')).toBeTruthy();
     expect(queryByTestId('skeleton-rows')).toBeTruthy();
-    await findByTestId('yours-to-spend');
+    await findByText('Your accounts');
     expect(queryByTestId('skeleton-rows')).toBeNull();
     expect(getByTestId('net-worth').props.children).toBe(`${R}18,22,350`);
-    expect(getByTestId('net-equation').props.children).toBe(`${R}18,42,350 owned \u2212 ${R}20,000 owed`);
-    expect(getByText('MONEY YOU CAN ACTUALLY SPEND')).toBeTruthy();
-    expect(getByText('Banks + cash')).toBeTruthy();
+    expect(queryByTestId('net-equation')).toBeNull();
+    expect(queryByTestId('yours-to-spend')).toBeNull();
+    expect(queryByText('MONEY YOU CAN ACTUALLY SPEND')).toBeNull();
     expect(getByText(`${R}5,43,150`)).toBeTruthy();
-    expect(getByText(`\u2212 ${R}20,000`)).toBeTruthy();
-    expect(getByTestId('yours-to-spend-amount').props.children).toBe(`${R}5,23,150`);
   });
 
   it('lists what you own with fund values from NAV and what you owe with used-of-limit bars', async () => {
     const { getByText, getAllByText, getAllByTestId, findByText } = renderWithTheme(<K10_Accounts />, mode);
     await findByText('ICICI Amazon Pay');
     for (const n of ['HDFC Savings', 'SBI Salary', 'Cash wallet', 'Mutual funds', 'NPS Tier I']) expect(getAllByText(n).length).toBeGreaterThan(0);
-    expect(getByText('What you own')).toBeTruthy();
-    expect(getByText('What you owe')).toBeTruthy();
+    expect(getByText('Your accounts')).toBeTruthy();
+    expect(getByText('Investments')).toBeTruthy();
+    expect(getByText('Cards and loans')).toBeTruthy();
     expect(getByText('Bank \u00B7 debit card \u2022\u20224021')).toBeTruthy();
     expect(getByText('6 funds \u00B7 live NAV')).toBeTruthy();
     expect(getByText(`${R}9,86,400`)).toBeTruthy();
@@ -107,20 +106,13 @@ describe.each(['light', 'dark'] as const)('k10 Accounts (%s)', (mode) => {
     expect(flat(bars[0].props.style).backgroundColor).toBe(c.chart3);
   });
 
-  it('lists UPI IDs with ingress and egress from the entries', async () => {
-    const { getByText, findByLabelText } = renderWithTheme(<K10_Accounts />, mode);
-    expect(await findByLabelText(`Came in ${R}42,300`)).toBeTruthy();
-    expect(getByText('UPI IDs')).toBeTruthy();
-    expect(getByText('rahul@okhdfc')).toBeTruthy();
-    expect(getByText('rahul.s@ybl')).toBeTruthy();
-    // The seeded entries carry this month's UPI spend per id, and the credits that came in.
-    expect(await findByLabelText(`Went out ${R}7,360`)).toBeTruthy();
-    expect(await findByLabelText(`Went out ${R}2,920`)).toBeTruthy();
-    expect(await findByLabelText(`Went out ${R}600`)).toBeTruthy();
-    expect(getByText('rahul.k@paytm')).toBeTruthy();
-    expect(await findByLabelText(`Came in ${R}5,000`)).toBeTruthy();
-    expect(await findByLabelText(`Came in ${R}1,200`)).toBeTruthy();
+  it('has no UPI IDs section', async () => {
+    const { findByText, queryByText } = renderWithTheme(<K10_Accounts />, mode);
+    await findByText('Your accounts');
+    expect(queryByText('UPI IDs')).toBeNull();
+    expect(queryByText('rahul@okhdfc')).toBeNull();
   });
+
 
   it('a new account written to the database shows up and lowers net worth when it is debt', async () => {
     const { findByText, getByTestId, services } = renderWithTheme(<K10_Accounts />, mode);
@@ -132,6 +124,14 @@ describe.each(['light', 'dark'] as const)('k10 Accounts (%s)', (mode) => {
     await waitFor(() => expect(getByTestId('net-worth').props.children).toBe(`${R}17,72,350`));
   });
 
+  it('labels funds and NPS typed by hand as the amount invested, not live NAV', async () => {
+    const { findByText, findAllByText, services } = renderWithTheme(<K10_Accounts />, mode, { servicesOptions: { seed: false } });
+    await services.db.accounts.put({ id: 'acc-mf-hand', name: 'Index funds', kind: 'mf', balancePaise: 5000000, icon: 'trending_up' });
+    await services.db.accounts.put({ id: 'acc-nps-hand', name: 'My NPS', kind: 'nps', balancePaise: 12000000, icon: 'elderly' });
+    expect(await findByText('My NPS')).toBeTruthy();
+    expect(await findAllByText('Amount invested \u00B7 added by hand')).toHaveLength(2);
+  });
+
   it('shows a calm empty line with no accounts', async () => {
     const { findByTestId, getByLabelText } = renderWithTheme(<K10_Accounts />, mode, { servicesOptions: { seed: false } });
     expect(await findByTestId('accounts-empty')).toBeTruthy();
@@ -140,8 +140,8 @@ describe.each(['light', 'dark'] as const)('k10 Accounts (%s)', (mode) => {
 
   it('plus opens Add account and back goes back', async () => {
     const navigation = nav();
-    const { getByTestId, getByLabelText, findByTestId } = renderWithTheme(withNav(<K10_Accounts />, navigation), mode);
-    await findByTestId('yours-to-spend');
+    const { getByTestId, getByLabelText, findByText } = renderWithTheme(withNav(<K10_Accounts />, navigation), mode);
+    await findByText('Your accounts');
     fireEvent.press(getByTestId('add-account'));
     expect(navigation.navigate).toHaveBeenCalledWith('you/accounts/add');
     fireEvent.press(getByLabelText('Back'));
@@ -150,8 +150,8 @@ describe.each(['light', 'dark'] as const)('k10 Accounts (%s)', (mode) => {
 });
 
 describe.each(['light', 'dark'] as const)('k11 Add account (%s)', (mode) => {
-  it('shows the credit card form with every field type', () => {
-    const { getByText, getAllByText, getByTestId } = renderWithTheme(<K11_AddAccount />, mode);
+  it('shows the credit card form with every field type, and no card digits field', () => {
+    const { getByText, getAllByText, getByTestId, queryByTestId } = renderWithTheme(<K11_AddAccount />, mode);
     expect(getByTestId('screen-k11')).toBeTruthy();
     expect(getAllByText('Add account').length).toBeGreaterThan(0);
     expect(getByText('Just a name and a balance. No bank login, ever.')).toBeTruthy();
@@ -161,7 +161,7 @@ describe.each(['light', 'dark'] as const)('k11 Add account (%s)', (mode) => {
     expect(getByText('Credit limit')).toBeTruthy();
     expect(getByTestId('acct-limit-input').props.value).toBe('1,00,000');
     expect(getByTestId('acct-owed-input').props.value).toBe('5,180');
-    expect(getByText('Enter 4 digits')).toBeTruthy();
+    expect(queryByTestId('acct-last4')).toBeNull();
     expect(getByText('18th')).toBeTruthy();
     expect(getByText('5th')).toBeTruthy();
     expect(getByText('Remind me 3 days before')).toBeTruthy();
@@ -169,15 +169,14 @@ describe.each(['light', 'dark'] as const)('k11 Add account (%s)', (mode) => {
     expect(getByText('Add card')).toBeTruthy();
   });
 
-  it('blocks Add card until the last 4 digits are valid, then writes the card and its debt', async () => {
+  it('writes the card and its debt with just a name, without card digits', async () => {
     const navigation = nav();
-    const { getByTestId, queryByText, services } = renderWithTheme(withNav(<K11_AddAccount />, navigation), mode);
-    expect(getByTestId('add-account-submit').props.accessibilityState.disabled).toBe(true);
-    fireEvent.changeText(getByTestId('acct-last4-input'), '4021');
-    expect(queryByText('Enter 4 digits')).toBeNull();
+    const { getByTestId, services } = renderWithTheme(withNav(<K11_AddAccount />, navigation), mode);
+    expect(getByTestId('add-account-submit').props.accessibilityState.disabled).toBe(false);
     fireEvent.press(getByTestId('add-account-submit'));
     await waitFor(() => expect(navigation.navigate).toHaveBeenCalledWith('you/accounts'));
-    const card = (await services.db.accounts.list()).find((a) => a.kind === 'card' && a.last4 === '4021');
+    const card = (await services.db.accounts.list()).find((a) => a.kind === 'card' && a.name === 'HDFC Millennia');
+    expect(card?.last4).toBeNull();
     expect(card).toMatchObject({ name: 'HDFC Millennia', icon: 'credit_card', balancePaise: 0 });
     expect(card?.note).toBe('HDFC Bank, bill made on 18th');
     const debt = (await services.db.debts.list()).find((d) => d.accountId === card?.id);
@@ -186,7 +185,6 @@ describe.each(['light', 'dark'] as const)('k11 Add account (%s)', (mode) => {
 
   it('asks for a limit when it is empty', () => {
     const { getByTestId, getByText } = renderWithTheme(<K11_AddAccount />, mode);
-    fireEvent.changeText(getByTestId('acct-last4-input'), '4021');
     fireEvent.changeText(getByTestId('acct-limit-input'), '');
     expect(getByText('Enter a limit')).toBeTruthy();
     expect(getByTestId('add-account-submit').props.accessibilityState.disabled).toBe(true);
@@ -236,6 +234,39 @@ describe.each(['light', 'dark'] as const)('k11 Add account (%s)', (mode) => {
     expect((await services.db.debts.list()).find((d) => d.accountId === loan?.id)?.outstandingPaise).toBe(4000000);
   });
 
+  it('writes an investment typed by hand as a mutual fund amount, with the note', async () => {
+    const { getByTestId, getByText, services } = renderWithTheme(<K11_AddAccount />, mode);
+    fireEvent.press(getByTestId('type-invest'));
+    expect(getByText('Amount invested')).toBeTruthy();
+    expect(getByTestId('invest-note').props.children).toMatch(/won\u2019t follow market prices/);
+    fireEvent.changeText(getByTestId('acct-name-input'), 'Index funds');
+    fireEvent.changeText(getByTestId('acct-owed-input'), '50000');
+    fireEvent.press(getByTestId('add-account-submit'));
+    await waitFor(async () => expect((await services.db.accounts.list()).some((a) => a.name === 'Index funds')).toBe(true));
+    const fund = (await services.db.accounts.list()).find((a) => a.name === 'Index funds');
+    expect(fund).toMatchObject({ kind: 'mf', balancePaise: 5000000, icon: 'trending_up' });
+  });
+
+  it('writes NPS typed by hand as an nps account', async () => {
+    const { getByTestId, services } = renderWithTheme(<K11_AddAccount />, mode);
+    fireEvent.press(getByTestId('type-invest'));
+    fireEvent.press(getByTestId('invest-nps'));
+    fireEvent.changeText(getByTestId('acct-name-input'), 'My NPS');
+    fireEvent.changeText(getByTestId('acct-owed-input'), '120000');
+    fireEvent.press(getByTestId('add-account-submit'));
+    await waitFor(async () => expect((await services.db.accounts.list()).some((a) => a.name === 'My NPS')).toBe(true));
+    const nps = (await services.db.accounts.list()).find((a) => a.name === 'My NPS');
+    expect(nps).toMatchObject({ kind: 'nps', balancePaise: 12000000, icon: 'elderly' });
+    expect((await services.db.debts.list()).some((d) => d.accountId === nps?.id)).toBe(false);
+  });
+
+  it('does not show investment choices or the note for other types', () => {
+    const { getByTestId, queryByTestId } = renderWithTheme(<K11_AddAccount />, mode);
+    fireEvent.press(getByTestId('type-bank'));
+    expect(queryByTestId('invest-nps')).toBeNull();
+    expect(queryByTestId('invest-note')).toBeNull();
+  });
+
   it('toggles the reminder switch', () => {
     const { getByLabelText } = renderWithTheme(<K11_AddAccount />, mode);
     const sw = getByLabelText('Remind me 3 days before', { exact: true, hidden: true });
@@ -254,14 +285,14 @@ describe.each(['light', 'dark'] as const)('k15 Budget (%s)', (mode) => {
   };
 
   it('shows what is left, the pace bar and the rows', async () => {
-    const { getByText, getByTestId } = await open();
+    const { getByText, getByTestId, queryByTestId } = await open();
     expect(getByTestId('screen-k15')).toBeTruthy();
     expect(getByText('October budget')).toBeTruthy();
     expect(getByTestId('budget-left').props.children).toBe(`${R}13,760 left`);
     expect(getByText(`for 7 days \u00B7 about ${R}1,965 a day`)).toBeTruthy();
-    expect(getByText(`${R}31,240 of ${R}45,000`)).toBeTruthy();
-    expect(getByText('today \u2191')).toBeTruthy();
-    expect(flat(getByTestId('pace-bar-today').props.style).left).toBe(`${(24 / 31) * 100}%`);
+    expect(getByText(`Spent ${R}31,240 of ${R}45,000`)).toBeTruthy();
+    expect(getByText('7 days to go')).toBeTruthy();
+    expect(queryByTestId('pace-bar-today')).toBeNull();
     for (const n of ['Eating out', 'Shopping', 'Groceries', 'Bills', 'Transport']) expect(getByTestId(`budget-row-${n}`)).toBeTruthy();
     expect(getByText(`${R}6,640`)).toBeTruthy();
   });
@@ -329,6 +360,32 @@ describe.each(['light', 'dark'] as const)('k16 Edit budget (%s)', (mode) => {
     await r.findByTestId('limit-slider-Eating out');
     return r;
   };
+
+  it('adds a named budget like Fun, and removes a budget', async () => {
+    const r = await open();
+    fireEvent.press(r.getByTestId('add-budget'));
+    fireEvent.changeText(r.getByTestId('new-budget-name-input'), 'Fun');
+    fireEvent.changeText(r.getByTestId('new-budget-amount-input'), '3000');
+    fireEvent.press(r.getByTestId('new-budget-add'));
+    await waitFor(async () => expect((await r.services.db.budgets.list()).find((b) => b.name === 'Fun')).toMatchObject({ categoryId: '', monthlyPaise: 300000 }));
+    expect(await r.findByTestId('limit-row-Fun')).toBeTruthy();
+    fireEvent.press(r.getByTestId('limit-remove-Fun'));
+    await waitFor(async () => expect((await r.services.db.budgets.list()).some((b) => b.name === 'Fun')).toBe(false));
+  });
+
+  it('a budget named like a category links it, says so, and removing the budget unlinks it', async () => {
+    const r = await open();
+    const ent = (await r.services.db.categories.list()).find((c) => c.name === 'Entertainment');
+    expect(ent).toBeTruthy();
+    fireEvent.press(r.getByTestId('add-budget'));
+    fireEvent.changeText(r.getByTestId('new-budget-name-input'), 'entertainment');
+    fireEvent.changeText(r.getByTestId('new-budget-amount-input'), '6000');
+    fireEvent.press(r.getByTestId('new-budget-add'));
+    await waitFor(async () => expect((await r.services.db.categories.get(ent!.id))?.budgetId).toBeTruthy());
+    expect((await r.findByTestId('limit-note-entertainment')).props.children).toBe('Counts Entertainment on its own');
+    fireEvent.press(r.getByTestId('limit-remove-entertainment'));
+    await waitFor(async () => expect((await r.services.db.categories.get(ent!.id))?.budgetId).toBeNull());
+  });
 
   it('shows the total, split summary, sliders, nudge and rollover', async () => {
     const { getByText, getByTestId } = await open();

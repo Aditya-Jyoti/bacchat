@@ -31,6 +31,10 @@ export type Account = BaseRecord & {
   last4?: string | null;
   /** Free text such as "Bank, debit card 4021". */
   note?: string | null;
+  /** Investments: when the next payment (SIP, NPS contribution) is due, as YYYY-MM-DD. Shown in Coming up. */
+  nextPaymentDate?: string | null;
+  /** How the payment above repeats. Absent means every month (a SIP's usual rhythm). */
+  paymentRepeat?: Repeat | null;
 };
 
 /** Debt side of an account (credit card or loan). Always shown separately, never netted into a balance. */
@@ -75,11 +79,17 @@ export type Entry = BaseRecord & {
   status: EntryStatus;
   /** True when an AI or parser added it; shows the To review tag until confirmed. */
   aiAdded: boolean;
+  /** Budget this spend is tagged with in k5 (optional). */
+  budgetId?: string | null;
 };
 
 export type Category = BaseRecord & {
   name: string;
   icon: string;
+  /** Hidden from category pickers (k5, k8, k27, k28). Entries that use it keep showing it. */
+  hidden?: boolean | null;
+  /** A named budget (Food, Fun) this category's spends count toward without tagging each one (k30). */
+  budgetId?: string | null;
 };
 
 /** What we have learned about a payee: used to infer a category for new entries. */
@@ -99,6 +109,12 @@ export type Goal = BaseRecord & {
   targetPaise: number;
   /** Free text or a date key YYYY-MM-DD. */
   targetDate?: string | null;
+  /**
+   * The bank or cash account the goal's money is kept in. Setting money aside for the goal adds it
+   * to this account's balance (and taking it out takes it off), so net worth sees it through the
+   * account. Null: the goal is tracked on its own and is not part of net worth.
+   */
+  accountId?: string | null;
 };
 
 export type GoalAllocation = BaseRecord & {
@@ -107,19 +123,32 @@ export type GoalAllocation = BaseRecord & {
   amountPaise: number;
 };
 
+/**
+ * A monthly budget. Either tied to a category (categoryId, its spends count automatically) or a
+ * named budget ("Fun", "Tech": name and icon, categoryId '') that spends are tagged with in k5
+ * (Entry.budgetId). A spend tagged with a budget counts there and nowhere else. A category can be
+ * linked to a named budget (Category.budgetId): its untagged spends then count there instead.
+ */
 export type Budget = BaseRecord & {
   categoryId: string;
   monthlyPaise: number;
+  /** Named budgets only. */
+  name?: string | null;
+  icon?: string | null;
 };
 
 export type Cadence = 'weekly' | 'monthly' | 'quarterly' | 'yearly';
-export type RecurringKind = 'sip' | 'bill' | 'monthly';
+/** How often a dated item comes round: a cadence, or just the one date. */
+export type Repeat = Cadence | 'once';
+/** sip, bill and monthly come from the seed; income (pay day) and transfer are events added by hand in k17. */
+export type RecurringKind = 'sip' | 'bill' | 'monthly' | 'income' | 'transfer';
 
 export type Recurring = BaseRecord & {
   title: string;
   icon: string;
+  /** 0 for an event with no fixed amount (shown without one). */
   amountPaise: number;
-  cadence: Cadence;
+  cadence: Repeat;
   /** Next due date as a local date key YYYY-MM-DD. */
   nextDue: string;
   kind: RecurringKind;

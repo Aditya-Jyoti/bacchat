@@ -1,7 +1,7 @@
-/** k16: Edit budget. Monthly total, one slider per category, nudge threshold, rollover, Save. */
+/** k16: Edit budget. Monthly total, one slider per budget (category or named), Add a budget, Remove, nudge threshold, rollover, Save. */
 import React, { useState } from 'react';
 import { Text, View, type TextStyle } from 'react-native';
-import { Switch } from 'react-native-paper';
+import { Button, Switch } from 'react-native-paper';
 
 import { OutlinedField } from '../../components/OutlinedField';
 import { SegmentedChoice } from '../../components/SegmentedChoice';
@@ -9,13 +9,15 @@ import { StackScreen } from '../../components/StackScreen';
 import { TopBarAction } from '../../components/TopBar';
 import { SkeletonRows } from '../../components/SkeletonLoader';
 import { formatRupees, groupIndian } from '../../lib/format';
-import { useNow, useWriters } from '../../services';
+import { useDbQuery, useNow, useWriters } from '../../services';
 import { useTheme } from '../../theme';
 import { useScreenNav } from '../shared/useScreenNav';
 import { useBudget, type NudgeAt } from './budgetStore';
 import { monthName } from './parts/monthName';
 import { LimitRow } from './sections/LimitRow';
 import { useEditableBudgets } from './useBudgetData';
+import { NewBudgetDialog } from './sections/NewBudgetDialog';
+import { newId } from '../../data/db';
 import { t } from '../../lib/i18n';
 
 const MAX_CATEGORY = 20000;
@@ -27,11 +29,29 @@ export default function K16_EditBudget(): React.JSX.Element {
   const now = useNow();
   const saved = useBudget();
   const { loading, budgets } = useEditableBudgets();
+  // Categories linked to a named budget (k30) count toward it without tagging.
+  const cats = useDbQuery((d) => d.categories.list()).data ?? [];
+  const noteFor = (b: { id: string; categoryId: string }): string | undefined => {
+    if (b.categoryId) return undefined;
+    const linked = cats.filter((c) => c.budgetId === b.id).map((c) => c.name);
+    return linked.length ? t('budgetUi.fromCategories', { names: linked.join(', ') }) : t('budgetUi.noCategories');
+  };
   // Edits sit on top of what is stored; untouched fields keep following the database.
   const [totalEdit, setTotalEdit] = useState<number | null>(null);
   const [edits, setEdits] = useState<Record<string, number>>({});
   const [nudge, setNudge] = useState<NudgeAt>(saved.nudge);
   const [rollover, setRollover] = useState(saved.rollover);
+  const [adding, setAdding] = useState(false);
+  const addBudget = (name: string, monthlyPaise: number): void => {
+    setAdding(false);
+    const id = newId('bud');
+    void (async () => {
+      await db.budgets.put({ id, categoryId: '', name, icon: 'account_balance_wallet', monthlyPaise });
+      // A budget named like a category ("Food") starts with that category counting toward it.
+      const same = (await db.categories.list()).find((c) => c.name.trim().toLowerCase() === name.trim().toLowerCase() && !c.budgetId);
+      if (same) await db.categories.put({ ...same, budgetId: id });
+    })();
+  };
   const total = totalEdit ?? saved.totalPaise / 100;
   const limitOf = (b: { id: string; monthlyPaise: number }): number => edits[b.id] ?? b.monthlyPaise / 100;
   const split = budgets.reduce((a, b) => a + limitOf(b), 0);
@@ -41,9 +61,9 @@ export default function K16_EditBudget(): React.JSX.Element {
     saved.save({ totalPaise: total * 100, nudge, rollover });
     for (const b of budgets) {
       const v = edits[b.id];
-      if (v !== undefined && v * 100 !== b.monthlyPaise) await db.budgets.put({ id: b.id, categoryId: b.categoryId, monthlyPaise: v * 100 });
+      if (v !== undefined && v * 100 !== b.monthlyPaise) await db.budgets.put({ ...b, monthlyPaise: v * 100 });
     }
-    nav.go('k15');
+    nav.finish('k15');
   };
   return (
     <StackScreen
@@ -82,9 +102,20 @@ export default function K16_EditBudget(): React.JSX.Element {
             rupees={limitOf(b)}
             maxRupees={Math.max(MAX_CATEGORY, limitOf(b))}
             onChange={(v) => setEdits((l) => ({ ...l, [b.id]: v }))}
+            onRemove={() =>
+              void (async () => {
+                await db.budgets.remove(b.id);
+                for (const c of await db.categories.list()) if (c.budgetId === b.id) await db.categories.put({ ...c, budgetId: null });
+              })()
+            }
+            note={noteFor(b)}
           />
         ))}
+        <Button testID="add-budget" mode="outlined" icon="plus" onPress={() => setAdding(true)} style={{ marginTop: 12, alignSelf: 'flex-start', borderColor: colors.outline }} contentStyle={{ height: 48 }}>
+          {t('budgetUi.addBudget')}
+        </Button>
       </View>
+      <NewBudgetDialog visible={adding} taken={budgets.map((b) => b.name)} onAdd={addBudget} onClose={() => setAdding(false)} />
       <Text style={label}>{t('budgetUi.nudgeMe')}</Text>
       <SegmentedChoice
         testID="nudge"

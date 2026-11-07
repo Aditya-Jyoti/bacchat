@@ -4,17 +4,17 @@ import { Pressable, Text, View } from 'react-native';
 import { useTheme } from '../theme';
 import { t } from '../lib/i18n';
 
-export type MonthStripDot = { index: number; kind: 'sip' | 'bill' };
+export type MonthStripDot = { index: number; kind: 'sip' | 'bill' | 'pay' };
 
 export type MonthStripProps = {
   /** Day-of-month number for each cell, in order (28 cells = 4 weeks). */
   days: readonly number[];
   /** Index of today; it gets a primary circle. */
   todayIndex: number;
-  /** Event dots: bills in primary, SIPs in chart2. */
+  /** Event dots: bills in primary, SIPs in chart2, pay days and transfers in chart3. */
   dots: readonly MonthStripDot[];
   /** Hide dots of kinds not listed (filter chips). Default: both. */
-  visibleKinds?: readonly ('sip' | 'bill')[];
+  visibleKinds?: readonly ('sip' | 'bill' | 'pay')[];
   /** Weekday header, Sunday first. */
   weekdays?: readonly string[];
   onSelect?: (index: number) => void;
@@ -26,7 +26,7 @@ export function MonthStrip({
   days,
   todayIndex,
   dots,
-  visibleKinds = ['sip', 'bill'],
+  visibleKinds = ['sip', 'bill', 'pay'],
   weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
   onSelect,
   testID = 'month-strip',
@@ -38,7 +38,7 @@ export function MonthStrip({
   for (let i = 0; i < days.length; i += 7) rows.push(days.slice(i, i + 7).map((_, j) => i + j));
   const summary = dots
     .filter((d) => visibleKinds.includes(d.kind))
-    .map((d) => `${days[d.index]} ${d.kind === 'sip' ? t('componentsUi.sip') : t('componentsUi.billOrCardDue')}`)
+    .map((d) => `${days[d.index]} ${d.kind === 'sip' ? t('componentsUi.sip') : d.kind === 'pay' ? t('componentsUi.payOrTransfer') : t('componentsUi.billOrCardDue')}`)
     .join(', ');
   return (
     <View testID={testID} accessibilityLabel={t('componentsUi.calendarSummary', { today: days[todayIndex], summary })}>
@@ -60,7 +60,7 @@ export function MonthStrip({
                 key={i}
                 testID={`month-cell-${i}`}
                 accessibilityRole="button"
-                accessibilityLabel={`${days[i]}${today ? `, ${t('componentsUi.todayWord')}` : ''}${dot ? (dot.kind === 'sip' ? `, ${t('componentsUi.sip')}` : `, ${t('componentsUi.billDue')}`) : ''}`}
+                accessibilityLabel={`${days[i]}${today ? `, ${t('componentsUi.todayWord')}` : ''}${dot ? (dot.kind === 'sip' ? `, ${t('componentsUi.sip')}` : dot.kind === 'pay' ? `, ${t('componentsUi.payOrTransfer')}` : `, ${t('componentsUi.billDue')}`) : ''}`}
                 onPress={() => {
                   setSelected(i);
                   onSelect?.(i);
@@ -82,7 +82,7 @@ export function MonthStrip({
                 {dot ? (
                   <View
                     testID={`month-dot-${i}`}
-                    style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: dot.kind === 'sip' ? colors.chart2 : colors.primary }}
+                    style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: dot.kind === 'sip' ? colors.chart2 : dot.kind === 'pay' ? colors.chart3 : colors.primary }}
                   />
                 ) : (
                   <View style={{ height: 5 }} />

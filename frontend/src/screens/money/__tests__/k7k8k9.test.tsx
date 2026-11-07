@@ -13,6 +13,8 @@ import { loadPlan, rowsFromText, sampleOcrLines, trustKey } from '../importFlow'
 import { useImportSession } from '../parts/importSession';
 import { NOW } from './fixture';
 import { flat, mockNav, renderScreen, R } from './helpers';
+import { useAiPreferences } from '../../../lib/ai/prefs';
+import { createTestServices } from '../../../services';
 
 const at = (h: number, m: number): number => new Date(2026, 9, 24, h, m).getTime();
 
@@ -107,6 +109,80 @@ describe.each(['light', 'dark'] as const)('k7 Reading screenshot (%s)', (mode) =
     });
     expect(getByTestId('reading-line').props.children).toBe('Reading line 1 of 1\u2026');
     expect(getByText('Zepto')).toBeTruthy();
+  });
+
+  it('with Read screenshots with AI on, uses the model rows and says where they were read', async () => {
+    useAiPreferences.setState({ aiScreenshotRead: true });
+    try {
+      const services = createTestServices();
+      const row = { merchant: 'Kuldeep Sahu', amountPaise: 25300, direction: 'out' as const, at: NOW, timeKnown: false, lines: ['Kuldeep Sahu 253.00'] };
+      const read = jest.fn(async () => ({ ok: true as const, rows: [row], engine: { id: 'openai', kind: 'cloud' as const, label: 'openrouter.ai' } }));
+      const clean = jest.fn(async (n: readonly string[]) => [...n]);
+      Object.assign(services.ai, { readScreenshotWhy: read, cleanOcr: clean });
+      const ocr = jest.fn(() => ['Zepto  Rs 300  10:00 am']);
+      const { getByTestId, findByText } = renderScreen(<K7 ocr={ocr} />, mode, { uri: 'file:///shot.png' }, mockNav(), { services });
+      expect(getByTestId('read-where').props.children).toBe('read by your AI model');
+      expect(await findByText('Kuldeep Sahu')).toBeTruthy();
+      expect(read).toHaveBeenCalledWith('file:///shot.png', expect.any(Number));
+      expect(ocr).not.toHaveBeenCalled();
+    } finally {
+      useAiPreferences.setState({ aiScreenshotRead: false });
+    }
+  });
+
+  it('falls back to on-phone reading when the model gives nothing', async () => {
+    useAiPreferences.setState({ aiScreenshotRead: true });
+    try {
+      const services = createTestServices();
+      Object.assign(services.ai, { readScreenshotWhy: jest.fn(async () => ({ ok: false as const, why: 'That key was not accepted. Check it in Settings.' })) });
+      const ocr = jest.fn(() => ['Zepto  Rs 300  10:00 am']);
+      const { findByText } = renderScreen(<K7 ocr={ocr} />, mode, { uri: 'file:///shot.png' }, mockNav(), { services });
+      expect(await findByText('Zepto')).toBeTruthy();
+      expect(ocr).toHaveBeenCalledWith('file:///shot.png');
+    } finally {
+      useAiPreferences.setState({ aiScreenshotRead: false });
+    }
+  });
+
+  it('when nothing is found, says who read it and shows the text it read', async () => {
+    const ocr = jest.fn(async () => ['Transaction history', "6 Nov '26"]);
+    const { findByTestId, getByTestId, getAllByTestId, queryAllByTestId } = renderScreen(<K7 ocr={ocr} />, mode, { uri: 'file:///shot.png' });
+    expect(await findByTestId('read-empty')).toBeTruthy();
+    expect(getByTestId('read-by').props.children).toBe('Read on this phone by text recognition.');
+    expect(queryAllByTestId('read-seen-line')).toHaveLength(0);
+    fireEvent.press(getByTestId('read-seen-toggle'));
+    expect(getAllByTestId('read-seen-line').map((n) => n.props.children)).toEqual(['Transaction history', "6 Nov '26"]);
+  });
+
+  it('says when the AI model gave nothing and the phone read it instead', async () => {
+    useAiPreferences.setState({ aiScreenshotRead: true });
+    try {
+      const services = createTestServices();
+      Object.assign(services.ai, { readScreenshotWhy: jest.fn(async () => ({ ok: false as const, why: 'That key was not accepted. Check it in Settings.' })) });
+      const ocr = jest.fn(async () => ['nothing here']);
+      const { findByTestId, getByTestId } = renderScreen(<K7 ocr={ocr} />, mode, { uri: 'file:///shot.png' }, mockNav(), { services });
+      expect(await findByTestId('read-empty')).toBeTruthy();
+      expect(getByTestId('read-by').props.children).toBe('AI did not answer, read on this phone');
+      expect(getByTestId('read-why').props.children).toBe('That key was not accepted. Check it in Settings.');
+    } finally {
+      useAiPreferences.setState({ aiScreenshotRead: false });
+    }
+  });
+
+  it('k8: an amount that may hold a misread rupee sign can be switched with one tap', async () => {
+    const row = { merchant: 'District', amountPaise: 7142180, amountAlt: 142180, direction: 'out' as const, at: NOW, timeKnown: false, lines: ['District  71,421.8'] };
+    act(() => useImportSession.getState().start([row], 'file:///shot.png', { lines: ['District  71,421.8'], by: 'phone' }));
+    const { findByTestId, getByTestId, findByText, getByText } = await renderStory(<K8 />, mode);
+    expect(await findByTestId('alt-District')).toBeTruthy();
+    expect(getByText(`${R}71,421.80`)).toBeTruthy();
+    fireEvent.press(getByTestId('alt-District'));
+    expect(await findByText(`${R}1,421.80`)).toBeTruthy();
+    expect(getByTestId('read-by').props.children).toBe('Read on this phone by text recognition.');
+  });
+
+  it('says on this phone while AI reading is off', () => {
+    const { getByTestId } = renderScreen(<K7 />, mode);
+    expect(getByTestId('read-where').props.children).toBe('on this phone');
   });
 
   it('says so calmly when nothing could be read, and when the engine fails', async () => {

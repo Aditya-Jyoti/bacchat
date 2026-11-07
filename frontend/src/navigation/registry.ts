@@ -21,6 +21,7 @@ import K26 from '../screens/you/K26_Syncing';
 import K27 from '../screens/money/K27_LongPressMenu';
 import K28 from '../screens/money/K28_SelectMode';
 import K29 from '../screens/debug/K29_ComponentSheet2';
+import K30 from '../screens/you/K30_Categories';
 import K2 from '../screens/home/K2_ArrangeHome';
 import K3 from '../screens/money/K3_MoneySummary';
 import K4 from '../screens/money/K4_MoneyEntries';
@@ -35,7 +36,7 @@ import { MANIFEST_BY_KID, type KId, type ScreenDef } from './screenManifest';
 export const SCREEN_COMPONENTS: Readonly<Record<KId, React.ComponentType>> = {
   k1: K1, k2: K2, k3: K3, k4: K4, k5: K5, k6: K6, k7: K7, k8: K8, k9: K9, k10: K10,
   k11: K11, k12: K12, k13: K13, k14: K14, k15: K15, k16: K16, k17: K17, k18: K18, k19: K19, k20: K20,
-  k21: K21, k22: K22, k23: K23, k24: K24, k25: K25, k26: K26, k27: K27, k28: K28, k29: K29,
+  k21: K21, k22: K22, k23: K23, k24: K24, k25: K25, k26: K26, k27: K27, k28: K28, k29: K29, k30: K30,
 };
 
 export type RegisteredScreen = ScreenDef & { component: React.ComponentType };

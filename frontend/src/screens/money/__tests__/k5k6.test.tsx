@@ -165,6 +165,21 @@ describe.each(['light', 'dark'] as const)('k5 Add entry (%s)', (mode) => {
     expect((await r.services.db.merchants.byName('Chai Point'))?.count).toBe(1);
   });
 
+  it('picks a category with the search box and tags the spend with a budget', async () => {
+    const r = await renderLive(<K5 />, mode);
+    await r.findByText('UPI \u00B7 rahul@okhdfc');
+    await r.services.db.budgets.put({ id: 'b-fun', categoryId: '', name: 'Fun', icon: 'celebration', monthlyPaise: 300000 });
+    await fill(r, 'Bowling alley', ['5', '0', '0']);
+    fireEvent.press(r.getByTestId('category-field'));
+    fireEvent.changeText(r.getByTestId('k5-category-search'), 'Gifts');
+    fireEvent.press(r.getByTestId('choice-Gifts'));
+    expect(r.getByTestId('payee-category').props.children).toBe('Gifts');
+    fireEvent.press(await r.findByTestId('budget-field'));
+    fireEvent.press(r.getByTestId('budget-Fun'));
+    fireEvent.press(r.getByText('Save'));
+    await waitFor(async () => expect((await r.services.db.entries.list()).find((e) => e.merchant === 'Bowling alley')).toMatchObject({ budgetId: 'b-fun', amountPaise: 50000 }));
+  });
+
   it('a known payee brings its category; Got saves money in; the card account follows the method', async () => {
     const r = await renderLive(<K5 />, mode);
     await r.findByText('UPI \u00B7 rahul@okhdfc');
@@ -195,6 +210,7 @@ describe.each(['light', 'dark'] as const)('k5 Add entry (%s)', (mode) => {
   it('opened for an entry, it is filled in and Save updates the same entry', async () => {
     const r = await renderLive(<K5 />, mode, { id: 'e-blinkit' });
     await waitFor(() => expect(r.getByTestId('payee-input').props.value).toBe('Blinkit'));
+    expect(r.getByText('Edit entry')).toBeTruthy();
     expect(r.getByTestId('amount-text').props.children).toBe('518');
     fireEvent.press(r.getByTestId('amount'));
     fireEvent.press(r.getByTestId('key-backspace'));

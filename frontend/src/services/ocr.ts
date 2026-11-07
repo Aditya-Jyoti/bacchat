@@ -13,7 +13,7 @@ export type OcrDeps = {
 
 /** Text lines for the import parser: positioned lines joined into rows, else the raw text lines. */
 export function linesFromResult(r: OcrResult): string[] {
-  const rows = joinLinesByRow(r.lines);
+  const rows = joinLinesByRow(r.lines, { width: r.width, height: r.height });
   return rows.length > 0 ? rows : r.text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 }
 

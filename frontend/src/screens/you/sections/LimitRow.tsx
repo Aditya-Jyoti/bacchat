@@ -5,6 +5,7 @@ import { Glyph } from '../../../components/Glyph';
 import { ValueSlider } from '../../../components/ValueSlider';
 import { formatRupees, groupIndian } from '../../../lib/format';
 import { useTheme } from '../../../theme';
+import { t } from '../../../lib/i18n';
 
 export type LimitRowProps = {
   name: string;
@@ -13,10 +14,14 @@ export type LimitRowProps = {
   rupees: number;
   maxRupees: number;
   onChange: (rupees: number) => void;
+  /** Shows a Remove action for this budget. */
+  onRemove?: () => void;
+  /** Muted line under the name, e.g. which categories count toward a named budget. */
+  note?: string;
 };
 
 /** Category with a slider (500 steps). The value chip is tappable and turns into a number field. */
-export function LimitRow({ name, icon, rupees, maxRupees, onChange }: LimitRowProps): React.JSX.Element {
+export function LimitRow({ name, icon, rupees, maxRupees, onChange, onRemove, note }: LimitRowProps): React.JSX.Element {
   const { colors, typography, shapes } = useTheme();
   const [editing, setEditing] = useState(false);
   const chip = { borderRadius: shapes.chip, borderWidth: 1, borderColor: colors.outlineVariant, paddingHorizontal: 10, paddingVertical: 4 } as const;
@@ -50,6 +55,11 @@ export function LimitRow({ name, icon, rupees, maxRupees, onChange }: LimitRowPr
           </Pressable>
         )}
       </View>
+      {note ? (
+        <Text testID={`limit-note-${name}`} style={[typography.bodySmall, { color: colors.onSurfaceVariant, marginLeft: 30, marginTop: 2 }]}>
+          {note}
+        </Text>
+      ) : null}
       <View style={{ marginLeft: 30 }}>
         <ValueSlider
           testID={`limit-slider-${name}`}
@@ -62,6 +72,11 @@ export function LimitRow({ name, icon, rupees, maxRupees, onChange }: LimitRowPr
           onChange={onChange}
         />
       </View>
+      {onRemove ? (
+        <Pressable testID={`limit-remove-${name}`} accessibilityRole="button" accessibilityLabel={`${t('budgetUi.removeBudget')} ${name}`} onPress={onRemove} style={{ minHeight: 40, justifyContent: 'center', alignSelf: 'flex-start' }}>
+          <Text style={[typography.labelMedium, { color: colors.error }]}>{t('budgetUi.removeBudget')}</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

@@ -67,7 +67,6 @@ describe('first run on a brand new install', () => {
     await screen.findByTestId('screen-k11', {}, WAIT);
     expect(screen.getByTestId('acct-name-input').props.value).toBe('');
     fireEvent.changeText(screen.getByTestId('acct-name-input'), 'My Savings');
-    fireEvent.changeText(screen.getByTestId('acct-last4-input'), '1234');
     fireEvent.changeText(screen.getByTestId('acct-owed-input'), '50000');
     await waitFor(() => expect(screen.getByTestId('add-account-submit').props.accessibilityState.disabled).toBeFalsy());
     fireEvent.press(screen.getByTestId('add-account-submit'));
@@ -75,10 +74,9 @@ describe('first run on a brand new install', () => {
     expect(await screen.findByText('My Savings')).toBeTruthy();
     expect(await screen.findByTestId('net-worth')).toHaveTextContent(`${R}50,000`);
 
-    // Back to Home (account now exists, so the first-step prompt is gone), then add an entry (k5).
-    // k11 still sits under k10 on the stack, so Back lands on the form and Close then returns Home.
+    // Back goes straight Home: the saved form (k11) was replaced by Accounts, so it is not in the way.
+    expect(screen.queryByTestId('screen-k11')).toBeNull();
     fireEvent.press(screen.getByLabelText('Back'));
-    fireEvent.press(await screen.findByLabelText('Close', {}, WAIT));
     await screen.findByTestId('screen-k1', {}, WAIT);
     await waitFor(() => expect(screen.queryByTestId('home-start')).toBeNull());
     expect(await screen.findByLabelText(`Net worth ${R}50,000`)).toBeTruthy();

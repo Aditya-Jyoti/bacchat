@@ -7,7 +7,9 @@
 export type TextPart = { type: 'text'; text: string };
 export type ToolCallPart = { type: 'tool_call'; id: string; name: string; input: unknown };
 export type ToolResultPart = { type: 'tool_result'; id: string; content: string; isError?: boolean };
-export type MessagePart = TextPart | ToolCallPart | ToolResultPart;
+/** An image sent with a user message (base64, no data: prefix). Only providers with vision accept it. */
+export type ImagePart = { type: 'image'; mediaType: 'image/jpeg' | 'image/png'; data: string };
+export type MessagePart = TextPart | ToolCallPart | ToolResultPart | ImagePart;
 
 export type ChatMessage = { role: 'user' | 'assistant'; content: string | MessagePart[] };
 
@@ -29,6 +31,8 @@ export type CompletionRequest = {
   signal?: AbortSignal;
   /** Ask for one JSON value that matches this schema. Providers use it natively when they can. */
   json?: { name: string; schema: JsonSchema };
+  /** Use this model for this request instead of the configured one (cloud providers only). */
+  model?: string;
 };
 
 export type Usage = { inputTokens: number; outputTokens: number };
@@ -57,6 +61,8 @@ export type ProviderCapabilities = {
   streaming: boolean;
   /** Context window in tokens. */
   maxContext: number;
+  /** Accepts image parts in user messages. */
+  vision?: boolean;
 };
 
 export type JsonValidation<T> = { ok: true; value: T } | { ok: false; error: string };

@@ -50,6 +50,7 @@ export function flattenMessages(messages: ChatMessage[]): PlainMessage[] {
     for (const p of m.content as MessagePart[]) {
       if (p.type === 'text') lines.push(p.text);
       else if (p.type === 'tool_call') lines.push(JSON.stringify({ tool: p.name, input: p.input ?? {} }));
+      else if (p.type === 'image') continue; // no vision on the phone's model
       else lines.push(`Tool result (${names.get(p.id) ?? 'tool'})${p.isError ? ' [failed]' : ''}: ${p.content}`);
     }
     out.push({ role: m.role, text: lines.join('\n') });

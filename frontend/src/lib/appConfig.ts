@@ -45,3 +45,14 @@ export function getGoogleClientId(): string {
 export function getNpsNavUrlDefault(): string {
   return str(getAppExtra().npsNavUrl);
 }
+
+/** The app version from app.json (for example "0.1.0"), or '' when it cannot be read. */
+export function getAppVersion(): string {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require('expo-constants') as { default?: { expoConfig?: { version?: string } | null } };
+    return str((mod.default ?? (mod as unknown as { expoConfig?: { version?: string } })).expoConfig?.version);
+  } catch {
+    return '';
+  }
+}

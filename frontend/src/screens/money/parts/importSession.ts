@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import type { ScreenRow } from '../../../lib/ingest';
 import type { Choice, LoadedPlan } from '../importFlow';
+import type { SeenText } from '../review/ReadText';
 
 /**
  * The screenshot import in progress, shared by k7 (reads), k8 (reviews) and k9 (resolves one
@@ -10,13 +11,15 @@ import type { Choice, LoadedPlan } from '../importFlow';
 type Session = {
   rows: ScreenRow[] | null;
   uri: string | null;
+  /** What was read and by whom, for "See what was read" on k8. */
+  seen: SeenText | null;
   plan: LoadedPlan | null;
   /** Conflict row index to the resolution picked in k9. */
   resolutions: Record<number, { choice: Choice; trust: boolean }>;
   /** Conflict row k9 is working on (set by k8 before it opens k9). */
   active: number | null;
   setActive: (index: number | null) => void;
-  start: (rows: ScreenRow[], uri: string | null) => void;
+  start: (rows: ScreenRow[], uri: string | null, seen?: SeenText | null) => void;
   setPlan: (plan: LoadedPlan | null) => void;
   resolve: (index: number, choice: Choice, trust: boolean) => void;
   reset: () => void;
@@ -25,12 +28,13 @@ type Session = {
 export const useImportSession = create<Session>((set) => ({
   rows: null,
   uri: null,
+  seen: null,
   plan: null,
   resolutions: {},
   active: null,
   setActive: (active) => set({ active }),
-  start: (rows, uri) => set({ rows, uri, plan: null, resolutions: {}, active: null }),
+  start: (rows, uri, seen = null) => set({ rows, uri, seen, plan: null, resolutions: {}, active: null }),
   setPlan: (plan) => set({ plan }),
   resolve: (index, choice, trust) => set((s) => ({ resolutions: { ...s.resolutions, [index]: { choice, trust } } })),
-  reset: () => set({ rows: null, uri: null, plan: null, resolutions: {}, active: null }),
+  reset: () => set({ rows: null, uri: null, seen: null, plan: null, resolutions: {}, active: null }),
 }));

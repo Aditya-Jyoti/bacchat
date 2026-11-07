@@ -28,6 +28,11 @@ export type Candidate = {
   rawRef: string | null;
   /** Category id suggested by an AI model. Used only when the user's history has no answer. */
   categoryHint?: string | null;
+  /**
+   * The message as received (sender and text), used only while the entry is added to tell which of
+   * the owner's accounts it is about (matchAccount). Never written to the entry.
+   */
+  issuerText?: string | null;
 };
 
 export type ParseContext = {

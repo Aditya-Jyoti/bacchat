@@ -1,6 +1,6 @@
 # Progress
 
-Last updated: 2026-10-08 (all screens, sync, AI and native code written and tested in Jest; compiling and running on a device is the next step). Update with every meaningful change, together with worklog.md.
+Last updated: 2026-11-06 (funds and NPS can be entered by hand with a note that the amount does not follow prices; compiling and running on a device is the next step). Update with every meaningful change, together with worklog.md.
 
 ## Milestones
 

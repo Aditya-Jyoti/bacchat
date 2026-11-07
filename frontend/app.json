@@ -2,7 +2,7 @@
   "expo": {
     "name": "Bacchat",
     "slug": "bacchat",
-    "version": "0.1.0",
+    "version": "0.4.4",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "scheme": "bacchat",
@@ -21,8 +21,12 @@
       },
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
-      ]
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "versionCode": 16
     },
     "extra": {
       "cloudUrl": "",
@@ -39,6 +43,14 @@
         }
       ],
       "expo-local-authentication",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": false,
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
       "react-native-libsodium",
       "./plugins/withShareIntent",
       "./plugins/withShortcuts",

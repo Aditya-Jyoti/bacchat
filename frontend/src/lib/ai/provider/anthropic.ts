@@ -160,6 +160,7 @@ function toApiMessage(m: CompletionRequest['messages'][number]): { role: 'user' 
     content: m.content.map((p) => {
       if (p.type === 'text') return { type: 'text', text: p.text };
       if (p.type === 'tool_call') return { type: 'tool_use', id: p.id, name: p.name, input: p.input };
+      if (p.type === 'image') return { type: 'image', source: { type: 'base64', media_type: p.mediaType, data: p.data } };
       return { type: 'tool_result', tool_use_id: p.id, content: p.content, ...(p.isError ? { is_error: true } : {}) };
     }),
   };
@@ -175,7 +176,7 @@ export class AnthropicProvider extends BaseProvider {
   constructor(private readonly cfg: AnthropicConfig) {
     super();
     this.baseUrl = (cfg.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
-    this.capabilities = { tools: true, json: true, streaming: !!cfg.stream, maxContext: 200_000 };
+    this.capabilities = { tools: true, json: true, streaming: !!cfg.stream, maxContext: 200_000, vision: true };
   }
 
   async *stream(req: CompletionRequest): AsyncGenerator<StreamPiece> {
@@ -183,7 +184,7 @@ export class AnthropicProvider extends BaseProvider {
     if (!cfg.apiKey.trim()) throw new AdvisorError('bad_key', ERROR_TEXT.bad_key);
     if (!cfg.model.trim()) throw new AdvisorError('bad_model', ERROR_TEXT.bad_model);
     const body = {
-      model: cfg.model,
+      model: req.model?.trim() || cfg.model,
       max_tokens: req.maxTokens ?? cfg.maxTokens ?? 1024,
       ...(req.system ? { system: req.system } : {}),
       ...(req.tools && req.tools.length > 0

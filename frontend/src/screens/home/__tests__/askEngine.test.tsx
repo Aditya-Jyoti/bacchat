@@ -4,8 +4,9 @@ import React from 'react';
 
 import { createFakeLlm } from '../../../../modules/bacchat-llm/src/fake';
 import { RECOMMENDED_MODELS, useAiPreferences, type DownloadFs } from '../../../lib/ai';
-import { createMemorySecureStore, SECURE_KEYS } from '../../../services';
+import { createMemorySecureStore } from '../../../services';
 import { renderWithTheme } from '../../../testUtils';
+import { AI_SECURE_KEYS } from '../../../services/aiService';
 import K18_Ask from '../K18_Ask';
 
 const MODEL = RECOMMENDED_MODELS[1];
@@ -18,7 +19,7 @@ const fs = (): DownloadFs => ({
   list: async () => [{ name: MODEL.fileName, size: 1 }],
   pathOf: (n) => `/models/${n}`,
 });
-const cloudReply = (text: string) => async () => ({ ok: true, status: 200, json: async () => ({ content: [{ type: 'text', text }], stop_reason: 'end_turn', usage: {} }), text: async () => '' });
+const cloudReply = (text: string) => async () => ({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: text }, finish_reason: 'stop' }], usage: {} }), text: async () => '' });
 
 function mount(opts: { key?: boolean; llm?: ReturnType<typeof createFakeLlm>; fetch?: unknown }) {
   const nav = { navigate: jest.fn(), goBack: jest.fn(), canGoBack: () => true } as never;
@@ -29,7 +30,7 @@ function mount(opts: { key?: boolean; llm?: ReturnType<typeof createFakeLlm>; fe
     'light',
     {
       servicesOptions: {
-        secure: opts.key ? createMemorySecureStore({ [SECURE_KEYS.apiKey]: 'sk-test' }) : createMemorySecureStore(),
+        secure: opts.key ? createMemorySecureStore({ [AI_SECURE_KEYS.openaiKey]: 'sk-test' }) : createMemorySecureStore(),
         fetch: (opts.fetch ?? jest.fn()) as never,
         ai: { onDevice: opts.llm ?? createFakeLlm(), downloadFs: fs(), downloadFetch: null },
       },
@@ -46,7 +47,7 @@ describe('k18 Ask with the AI router', () => {
     fireEvent.changeText(getByTestId('ask-input'), 'How am I doing?');
     fireEvent.press(getByTestId('ask-send'));
     const cap = await findByTestId('ask-engine');
-    expect(cap.props.children).toBe('Answered by Anthropic');
+    expect(cap.props.children).toBe('Answered by api.openai.com');
   });
 
   it('answers on this phone with no key at all, and says so', async () => {

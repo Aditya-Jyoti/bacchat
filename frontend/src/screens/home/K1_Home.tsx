@@ -24,7 +24,7 @@ type Range = (typeof c.ranges)[number];
 const RANGE_POINTS: Record<Range, number> = { '1M': 2, '6M': 7, '1Y': 12, All: 12 };
 
 export default function K1_Home(): React.JSX.Element {
-  const { colors, typography, spacing } = useTheme();
+  const { colors, typography, spacing, shapes } = useTheme();
   const { go } = useGo();
   const scrollRef = useRef<ScrollView>(null);
   useTabScrollToTop(scrollRef);
@@ -104,106 +104,77 @@ export default function K1_Home(): React.JSX.Element {
           </View>
         </View>
 
-        <Text style={[typography.bodyMedium, { color: colors.onSurfaceVariant, marginTop: 12, fontSize: 13 }]}>{c.netWorth}</Text>
-        {net ? (
-          <Text accessibilityLabel={`Net worth ${formatRupees(net.netPaise)}`} style={[typography.displayMedium, { color: colors.onSurface, marginTop: 2 }]}>
-            {formatRupees(net.netPaise)}
-          </Text>
-        ) : (
-          <View testID="hero-loading" style={{ marginTop: 8 }}>
-            <SkeletonLoader width="60%" height={40} />
-          </View>
-        )}
-        {series ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 4,
-                backgroundColor: colors.primaryContainer,
-                paddingLeft: 6,
-                paddingRight: 10,
-                paddingVertical: 3,
-                borderRadius: 12,
-              }}
-            >
-              <Glyph name={series.deltaPaise >= 0 ? 'north_east' : 'south_east'} size={16} color={colors.onPrimaryContainer} />
-              <Text style={[typography.labelLarge, { fontSize: 13, color: colors.onPrimaryContainer }]}>{formatRupees(series.deltaPaise, { plus: true })}</Text>
-            </View>
-            <Text style={[typography.bodyMedium, { fontSize: 13, color: colors.onSurfaceVariant }]}>{series.since}</Text>
-          </View>
-        ) : null}
-
-        <View
-          style={{
-            flexDirection: 'row',
-            marginTop: 14,
-            borderTopWidth: 1,
-            borderBottomWidth: 1,
-            borderColor: colors.outlineVariant,
-          }}
-        >
-          {[
-            { label: c.own, amount: net ? formatRupees(net.ownPaise) : '', dot: colors.primary, left: false },
-            { label: c.owe, amount: net ? formatRupees(net.owePaise) : '', dot: colors.chart3, left: true },
-          ].map((x) => (
-            <View
-              key={x.label}
-              style={{
-                flex: 1,
-                paddingVertical: 10,
-                paddingLeft: x.left ? 14 : 0,
-                borderLeftWidth: x.left ? 1 : 0,
-                borderLeftColor: colors.outlineVariant,
-              }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: x.dot }} />
-                <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{x.label}</Text>
-              </View>
-              <Text style={[typography.bodyLarge, { fontWeight: '600', color: colors.onSurface, marginTop: 2 }]}>{x.amount}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={{ marginTop: 14 }}>
-          {series ? (
-            <NetWorthChart values={values} labels={labels} formatValue={(v) => formatRupeesCompact(Math.round(v), { symbol: true })} />
+        {/* The hero sits on a soft tinted panel so Home opens with some colour, not a bare page. */}
+        <View testID="hero-panel" style={{ marginTop: 10, padding: 16, paddingBottom: 12, borderRadius: shapes.sheet, backgroundColor: colors.surfaceContainer }}>
+          <Text style={[typography.bodyMedium, { color: colors.onSurfaceVariant, fontSize: 13 }]}>{c.netWorth}</Text>
+          {net ? (
+            <Text accessibilityLabel={`Net worth ${formatRupees(net.netPaise)}`} style={[typography.displayMedium, { color: colors.onSurface, marginTop: 2 }]}>
+              {formatRupees(net.netPaise)}
+            </Text>
           ) : (
-            <SkeletonLoader height={76} />
+            <View testID="hero-loading" style={{ marginTop: 8 }}>
+              <SkeletonLoader width="60%" height={40} />
+            </View>
           )}
-        </View>
-        <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }} accessibilityRole="radiogroup">
-          {c.ranges.map((r) => {
-            const on = r === range;
-            return (
-              <Pressable
-                key={r}
-                testID={`range-${r}`}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: on }}
-                onPress={() => setRange(r)}
-                style={{ minHeight: spacing.touchTarget, minWidth: 48, justifyContent: 'center' }}
+          {series ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                  backgroundColor: colors.primaryContainer,
+                  paddingLeft: 6,
+                  paddingRight: 10,
+                  paddingVertical: 3,
+                  borderRadius: 12,
+                }}
               >
-                <View
-                  style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 5,
-                    borderRadius: 14,
-                    alignItems: 'center',
-                    backgroundColor: on ? colors.secondaryContainer : 'transparent',
-                  }}
-                >
-                  <Text style={[typography.labelMedium, { color: on ? colors.onSecondaryContainer : colors.onSurfaceVariant }]}>{r}</Text>
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
+                <Glyph name={series.deltaPaise >= 0 ? 'north_east' : 'south_east'} size={16} color={colors.onPrimaryContainer} />
+                <Text style={[typography.labelLarge, { fontSize: 13, color: colors.onPrimaryContainer }]}>{formatRupees(series.deltaPaise, { plus: true })}</Text>
+              </View>
+              <Text style={[typography.bodyMedium, { fontSize: 13, color: colors.onSurfaceVariant }]}>{series.since}</Text>
+            </View>
+          ) : null}
 
-        <View style={{ marginTop: 4 }}>
-          <AllocationBar segments={segments} />
+          <View style={{ marginTop: 14 }}>
+            {series ? (
+              <NetWorthChart values={values} labels={labels} formatValue={(v) => formatRupeesCompact(Math.round(v), { symbol: true })} />
+            ) : (
+              <SkeletonLoader height={76} />
+            )}
+          </View>
+          <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }} accessibilityRole="radiogroup">
+            {c.ranges.map((r) => {
+              const on = r === range;
+              return (
+                <Pressable
+                  key={r}
+                  testID={`range-${r}`}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: on }}
+                  onPress={() => setRange(r)}
+                  style={{ minHeight: spacing.touchTarget, minWidth: 48, justifyContent: 'center' }}
+                >
+                  <View
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 5,
+                      borderRadius: 14,
+                      alignItems: 'center',
+                      backgroundColor: on ? colors.primaryContainer : 'transparent',
+                    }}
+                  >
+                    <Text style={[typography.labelMedium, { color: on ? colors.onPrimaryContainer : colors.onSurfaceVariant, fontWeight: on ? '700' : '500' }]}>{r}</Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <View style={{ marginTop: 4 }}>
+            <AllocationBar segments={segments} />
+          </View>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 }}>
           <Glyph name="lock" size={14} color={colors.onSurfaceVariant} />

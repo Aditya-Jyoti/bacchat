@@ -14,6 +14,8 @@ export type YouCounts = {
   cards: number;
   upiIds: number;
   recurring: number;
+  /** Categories shown in pickers (hidden ones not counted). */
+  categories: number;
   /** Time of the first entry, or null for a fresh notebook. */
   firstAt: number | null;
 };
@@ -21,13 +23,14 @@ export type YouCounts = {
 /** Counts for the profile header and row subtitles. */
 export function useYouCounts(): YouCounts | undefined {
   return useDbQuery(async (db): Promise<YouCounts> => {
-    const [entries, goals, allocs, accounts, upi, recurring] = await Promise.all([
+    const [entries, goals, allocs, accounts, upi, recurring, cats] = await Promise.all([
       db.entries.list(),
       db.goals.list(),
       db.allocations.list(),
       db.accounts.list(),
       db.upiIds.list(),
       db.recurring.list(),
+      db.categories.list(),
     ]);
     const saved = new Map<string, number>();
     for (const a of allocs) saved.set(a.goalId, (saved.get(a.goalId) ?? 0) + a.amountPaise);
@@ -37,7 +40,9 @@ export function useYouCounts(): YouCounts | undefined {
       accounts: accounts.filter((a) => a.kind === 'bank' || a.kind === 'cash' || a.kind === 'mf' || a.kind === 'nps').length,
       cards: accounts.filter((a) => a.kind === 'card').length,
       upiIds: upi.length,
-      recurring: recurring.length,
+      // Events and recurring items, plus investments with a payment date (they repeat in Coming up).
+      recurring: recurring.length + accounts.filter((a) => (a.kind === 'mf' || a.kind === 'nps') && a.nextPaymentDate).length,
+      categories: cats.filter((c) => !c.hidden).length,
       firstAt: entries.length ? Math.min(...entries.map((e) => e.at)) : null,
     };
   }).data;

@@ -1,4 +1,5 @@
 import { factories, entry, ms } from './helpers';
+import { createMemoryDb } from '../memory';
 import type { BacchatDb } from '../repositories';
 import {
   accountAllocations,
@@ -376,5 +377,44 @@ describe('recurrence helpers', () => {
     expect(() => parseDateKey('2026-13-01')).toThrow();
     expect(() => parseDateKey('2026-02-30')).toThrow();
     expect(() => parseDateKey('x')).toThrow();
+  });
+});
+
+describe('named budgets and tagged spends', () => {
+  it('a spend tagged with a budget counts there only; untagged spends count toward their category budget', async () => {
+    const db = createMemoryDb();
+    const now = new Date(2026, 10, 10, 12).getTime();
+    await db.budgets.put({ id: 'b-fun', categoryId: '', name: 'Fun', icon: 'celebration', monthlyPaise: 500000 });
+    await db.budgets.put({ id: 'b-food', categoryId: 'food', monthlyPaise: 800000 });
+    const base = { direction: 'out' as const, accountId: null, method: 'upi' as const, sources: [], status: 'confirmed' as const, aiAdded: false };
+    await db.entries.putMany([
+      { ...base, id: 'e1', amountPaise: 100000, at: now, merchant: 'Movie', categoryId: 'food', budgetId: 'b-fun' },
+      { ...base, id: 'e2', amountPaise: 30000, at: now, merchant: 'Lunch', categoryId: 'food' },
+    ]);
+    const pace = await budgetPace(db, now);
+    expect(pace.find((p) => p.budgetId === 'b-fun')?.spentPaise).toBe(100000);
+    expect(pace.find((p) => p.budgetId === 'b-food')?.spentPaise).toBe(30000);
+  });
+
+  it('an untagged spend in a category linked to a named budget counts there; a tag on the entry still wins', async () => {
+    const db = createMemoryDb();
+    const now = new Date(2026, 10, 10, 12).getTime();
+    await db.budgets.put({ id: 'b-food', categoryId: '', name: 'Food', icon: 'restaurant', monthlyPaise: 800000 });
+    await db.budgets.put({ id: 'b-fun', categoryId: '', name: 'Fun', icon: 'celebration', monthlyPaise: 500000 });
+    await db.categories.putMany([
+      { id: 'eat', name: 'Eating out', icon: 'restaurant', budgetId: 'b-food' },
+      { id: 'groc', name: 'Groceries', icon: 'shopping_basket', budgetId: 'b-food' },
+      { id: 'gone', name: 'Old', icon: 'category', budgetId: 'b-removed' },
+    ]);
+    const base = { direction: 'out' as const, accountId: null, method: 'upi' as const, sources: [], status: 'confirmed' as const, aiAdded: false };
+    await db.entries.putMany([
+      { ...base, id: 'e1', amountPaise: 20000, at: now, merchant: 'Cafe', categoryId: 'eat' },
+      { ...base, id: 'e2', amountPaise: 50000, at: now, merchant: 'Store', categoryId: 'groc' },
+      { ...base, id: 'e3', amountPaise: 70000, at: now, merchant: 'Party dinner', categoryId: 'eat', budgetId: 'b-fun' },
+      { ...base, id: 'e4', amountPaise: 9000, at: now, merchant: 'Thing', categoryId: 'gone' },
+    ]);
+    const pace = await budgetPace(db, now);
+    expect(pace.find((p) => p.budgetId === 'b-food')?.spentPaise).toBe(70000);
+    expect(pace.find((p) => p.budgetId === 'b-fun')?.spentPaise).toBe(70000);
   });
 });

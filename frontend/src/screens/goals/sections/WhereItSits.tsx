@@ -9,7 +9,7 @@ import { useTheme } from '../../../theme';
 import type { GoalAlloc } from '../goalTypes';
 import { t } from '../../../lib/i18n';
 
-export type WhereItSitsProps = { allocations: readonly GoalAlloc[]; onEdit: () => void };
+export type WhereItSitsProps = { allocations: readonly GoalAlloc[]; onEdit?: () => void };
 
 /** "Where it sits": one row per account with its amount and a 4dp share bar, plus the Edit action. */
 export function WhereItSits({ allocations, onEdit }: WhereItSitsProps): React.JSX.Element {
@@ -17,7 +17,7 @@ export function WhereItSits({ allocations, onEdit }: WhereItSitsProps): React.JS
   const total = allocations.reduce((a, x) => a + x.paise, 0) || 1;
   return (
     <View>
-      <SectionHeader title={t('goalsUi.whereItSits')} action={t('goalsUi.edit')} onAction={onEdit} />
+      <SectionHeader title={t('goalsUi.whereItSits')} action={onEdit ? t('goalsUi.edit') : undefined} onAction={onEdit} />
       {allocations.map((a) => (
         <View
           key={a.accountId}

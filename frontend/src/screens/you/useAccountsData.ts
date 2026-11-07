@@ -1,13 +1,13 @@
 import { useMemo } from 'react';
 
 import { ledger } from '../../data/db/queries/balances';
-import { holdingValue, nextDueDate, type Account } from '../../data/db';
+import { addDays, holdingValue, nextDueDate, repeatDates, startOfDay, type Account } from '../../data/db';
 import { t } from '../../lib/i18n';
 import { useDbQuery, useNetWorth, useSpendable, useUpiFlows, type QueryResult } from '../../services';
 import { dayMonth } from './parts/monthName';
 
-export type OwnRow = { id: string; name: string; kindText: string; icon: string; paise: number };
-export type OweRow = { id: string; name: string; kindText: string; icon: string; paise: number; limitPaise: number; usedPct: number };
+export type OwnRow = { id: string; name: string; kindText: string; icon: string; paise: number; kind: Account['kind'] };
+export type OweRow = { id: string; accountId: string; name: string; kindText: string; icon: string; paise: number; limitPaise: number; usedPct: number };
 export type UpiRowData = { id: string; handle: string; bank: string; inPaise: number; outPaise: number; inPct: number; outPct: number };
 
 export type AccountsData = {
@@ -25,8 +25,9 @@ export type AccountsData = {
 function ownKind(a: Account, fundCount: number): string {
   if (a.kind === 'bank') return a.last4 ? t('accountsUi.kindBankCard', { last4: a.last4 }) : t('accountsUi.kindBank');
   if (a.kind === 'cash') return t('accountsUi.kindCash');
-  if (a.kind === 'nps') return t('accountsUi.kindNps');
+  // No holdings means the amount was typed in by hand: it is what was invested, not a live value.
   if (fundCount === 0) return t('accountsUi.kindByHand');
+  if (a.kind === 'nps') return t('accountsUi.kindNps');
   return fundCount === 1 ? t('accountsUi.kindFund') : t('accountsUi.kindFunds', { n: fundCount });
 }
 
@@ -48,7 +49,15 @@ export function useAccountsData(): AccountsData {
         const priced = mine.map(holdingValue);
         if (mine.length > 0 && priced.every((p) => p != null)) paise = priced.reduce<number>((s, p) => s + (p ?? 0), 0);
       }
-      own.push({ id: a.id, name: a.name, kindText: ownKind(a, fundCount), icon: a.icon, paise });
+      // The next time the payment comes round from today (it repeats monthly unless set otherwise).
+      let next: number | undefined;
+      try {
+        next = a.nextPaymentDate ? repeatDates(a.nextPaymentDate, a.paymentRepeat ?? 'monthly', startOfDay(at), addDays(startOfDay(at), 400))[0] : undefined;
+      } catch {
+        next = undefined;
+      }
+      const kindText = next != null ? `${ownKind(a, fundCount)} \u00B7 ${t('accountsUi.nextPayment', { date: dayMonth(next) })}` : ownKind(a, fundCount);
+      own.push({ id: a.id, name: a.name, kindText, icon: a.icon, paise, kind: a.kind });
     }
     const owe: OweRow[] = [];
     for (const d of debts) {
@@ -57,6 +66,7 @@ export function useAccountsData(): AccountsData {
       const due = dayMonth(nextDueDate(d.dueDay, at));
       owe.push({
         id: d.id,
+        accountId: a.id,
         name: a.name,
         kindText: a.kind === 'loan' ? t('accountsUi.kindLoan', { date: due }) : t('accountsUi.kindCard', { date: due }),
         icon: a.icon,

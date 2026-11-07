@@ -42,6 +42,7 @@ export async function netWorth(db: BacchatDb): Promise<NetWorth> {
     if (h.accountId && accountIds.has(h.accountId)) continue;
     ownBy[h.kind] += holdingValue(h) ?? 0;
   }
+  // Goals are not counted on their own: money for a goal kept in an account is in that account's balance.
   const ownPaise = ownBy.bank + ownBy.cash + ownBy.mf + ownBy.nps;
   const owePaise = debts.reduce((s, d) => s + d.outstandingPaise, 0);
   return {

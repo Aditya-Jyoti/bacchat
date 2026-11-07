@@ -21,6 +21,8 @@ export function buildMethodOptions(accounts: readonly Account[], upis: readonly 
     if (a.last4) opt(t('moneyLive.debitOf', { name: a.name }), 'debit', a.id, null);
     opt(a.name, 'bank', a.id, null);
   }
+  // Plain UPI, with no UPI id to manage (UPI ids are not tracked any more).
+  if (upis.length === 0) opt(t('moneyLive.upi'), 'upi', null, null);
   const cash = accounts.find((x) => x.kind === 'cash');
   opt(t('moneyLive.cash'), 'cash', cash?.id ?? null, null);
   return out;
@@ -43,6 +45,8 @@ export type EntryForm = {
   amountPaise: number;
   payee: string;
   categoryId: string | null;
+  /** Budget the spend is tagged with, if any. */
+  budgetId?: string | null;
   option: MethodOption;
   at: number;
   note: string;
@@ -62,6 +66,7 @@ export function entryFromForm(f: EntryForm): Entry {
     merchant: f.payee.trim(),
     note,
     categoryId: f.categoryId,
+    budgetId: f.kind === 'spent' ? f.budgetId ?? null : null,
     accountId: f.option.accountId,
     method: f.option.method,
     upiId: f.option.upiId,

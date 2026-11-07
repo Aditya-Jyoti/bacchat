@@ -169,3 +169,95 @@ Copy this block above the line, fill it in, keep entries short.
 - Empty-database hardening: all 29 screens render on an empty database in light and dark with no NaN or crashes; calm empty states with illustrations and first actions; sample-only prefilled forms (K11, K14) no longer invent debt or savings for real users.
 - End-to-end first-run test: Splash, Welcome, Start fresh, add account, add entry, Home shows real numbers.
 - Tests: frontend 1650 pass in 108 suites; backend 37 pass; backend demo 45/45; typecheck and lint clean.
+
+## 2026-11-06 (investments by hand)
+
+- Live fund and NPS prices need verified data sources, which are not set up, so the by-hand path is now the main one. k11 Investment asks Mutual funds or NPS (writes an `mf` or `nps` account) and labels the field "Amount invested".
+- A note under the field says the amount stays at what was put in and does not follow market prices. k10 shows such accounts as "Amount invested - added by hand" (no holdings) instead of "Live NAV".
+- NAV fetching and holdings code is unchanged; accounts with priced holdings still show live values.
+- Tests: new k11 (mutual funds, NPS, note hidden for other types) and k10 label tests. Frontend 1658 pass; typecheck and lint clean. One unrelated test failed once and passed on two reruns (flaky).
+- Follow-up: no way to edit an account's amount after adding it yet.
+
+## 2026-11-06 (first device build, picker, settings groups, categories)
+
+- Toolchain on the dev machine: JDK 17, NDK 27.1.12297006, build-tools 36. npm install scripts approved for llama.rn, react-native-libsodium and unrs-resolver (package.json allowScripts).
+- First native build: `expo prebuild` reproduced the committed android/ folder; `gradlew assembleDebug` succeeded and all four Kotlin modules (sms, share, ocr, dynamic-color) compiled with no warnings. Installed on a OnePlus Nord 5 (Android 16) over adb; Welcome renders.
+- Fixed the device bundle: metro.config.js maps the WASM libsodium to an empty module on native.
+- k4 From screenshot opens the photo picker (expo-image-picker, camera and storage permissions blocked) and passes the image to k7.
+- k24 in collapsible groups; hidden: number format, export, import, NPS NAV address, and the email, UPI notification, nudge, reminder and hide-amount switches (no behaviour behind them).
+- k30 Categories: list with entry counts, add, rename, change icon, hide from pickers. You row wired; its subtitle now counts categories.
+- Tests: new settingsGroups, k30Categories and k4 picker tests; tests reaching rows inside groups open them first. Frontend typecheck and lint clean; full Jest green.
+- Open: k5 Add entry has no category picker (category is guessed from the payee; change it with a long-press in k4). Picker change needs a native rebuild (done after this entry).
+- SMS reading no longer scans the inbox on first start; only new messages (and ones queued while closed) are read. Tests updated in ingestService.test.ts.
+
+- Screenshot import: rows named round up(s) or interest (any month: Nov Round ups, savings interest, Atom interest) are skipped; avatar letters and repeated logo words are trimmed from names ("K Kuldeep Sahu" to "Kuldeep Sahu"). Tests in lib/ingest/__tests__/ocr.test.ts use the owner's payments-app layout.
+
+## 2026-11-06 (AI screenshot reading, speed, small fixes)
+
+- Read screenshots with AI (Settings > AI, off by default): k7 shrinks the image to 860 px JPEG (expo-image-manipulator) and sends it to the owner's cloud model through the router (feature `screenshot`, needs the provider's consent; the phone model is skipped as it has no vision). The model returns rows (name, amount, in or out, date, time) that are checked (lib/ai/screenshot.ts), round-ups and interest dropped, then reconciled and reviewed in k8 as usual. On-phone text recognition is the fallback. A separate screenshot model can be set for OpenAI-compatible endpoints; on OpenRouter it defaults to google/gemini-2.5-flash-lite. k7 says "read by your AI model" instead of "on this phone" when it is on. Providers gained image parts, a per-request model and a vision flag.
+- Speed: observeDb caches list() per table between writes (any write clears it; records frozen, callers get their own array); useDbQuery no longer re-runs on screens that are not in view, it refreshes once on focus. A release build (JS bundled and optimised, no dev server) is installed on the test phone.
+- Fixes: Settings name saves on blur and Enter; About row shows the real version and is no longer a dead button.
+- Mutual funds: Kite and Groww considered and dropped (Groww's API covers stocks and F&O only, is paid and needs daily approval). Funds and NPS stay manual.
+- Tests: screenshot AI (rows, consent, no vision on device, fallback, OpenRouter model and image format), k7 AI and fallback, settings switch, read cache, name auto-save, About row. Full suite green; typecheck and lint clean.
+- k11 no longer asks for the last 4 card digits (owner's request). New accounts store last4 null, so SMS entries are not matched to an account by card digits.
+- k7: when nothing is found it says who read the screenshot (AI model, phone, or phone after the AI gave nothing) and offers "See what was read" with the raw text lines. The OCR parser also takes a plain number at the end of a name line as the amount, since ML Kit often drops the rupee sign.
+
+## 2026-11-06 (goals fixes, version 0.2.0)
+
+- Goal money no longer needs a bank or cash account: with none, "already saved" and "set aside more" are kept under UNASSIGNED ("Not in an account"). This was why already saved, set aside more, take out and the k13 progress bar did nothing on a notebook without accounts.
+- k13: Set aside more and Take out ask for an amount (AmountDialog; take out is capped at what is saved) instead of moving a fixed Rs 5,500. The empty more-options button is gone. Summary and pace line read correctly without a date.
+- k14: "By" is optional and opens a calendar (GoalDatePicker over the shared MonthGrid, with No date); a picked date shows the monthly amount it takes. The monthly slider and "Take it from" moved into a closed "Optional settings" section; a monthly plan is saved only when set. The plan line no longer uses the design's fixed numbers (Rs 52,000 free, 20 Oct start).
+- Version 0.2.0 (versionCode 2). From now on every installed build bumps the version.
+- Tests: goals suite rewritten for the new flow (calendar, no date, optional plan, no-account savings, amount dialogs). Full suite 1720 green; typecheck and lint clean.
+
+## 2026-11-07 (screenshot reading on a real device, AI setup, sharing; 0.2.1 and 0.2.2)
+
+- Tested the owner's payments-app screenshot on the phone. ML Kit drops or misreads the rupee sign (1,120 / T67.2 / 7253 / 71,421.8) and the old row joining (line tops within 16 px) paired names with the next row's amount and let the status bar in.
+- bacchat-ocr returns line bottom/right and the image size. joinLinesByRow groups by vertical overlap, drops the status bar (top 4.5 percent) and avatar or logo text (short, no digits, left fifth). The parser drops heading names that never got an amount, reads amounts without a rupee sign, strips a stray letter (T67.2) and a 7 that cannot be part of a proper amount (7253 is Rs 253); when both readings are proper (71,421.8) the row carries amountAlt and k8 shows "Check the amount" to switch with one tap.
+- k7 and k8 show who read the screenshot and "See what was read" (ReadText). When the AI reader gives nothing, the reason is shown (consent, no key, rejected key, bad model, unreadable answer).
+- Settings > AI: quick picks save at once (before, the base URL only saved on Save, so a key could go to the wrong address). The model is picked from a dropdown fed by the provider's /models list (cheapest first, "Can read screenshots" filter on by default; built-in fallback list offline). One global AI choice: per-feature overrides and the separate screenshot model are gone (prefs v2 drops old overrides).
+- Sharing an image into Bacchat never reached k7 (lost behind the splash on a cold start). Shared images now wait in a pending entry and open k7 once splash and welcome are done.
+- Versions 0.2.1 (code 3) and 0.2.2 (code 4).
+- Tests: geometry rows from the real layout, loose amounts on the real text, k8 check amount, AI reasons, model list parsing and picker, pending entry. Full suite green; typecheck and lint clean.
+
+## 2026-11-07 (Anthropic removed, 0.2.3)
+
+- The OpenAI-compatible route (OpenRouter, OpenAI, Groq, own server) is the only cloud AI. The provider switch, the Anthropic key section (AdvisorSection) and the Anthropic branch in aiService are gone; prefs v3 moves everyone to 'openai'. The AnthropicProvider class stays in lib/ai/provider (unused by the app, still unit-tested) so older library tests keep working.
+- The You row and the Ask badge said "Your key - Claude" as fixed text; they now show the chosen model (or "Not set up yet").
+- Tests moved from Anthropic-shaped fakes to the OpenAI chat-completions shape (Ask, Ask history, Ask engine, aiService, core). Full suite 1725 green; typecheck and lint clean.
+- 0.2.4: "Read screenshots with AI" is its own consent (it already says the image is sent); it no longer also needs "Let my provider read message text", which now only covers SMS and email text. Two switches for one action confused the owner.
+
+## 2026-11-07 (owner's round of fixes, 0.3.0)
+
+- Category picker (CategoryChoices, used by k5, k8, k27, k28): search box with fuzzy matching (starts with, contains, letters in order), 8 shown before typing, and Create "<name>" when nothing matches. k5 gained a Category field (before, the category could only be guessed from the payee).
+- k30: Remove a category (confirm). Its entries keep their amounts with no category; payee history forgets it; a budget tied to it is removed.
+- Goal money that sits in no account counts in net worth (ownBy.goals, a "Goals" slice in the allocation bar). Money set aside inside an account is not counted twice.
+- Back stack: React Navigation 7 navigate() pushes a second copy of a screen. navigateToKid and ScreenNav.go now pop back to a screen already open (popTo); saved forms (k11, k14, k16) leave with finish(), which pops back or replaces the form. Adding two accounts from Accounts then one Back returns Home.
+- Budgets: Home uses the overall monthly budget when set (it said "No budget yet" while k15 showed one). k15's line is now "Spent X of Y" and "N days to go"; the unexplained today tick is gone. Named budgets (Fun, Food, Tech) can be added and removed in k16; k5 can tag a spend with a budget (Entry.budgetId). A tagged spend counts toward that budget only; untagged spends count toward their category's budget.
+- UPI ids removed from the UI (k10 section, You row count); k5 offers a plain UPI method when no UPI ids exist.
+- Own/owe: Home no longer shows the own/owe split; its accounts section lists each bank and cash account, a total, and card dues. k10 groups accounts as Your accounts, Investments, Cards and loans; the net worth equation and "Yours to spend" box are gone.
+- Home sections fold away from their header (chevron), remembered on this phone; tapping the content still opens the section's screen.
+- Version 0.3.0 (code 7). Tests added for all of the above; full suite green.
+- 0.3.1: goals are no longer counted in net worth on their own (reverted). A goal can be kept in a bank or cash account (Goal.accountId, "Keep it in" in k14). Money put in the goal (already saved, Set aside more) is added to that account's balance by moving its opening figure, and Take out lowers it, so net worth sees goal money through the account. A goal with no account is tracked on its own and not counted. k13 hides the manual split editor for goals kept in an account. Tests: goalWrites (both directions, with entries), k14 kept-in scenario, goal without account.
+- 0.3.2: goals can be edited (k14 opened with an id: name, icon, target, date, account; changing the account moves the goal's money from one balance to the other) and deleted from a menu on k13 (confirm; money kept in an account stays there). Open pots: "Set a target" off makes a goal with no target and no date that only grows (round-ups); lists show the amount and "Open pot", k13 shows "X saved - no target" with no bar. The dead three-dots on k12 is removed. Tests: goalWrites edit and delete, open pot, menu, edit form, k12. Full suite 1750 green.
+- 0.3.3: accounts can be edited and deleted (tap a row in k10; k11 opens in edit mode with the type fixed; a new balance re-bases the opening figure so entries stay; Delete asks first, keeps entries without an account, unlinks goals and keeps their saved amount as not in an account). Investments take an optional next payment date (Account.nextPaymentDate), shown on the k10 row and in Coming up (k17 and Home) with no amount; nothing repeats automatically. Goal monthly amount is typed (no Rs 11,000 cap) and Edit goal loads it. Home's accounts section shows one row per kind with totals (Bank, Cash, Mutual funds, NPS, Credit card dues, Loans) instead of each account. Tests: accountEdit, goals monthly amount and edit, Home grouping. Full suite 1756 green.
+- 0.3.4: tapping an entry in k4 or a result in k19 opens it in k5 to edit (titled "Edit entry"); long-press still opens the quick menu, and To review entries still confirm on tap. Tests in k3k4 and k5k6. Full release build (all ABIs) and App Bundle rebuilt.
+
+## 2026-11-07 (charts, events, backend deploy, visual pass; 0.4.0)
+
+- k3 daily bars: the tooltip is closed until a bar is tapped; tapping the same bar again, anywhere else on the screen or changing month closes it (before, today's tooltip was always open and could not be dismissed). The chart gained an amount scale on the left (0, half, top; the top is the tallest day rounded up to 1, 2, 2.5 or 5 times a power of ten) with dashed guide lines, taller bars (150) and the tooltip floating over the bars with a stem, instead of a fixed empty band above them.
+- Coming up (k17): + adds an event by hand: pay day, bill, transfer or investment, a name, an optional amount, the first date and how it repeats (just once, every week, month, 3 months or year), optional account. Tapping one edits or removes it (confirm). Investment dates and card dues open their account in k11. A third filter chip "Pay & transfers" (chart3 dots); money in shows with "+" in primary. The list covers today and the next 32 days so anything monthly shows at least once. Recurring.cadence takes 'once'; RecurringKind gains income and transfer; amount 0 shows without an amount.
+- Investment payment dates repeat: Account.paymentRepeat (absent = every month), "Repeats" in k11 under the next payment date; k10 shows the next time it comes round.
+- Home Coming up shows the next item and the two after it, then "N more coming up" (or "See all in Coming up") opening k17.
+- Visual pass: the tab bar pill was secondaryContainer on surfaceContainer (about 1.1:1, invisible on the warm palette); it is now primaryContainer, springs in from the icon (static with reduce motion), the label goes bold and goals and you use outline icons when not current; a hairline sits over the bar. Home section headers carry their icon in a primaryContainer circle; the net worth hero sits on a surfaceContainer panel with 28 corners; the range chips use primaryContainer.
+- Backend: the Docker image crashed on start (exit 139) because better-sqlite3 13 segfaults under Node 20; the image now uses node:22-slim (engines >=22). Added docker-compose.prod.yml (service behind Caddy with automatic Let's Encrypt HTTPS, not exposed directly), Caddyfile (14 MB body cap just above the service's), .env.example and README steps. Verified: image builds, demo 38/38 against the container over HTTP, 37/37 plus one skipped (oversize upload, which Node's fetch cannot read through the proxy; curl gets 413 over HTTP/1.1 and HTTP/2) against the production stack on https://localhost; backend tests 37 green.
+- Version 0.4.0 (code 12).
+- 0.4.1: categories can count toward a named budget (Category.budgetId, "Counts toward budget" in k30): their untagged spends count there without tagging each entry; a tag on the entry still wins; a linked category no longer counts toward its own category budget. A new named budget whose name matches a category links it; removing a budget unlinks its categories. k16 shows which categories feed each named budget; k5 shows "Food (from Groceries)" in the Budget field when no budget is picked.
+- You > Recurring & SIPs counted only recurring rows ("0 active" with two investment dates set); investments with a payment date now count.
+- Coming up (k17) is a real month calendar (EventCalendar): month and year with arrows (this month up to 36 ahead), weekday columns, today circled, one dot per kind per day; every event, SIP date and card due shows on each date it repeats on (upcomingBetween). The list shows the month (from today in the current month); tapping a day shows just that day. The filter chips overflowed on the phone and are gone: a ? in the bar opens a small colour key (bills and card dues, SIPs and NPS, pay and transfers, money in and out); each row carries its colour dot. Card dues after the next one show without an amount.
+- Money in shows green with +, money out (bills, dues, SIPs) red with a minus, in k17 and Home's Coming up. New fixed roles moneyIn and moneyOut (oklch, 4.5:1 on surface and surfaceContainer in both modes).
+- Version 0.4.1 (code 13).
+
+- 0.4.2: Home's budget bar looked empty when over budget: it was full but drawn in caution, which in dark mode is nearly the track's colour. Over budget it now shows the budget's share in primary and the overspend in moneyOut (red), with a gap between. Test added.
+- 0.4.3: Home's budget bar has captions with a colour swatch each: under budget "Rs X spent" and "Rs Y left"; over budget "Rs X budget" (gold) and "Rs Y over" (red). The owner could not tell what the two colours meant.
+- 0.4.4: card and bank entries from messages land on the right account again. With last-4 digits gone, SMS entries had no account, so a Slice credit card spend never moved the card's dues. matchAccount reads the message (sender included, used only while adding, never stored): "credit card" or "CC" means a card account, "a/c", "account", "savings" or "debit card" a bank account; the account name's distinctive word (Slice, HDFC) picks which one, so "Slice credit card" and "Slice a/c" go to different accounts. With "credit card" and a single card, that card is used. k8 gains "Paid with" (the k5 choices): every row of a screenshot import is filed there, and the next import starts on the last choice (meta import.paidWith). Before, screenshot entries always went to the first UPI id or cash.

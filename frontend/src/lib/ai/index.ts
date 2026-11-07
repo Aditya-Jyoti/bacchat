@@ -10,3 +10,4 @@ export * from './redact';
 export * from './router';
 export * from './extract';
 export * from './tasks';
+export * from './screenshot';

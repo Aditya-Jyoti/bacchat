@@ -10,7 +10,7 @@ import expo.modules.kotlin.modules.ModuleDefinition
 
 /**
  * On-device text recognition with the bundled ML Kit Latin model.
- * recognize(imageUri) resolves { text, lines: [{ text, top, left }] }, lines in reading order.
+ * recognize(imageUri) resolves { text, lines: [{ text, top, left, bottom, right }], width, height }.
  * All parsing stays in TypeScript; this file only reads pixels.
  */
 class BacchatOcrModule : Module() {
@@ -30,15 +30,18 @@ class BacchatOcrModule : Module() {
           .addOnSuccessListener { result ->
             val lines = result.textBlocks.flatMap { block ->
               block.lines.map { line ->
+                val box = line.boundingBox
                 mapOf(
                   "text" to line.text,
-                  "top" to (line.boundingBox?.top ?: 0),
-                  "left" to (line.boundingBox?.left ?: 0)
+                  "top" to (box?.top ?: 0),
+                  "left" to (box?.left ?: 0),
+                  "bottom" to (box?.bottom ?: 0),
+                  "right" to (box?.right ?: 0)
                 )
               }
             }
             recognizer.close()
-            promise.resolve(mapOf("text" to result.text, "lines" to lines))
+            promise.resolve(mapOf("text" to result.text, "lines" to lines, "width" to image.width, "height" to image.height))
           }
           .addOnFailureListener { e ->
             recognizer.close()

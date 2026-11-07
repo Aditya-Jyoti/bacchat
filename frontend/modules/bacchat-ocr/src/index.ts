@@ -4,8 +4,10 @@
  */
 import { requireOptionalNativeModule } from 'expo';
 
-export type OcrLine = { text: string; top: number; left: number };
-export type OcrResult = { text: string; lines: OcrLine[] };
+/** One recognised line with its box in image pixels (bottom and right from version 0.2.0 on). */
+export type OcrLine = { text: string; top: number; left: number; bottom?: number; right?: number };
+/** width and height are the image's size in pixels, when the module reports them. */
+export type OcrResult = { text: string; lines: OcrLine[]; width?: number; height?: number };
 
 /** The thin native surface. Injectable so everything above it is testable. */
 export interface NativeOcr {
@@ -33,5 +35,10 @@ export async function recognize(imageUri: string): Promise<OcrResult> {
   const mod = native();
   if (!mod) throw new Error('On-device OCR is not available on this device.');
   const r = await mod.recognize(imageUri);
-  return { text: r.text ?? '', lines: Array.isArray(r.lines) ? r.lines : [] };
+  return {
+    text: r.text ?? '',
+    lines: Array.isArray(r.lines) ? r.lines : [],
+    ...(typeof r.width === 'number' ? { width: r.width } : {}),
+    ...(typeof r.height === 'number' ? { height: r.height } : {}),
+  };
 }

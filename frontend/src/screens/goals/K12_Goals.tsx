@@ -39,13 +39,6 @@ export default function K12_Goals(): React.JSX.Element {
       <ScreenScaffold testID="screen-k12" contentStyle={{ paddingBottom: 96 }}>
         <View style={{ height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text accessibilityRole="header" style={[typography.headlineSmall, { color: colors.onSurface }]}>{t('goalsUi.title')}</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('goalsUi.moreOptions')}
-            style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}
-          >
-            <Glyph name="more_vert" color={colors.onSurfaceVariant} />
-          </Pressable>
         </View>
         <Text style={[typography.bodySmall, { fontSize: 13, color: colors.onSurfaceVariant }]}>{t('goalsUi.setAsideSoFar')}</Text>
         <Text testID="goals-total" style={[typography.headlineSmall, { fontSize: 30, lineHeight: 35, color: colors.onSurface }]}>

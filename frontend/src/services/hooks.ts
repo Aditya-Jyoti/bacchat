@@ -12,6 +12,7 @@ import {
   spendable,
   spendByCategory,
   upcoming,
+  upcomingBetween,
   upiFlows,
   type BudgetPace,
   type DailySpend,
@@ -95,6 +96,11 @@ export function useBudgetPace(): QueryResult<BudgetPace[]> {
 /** Upcoming bills, SIPs and card dues for the next `days` days, soonest first. */
 export function useUpcoming(days = 45): QueryResult<UpcomingItem[]> {
   return useDbQuery((db, now) => upcoming(db, now, days), [days]);
+}
+
+/** Everything dated in [fromMs, toMs), with repeats projected (a calendar month in k17). */
+export function useUpcomingBetween(fromMs: number, toMs: number): QueryResult<UpcomingItem[]> {
+  return useDbQuery((db, now) => upcomingBetween(db, now, fromMs, toMs), [fromMs, toMs]);
 }
 
 /** Money in and out per UPI id. Defaults to the month containing now. */

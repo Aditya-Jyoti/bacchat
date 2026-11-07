@@ -10,6 +10,10 @@ import { addPending } from '../../../services/ingestPending';
 import K24_Settings from '../../you/K24_Settings';
 import K4 from '../K4_MoneyEntries';
 import { renderScreen } from './helpers';
+import { useSettingsGroups } from '../../you/parts/SettingsGroup';
+
+// Settings groups start collapsed; these tests reach rows inside them.
+beforeEach(() => useSettingsGroups.getState().openAll());
 
 /** Polls with real timers; RNTL waitFor is slow on this tree. */
 async function until(done: () => boolean): Promise<void> {

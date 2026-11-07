@@ -24,3 +24,6 @@ dist/
 .expo/
 coverage/
 .env
+
+# Copied in by the llama.rn Gradle build
+frontend/android/app/src/main/assets/ggml-hexagon/

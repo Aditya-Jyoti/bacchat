@@ -83,6 +83,14 @@ export function toOpenAiMessages(system: string | undefined, messages: ChatMessa
         content: text || null,
         ...(calls.length ? { tool_calls: calls.map((c) => ({ id: c.id, type: 'function', function: { name: c.name, arguments: JSON.stringify(c.input ?? {}) } })) } : {}),
       });
+    } else if (m.content.some((p) => p.type === 'image')) {
+      // Text and images go together in one user message as content parts.
+      const parts: unknown[] = [];
+      for (const p of m.content) {
+        if (p.type === 'text') parts.push({ type: 'text', text: p.text });
+        else if (p.type === 'image') parts.push({ type: 'image_url', image_url: { url: `data:${p.mediaType};base64,${p.data}` } });
+      }
+      out.push({ role: 'user', content: parts });
     } else {
       for (const p of m.content) {
         if (p.type === 'tool_result') out.push({ role: 'tool', tool_call_id: p.id, content: p.content });
@@ -104,13 +112,13 @@ export class OpenAICompatibleProvider extends BaseProvider {
     super();
     this.baseUrl = cfg.baseUrl.trim().replace(/\/+$/, '');
     this.label = cfg.label ?? 'OpenAI-compatible';
-    this.capabilities = { tools: true, json: true, streaming: !!cfg.stream, maxContext: cfg.maxContext ?? 32_000 };
+    this.capabilities = { tools: true, json: true, streaming: !!cfg.stream, maxContext: cfg.maxContext ?? 32_000, vision: true };
   }
 
   private body(req: CompletionRequest, format: JsonFormat): string {
     const c = this.cfg;
     return JSON.stringify({
-      model: c.model,
+      model: req.model?.trim() || c.model,
       messages: toOpenAiMessages(req.system, req.messages),
       max_tokens: req.maxTokens ?? c.maxTokens ?? 1024,
       ...(req.temperature != null ? { temperature: req.temperature } : {}),

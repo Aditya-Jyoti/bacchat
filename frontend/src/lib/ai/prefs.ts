@@ -12,13 +12,13 @@ import { persistStorage, registerPersisted } from '../persistence';
 export type AiMode = 'off' | 'cloud' | 'device' | 'auto';
 export const AI_MODES: readonly AiMode[] = ['off', 'cloud', 'device', 'auto'];
 
-export type AiFeature = 'advisor' | 'ingestion' | 'categorise' | 'ocr' | 'insight';
-/** What the user can override. OCR clean-up follows categorise; insight text follows the advisor. */
+export type AiFeature = 'advisor' | 'ingestion' | 'categorise' | 'ocr' | 'insight' | 'screenshot';
+/** What the user can override. OCR clean-up and screenshot reading follow categorise; insight text follows the advisor. */
 export type AiFeatureGroup = 'advisor' | 'ingestion' | 'categorise';
 export const FEATURE_GROUPS: readonly AiFeatureGroup[] = ['advisor', 'ingestion', 'categorise'];
 
 export function featureGroup(f: AiFeature): AiFeatureGroup {
-  if (f === 'ocr') return 'categorise';
+  if (f === 'ocr' || f === 'screenshot') return 'categorise';
   if (f === 'insight') return 'advisor';
   return f;
 }
@@ -42,6 +42,10 @@ export type AiPrefsData = {
   aiConsentSkippedAt: number | null;
   /** Download on-device models only on Wi-Fi (they are large). On by default. */
   aiModelsWifiOnly: boolean;
+  /** Send screenshots to the cloud model to read them (instead of on-phone text recognition). Off by default. */
+  aiScreenshotRead: boolean;
+  /** Model for reading screenshots on an OpenAI-compatible endpoint; empty means the main model. */
+  aiVisionModel: string;
 };
 
 type AiPrefsState = AiPrefsData & {
@@ -55,6 +59,8 @@ type AiPrefsState = AiPrefsData & {
   setActiveModelId: (id: string | null) => void;
   noteConsentSkipped: (at: number) => void;
   setModelsWifiOnly: (on: boolean) => void;
+  setScreenshotRead: (on: boolean) => void;
+  setVisionModel: (model: string) => void;
   reset: () => void;
 };
 
@@ -62,7 +68,7 @@ export const DEFAULT_AI_PREFS: AiPrefsData = {
   // Cloud keeps the advisor working for anyone who already saved a key.
   aiMode: 'cloud',
   aiFeatureModes: {},
-  aiCloudProvider: 'anthropic',
+  aiCloudProvider: 'openai',
   aiOpenAiBaseUrl: 'https://api.openai.com/v1',
   aiOpenAiModel: 'gpt-4o-mini',
   aiConsent: {},
@@ -70,6 +76,8 @@ export const DEFAULT_AI_PREFS: AiPrefsData = {
   aiActiveModelId: null,
   aiConsentSkippedAt: null,
   aiModelsWifiOnly: true,
+  aiScreenshotRead: false,
+  aiVisionModel: '',
 };
 
 /** One consent per provider; a self-hosted endpoint is a different provider per host. */
@@ -111,11 +119,16 @@ export const useAiPreferences = registerPersisted(
         setActiveModelId: (aiActiveModelId) => set({ aiActiveModelId }),
         noteConsentSkipped: (aiConsentSkippedAt) => set({ aiConsentSkippedAt }),
         setModelsWifiOnly: (aiModelsWifiOnly) => set({ aiModelsWifiOnly }),
+        setScreenshotRead: (aiScreenshotRead) => set({ aiScreenshotRead }),
+        setVisionModel: (aiVisionModel) => set({ aiVisionModel: aiVisionModel.trim() }),
         reset: () => set({ ...DEFAULT_AI_PREFS }),
       }),
       {
         name: 'bacchat.ai',
-        version: 1,
+        // v2: one global AI choice; per-feature overrides from v1 are dropped.
+        // v3: the OpenAI-compatible route is the only cloud provider.
+        version: 3,
+        migrate: (persisted) => ({ ...(persisted as AiPrefsData), aiFeatureModes: {}, aiCloudProvider: 'openai' }) as AiPrefsData,
         storage: persistStorage<AiPrefsData>(),
         partialize: (s) => Object.fromEntries(KEYS.map((k) => [k, s[k]])) as AiPrefsData,
       },

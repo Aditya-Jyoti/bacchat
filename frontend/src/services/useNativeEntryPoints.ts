@@ -8,6 +8,8 @@ import { Linking } from 'react-native';
 import { getShareNative } from '../../modules/bacchat-share/src';
 import { getSmsNative } from '../../modules/bacchat-sms/src';
 import { usePreferences } from '../lib/preferences';
+import { usePendingEntry } from '../navigation/pendingEntry';
+import { ROUTES } from '../navigation/screenManifest';
 import { createIngestService, type IngestService } from './ingestService';
 import { createShareService } from './shareService';
 import { useServices } from './AppServicesProvider';
@@ -33,7 +35,15 @@ export function useNativeEntryPoints(): void {
   const enabled = usePreferences((s) => s.smsIngestEnabled);
 
   useEffect(() => {
-    const share = createShareService({ native: getShareNative(), open: (url) => Linking.openURL(url) });
+    // Shared images open k7 through the pending entry, which waits for splash and welcome to finish.
+    const share = createShareService({
+      native: getShareNative(),
+      open: (url) => {
+        const uri = /[?&]uri=([^&]+)/.exec(url)?.[1];
+        if (uri) usePendingEntry.getState().set({ route: ROUTES.k7, params: { uri: decodeURIComponent(uri) } });
+        else void Linking.openURL(url);
+      },
+    });
     share.start();
     return () => share.stop();
   }, []);

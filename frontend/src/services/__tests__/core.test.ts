@@ -1,4 +1,5 @@
 /** @jest-environment node */
+import { useAiPreferences } from '../../lib/ai/prefs';
 import { SAMPLE_TODAY, createMemoryDb, seedIfEmpty } from '../../data/db';
 import { createMemoryStorage, setStorage } from '../../lib/storage';
 import { usePreferences } from '../../lib/preferences';
@@ -226,15 +227,15 @@ describe('createAdvisor factory', () => {
   it('is null without a key, then built from the stored key and model', async () => {
     const s = createTestServices();
     expect(await s.createAdvisor()).toBeNull();
-    await s.settings.setApiKey('sk-abc');
-    await s.settings.setModel('claude-test');
+    await s.ai.setOpenAiKey('sk-abc');
+    useAiPreferences.getState().setOpenAi({ model: 'test-model' });
     const a = await s.createAdvisor();
     expect(a).not.toBeNull();
     expect(typeof a!.ask).toBe('function');
     expect(await s.createAdvisor()).toBe(a);
-    await s.settings.setModel('claude-other');
+    useAiPreferences.getState().setOpenAi({ model: 'other-model' });
     expect(await s.createAdvisor()).not.toBe(a);
-    await s.settings.setApiKey(null);
+    await s.ai.setOpenAiKey(null);
     expect(await s.createAdvisor()).toBeNull();
   });
 
@@ -242,19 +243,20 @@ describe('createAdvisor factory', () => {
     const seen: { url: string; headers: Record<string, string>; body: string }[] = [];
     const fake = async (url: string, init: { headers: Record<string, string>; body: string }) => {
       seen.push({ url, headers: init.headers, body: init.body });
-      const body = { content: [{ type: 'text', text: 'Hello' }], stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 1 } };
+      const body = { choices: [{ message: { content: 'Hello' }, finish_reason: 'stop' }], usage: { prompt_tokens: 1, completion_tokens: 1 } };
       return { ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) };
     };
     const s = createTestServices({ fetch: fake as never });
-    await s.settings.setApiKey('sk-abc');
-    await s.settings.setModel('claude-test');
+    await s.ai.setOpenAiKey('sk-abc');
+    useAiPreferences.getState().setOpenAi({ baseUrl: 'https://openrouter.ai/api/v1', model: 'test-model' });
     await s.whenReady();
     const a = (await s.createAdvisor())!;
     const events: unknown[] = [];
     for await (const ev of a.ask('How am I doing?')) events.push(ev);
     expect(seen).toHaveLength(1);
-    expect(seen[0].url).toContain('/v1/messages');
-    expect(Object.values(seen[0].headers)).toContain('sk-abc');
-    expect(JSON.parse(seen[0].body).model).toBe('claude-test');
+    expect(seen[0].url).toBe('https://openrouter.ai/api/v1/chat/completions');
+    expect(seen[0].headers.authorization).toBe('Bearer sk-abc');
+    expect(JSON.parse(seen[0].body).model).toBe('test-model');
   });
 });
+

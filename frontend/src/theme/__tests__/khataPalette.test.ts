@@ -40,6 +40,11 @@ describe('khataPalette', () => {
       expect(contrastRatio(c.onSurface, c.surface)).toBeGreaterThanOrEqual(4.5);
       expect(contrastRatio(c.onSurfaceVariant, c.surface)).toBeGreaterThanOrEqual(4.5);
       expect(contrastRatio(c.onPrimary, c.primary)).toBeGreaterThanOrEqual(4.5);
+      // Money in (green) and out (red) amounts read on the page and on the hero panel.
+      for (const bg of [c.surface, c.surfaceContainer]) {
+        expect(contrastRatio(c.moneyIn, bg)).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(c.moneyOut, bg)).toBeGreaterThanOrEqual(4.5);
+      }
     }
   });
 });

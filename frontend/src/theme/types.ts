@@ -26,6 +26,10 @@ export type BacchatColors = {
   chart2: string;
   chart3: string;
   chart4: string;
+  /** Money coming in (pay day, income) shown with a +. Fixed green, never wallpaper-tinted. Owner's request (decisions.md). */
+  moneyIn: string;
+  /** Money going out on a due date (bills, card dues, SIPs) shown with a minus. Fixed red. */
+  moneyOut: string;
   /** rgba() string for sheet and dialog scrims. */
   scrim: string;
 };
@@ -55,5 +59,7 @@ export const COLOR_ROLES: readonly (keyof BacchatColors)[] = [
   'chart2',
   'chart3',
   'chart4',
+  'moneyIn',
+  'moneyOut',
   'scrim',
 ];

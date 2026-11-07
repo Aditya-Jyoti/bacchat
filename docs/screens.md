@@ -1,6 +1,6 @@
 # Screens
 
-All 29 screens are implemented, read live data from the local database (sample notebook on a fresh install) and have light and dark tests. Screens are identified by the k-ids from the Khata v2 design. The single source for routes and kinds is `frontend/src/navigation/screenManifest.ts`; the arrows below are `navigation/edges.ts`, checked by a test.
+All 30 screens are implemented, read live data from the local database (sample notebook on a fresh install) and have light and dark tests. Screens are identified by the k-ids from the Khata v2 design. The single source for routes and kinds is `frontend/src/navigation/screenManifest.ts`; the arrows below are `navigation/edges.ts`, checked by a test.
 
 ## Navigation
 
@@ -41,6 +41,7 @@ flowchart LR
     k15["k15 Budget"]
     k16["k16 Edit budget"]
     k17["k17 Coming up"]
+    k30["k30 Categories"]
     k24["k24 Settings"]
     k25["k25 Backup and sync"]
     k26["k26 Syncing"]
@@ -89,6 +90,9 @@ flowchart LR
   k15 -->|"Back"| k23
   k23 -->|"Recurring and SIPs"| k17
   k17 -->|"Back"| k23
+  k17 -->|"Edit an investment or card"| k11
+  k23 -->|"Categories"| k30
+  k30 -->|"Back"| k23
   k23 -->|"Gear"| k24
   k23 -->|"Backed up card"| k25
   k23 -->|"Arrange home"| k2
@@ -136,6 +140,7 @@ flowchart LR
 | k15 | Budget | `you/budget` | You | screen | done | |
 | k16 | Edit budget | `you/budget/edit` | You | screen | done | |
 | k17 | Coming up | `you/coming_up` | You | screen | done | |
+| k30 | Categories | `you/categories` | You | screen | done | Not in the Khata design; added 2026-11-06 (see decisions.md) |
 | k24 | Settings | `you/settings` | You | screen | done | |
 | k25 | Backup and sync | `you/sync` | You | screen | done | |
 | k26 | Syncing | `you/sync/progress` | You | screen | done | |
@@ -149,7 +154,7 @@ flowchart LR
 | Lock screen | `screens/start/LockScreen.tsx`, `AppLockGate.tsx` | Covers the whole app on cold start and after 60 s in the background when app lock is on. One line and one button; the app stays mounted underneath and hidden from TalkBack |
 | Pending conflicts banner and sheet | `screens/money/pending/` | On k4, a calm banner when an SMS looks like an entry you already have; opens a k9-style sheet to keep the existing one or both. Nothing is added until you pick |
 | Sync dialogs | `screens/you/sync/` | Pairing code (new phone), recovery key (shown once), join with a passphrase or recovery key, own-server form, forgot passphrase; all inside k25 |
-| Settings sections | `screens/you/settings/` | Name, SMS reading, AI mode and models, Wi-Fi-only model download, Ask history, advisor key, server, NPS source; all inside k24 |
+| Settings sections | `screens/you/settings/` | Name, SMS reading, AI mode and models, Wi-Fi-only model download, Ask history, advisor key, server; all inside k24, in collapsible groups (`parts/SettingsGroup.tsx`). The NPS source section is kept in code but not shown |
 | Undo snackbar | `screens/money/parts/undoStore.ts` | Undo after deleting entries |
 | Home alerts | `screens/home/alertsStore.ts` | Inline caution banner for overspend; never a modal |
 

@@ -4,7 +4,7 @@ import { fireEvent } from '@testing-library/react-native';
 
 import { khataPalette } from '../../theme';
 import { renderWithTheme } from '../../testUtils';
-import { DailyBars } from '../DailyBars';
+import { DailyBars, niceMax } from '../DailyBars';
 
 function flat(style: unknown): Record<string, unknown> {
   return Object.assign({}, ...(Array.isArray(style) ? style.flat(5) : [style]));
@@ -58,11 +58,12 @@ describe.each(['light', 'dark'] as const)('DailyBars (%s)', (mode) => {
     expect(u.getByText('today')).toBeTruthy();
   });
 
-  it('scales bar heights against the tallest day', () => {
+  it('scales bar heights against the top of the amount scale', () => {
     const u = setup(mode);
-    expect(flat(u.getByTestId('daily-bar-fill-5').props.style).height).toBe('100%');
+    // The scale tops out at 5k, so heights are shares of 5,000 rupees.
+    expect(parseFloat(flat(u.getByTestId('daily-bar-fill-5').props.style).height as string)).toBeCloseTo((296400 / 500000) * 100, 1);
     const h = flat(u.getByTestId('daily-bar-fill-0').props.style).height as string;
-    expect(parseFloat(h)).toBeCloseTo((98000 / 296400) * 100, 1);
+    expect(parseFloat(h)).toBeCloseTo((98000 / 500000) * 100, 1);
   });
 
   it('selects on press, hover and focus, and each bar is a focusable button', () => {
@@ -93,6 +94,17 @@ describe.each(['light', 'dark'] as const)('DailyBars (%s)', (mode) => {
     expect((pos.left as number) + (pos.width as number)).toBeLessThanOrEqual(300);
     const none = setup(mode, { selectedIndex: null });
     expect(none.queryByTestId('daily-tooltip')).toBeNull();
+  });
+
+  it('draws an amount scale rounded up from the tallest day', () => {
+    const u = setup(mode);
+    // Tallest day is 2,964 rupees, so the scale tops out at 5k with 2.5k half way.
+    expect(u.getByText('5k')).toBeTruthy();
+    expect(u.getByText('2.5k')).toBeTruthy();
+    expect(u.getByText('0')).toBeTruthy();
+    expect(niceMax(296400)).toBe(500000);
+    expect(niceMax(120000)).toBe(200000);
+    expect(niceMax(0)).toBe(100);
   });
 
   it('exposes accessibility summaries for the chart and every bar', () => {

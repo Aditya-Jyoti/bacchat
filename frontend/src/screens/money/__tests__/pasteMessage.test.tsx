@@ -8,6 +8,10 @@ import { createMemoryStorage, setStorage } from '../../../lib/storage';
 import K24_Settings from '../../you/K24_Settings';
 import K4 from '../K4_MoneyEntries';
 import { renderScreen } from './helpers';
+import { useSettingsGroups } from '../../you/parts/SettingsGroup';
+
+// Settings groups start collapsed; these tests reach rows inside them.
+beforeEach(() => useSettingsGroups.getState().openAll());
 
 const NOW = new Date(2026, 9, 24, 20, 30).getTime();
 const BODY = 'Dear UPI user A/C X1234 debited by 150.0 on date 24Oct26 trf to RAMESH FRUITS Refno 429812345678 If not u? call 1800111109. -SBI';

@@ -320,7 +320,7 @@ sequenceDiagram
     UI->>DB: User confirms by tap or swipe right
 ```
 
-- SMS reading is off by default (Settings, k24). Turning it on runs a one-time backfill scan. The app asks for `READ_SMS`, `RECEIVE_SMS` and `POST_NOTIFICATIONS`; without them the rest of the app works.
+- SMS reading is off by default (Settings, k24). Turning it on reads only messages that arrive from then on (plus ones queued while the app was closed); the old inbox is never scanned. Past spending comes in through a screenshot import. The app asks for `READ_SMS`, `RECEIVE_SMS` and `POST_NOTIFICATIONS`; without them the rest of the app works.
 - A message that clashes with an existing entry is never inserted on its own. It waits in the pending list on this phone until the user chooses keep existing or keep both.
 - Email: there is no mailbox integration. `services/emailSource.ts` defines the interface a future provider would fill, and the working path is pasting or sharing an email into the app, which goes through `parseEmail`.
 - AI-added entries are flagged To review and shown with a dashed outline until confirmed.

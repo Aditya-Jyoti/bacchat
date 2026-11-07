@@ -116,7 +116,7 @@ export default function K19_Search(): React.JSX.Element {
           </View>
         ) : null}
         {results.map((e) => (
-          <EntryRow key={e.id} {...rowFor(e, lk, { sub: `${shortDayLabel(e.at, now)} \u00B7 ${viaLabel(e, lk)}` })} />
+          <EntryRow key={e.id} testID={`result-${e.merchant}`} {...rowFor(e, lk, { sub: `${shortDayLabel(e.at, now)} \u00B7 ${viaLabel(e, lk)}` })} onPress={() => nav.open('k5', { id: e.id })} />
         ))}
         {recent.length > 0 ? <Text style={[typography.labelMedium, { color: colors.onSurfaceVariant, letterSpacing: 0.4, marginTop: 18, marginBottom: spacing.sm }]}>{S.recent}</Text> : null}
         {recent.map((r) => (

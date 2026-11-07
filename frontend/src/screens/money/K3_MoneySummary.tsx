@@ -1,6 +1,6 @@
 /** k3: Money - Summary. Month header, daily spend bars with tooltip, spend by category, payment method, top merchants. All from the local database. */
 import React, { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { Button } from 'react-native-paper';
 
 import { EmptyEntries } from '../../components/illustrations';
@@ -27,6 +27,12 @@ export default function K3_MoneySummary(): React.JSX.Element {
   const nav = useMoneyNav();
   const now = useNow();
   const [back, setBack] = useState(0);
+  // The daily bar whose tooltip is open. A tap anywhere else on the screen closes it.
+  const [picked, setPicked] = useState<number | null>(null);
+  const changeMonth = (by: number) => {
+    setPicked(null);
+    setBack((b) => Math.max(0, b + by));
+  };
   const win = monthWindow(now, back);
   const prev = monthWindow(now, back + 1);
   const earliest = useEarliestEntry().data;
@@ -44,52 +50,54 @@ export default function K3_MoneySummary(): React.JSX.Element {
   }
 
   return (
-    <ScreenScaffold testID="screen-k3">
-      <MoneyHeader month={win.name} onPrev={() => setBack((b) => b + 1)} onNext={() => setBack((b) => Math.max(0, b - 1))} canPrev={canPrev} canNext={back > 0} />
-      {nav.navigation ? <MoneySegmentedControl current="summary" /> : null}
-      {!s || !lookups.data ? (
-        <View testID="summary-loading" style={{ marginTop: spacing.lg, gap: spacing.md }}>
-          <SkeletonLoader width="50%" height={30} />
-          <SkeletonLoader height={120} />
-          <SkeletonLoader height={80} />
-        </View>
-      ) : s.hasData ? (
-        <View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: spacing.lg }}>
-            <View>
-              <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{win.isCurrent ? S.spentSoFar : fmt(t('moneyLive.spentIn'), { month: win.name })}</Text>
-              <Text style={[serif(30), { color: colors.onSurface }]}>{formatRupees(s.spentPaise)}</Text>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>
-                {`${S.inLabel} `}
-                <Text style={{ color: colors.onSurface, fontWeight: '700' }}>{formatRupees(s.inPaise)}</Text>
-              </Text>
-              {compare ? <Text style={[typography.labelMedium, { color: colors.primary }]}>{compare}</Text> : null}
-            </View>
+    <ScreenScaffold testID="screen-k3" contentStyle={{ flexGrow: 1 }}>
+      <Pressable testID="summary-body" accessible={false} onPress={() => setPicked(null)} disabled={picked === null} style={{ flexGrow: 1 }}>
+        <MoneyHeader month={win.name} onPrev={() => changeMonth(1)} onNext={() => changeMonth(-1)} canPrev={canPrev} canNext={back > 0} />
+        {nav.navigation ? <MoneySegmentedControl current="summary" /> : null}
+        {!s || !lookups.data ? (
+          <View testID="summary-loading" style={{ marginTop: spacing.lg, gap: spacing.md }}>
+            <SkeletonLoader width="50%" height={30} />
+            <SkeletonLoader height={120} />
+            <SkeletonLoader height={80} />
           </View>
-          <DailySpendSection daily={s.daily} win={win} lookups={lk} onSeeEntries={() => nav.openEntries()} />
-          <CategorySection
-            categories={s.categories}
-            totalPaise={s.spentPaise}
-            lookups={lk}
-            versus={prev.shortName}
-            onPick={(category) => nav.openEntries({ category })}
-          />
-          <MethodSection methods={s.methods} />
-          <MerchantSection merchants={s.merchants} lookups={lk} />
-        </View>
-      ) : (
-        <View style={{ marginTop: spacing.xxl }}>
-          <EmptyEntries height={120} />
-          <Text testID="month-empty" style={[typography.bodyMedium, { color: colors.onSurfaceVariant, marginVertical: spacing.md }]}>
-            {S.noEntries}
-          </Text>
-          <Button testID="summary-add" mode="contained-tonal" icon="plus" onPress={() => nav.go('k5')} contentStyle={{ height: 48 }}>
-            {t('moneyUi.addFirst')}
-          </Button>
-        </View>
-      )}
+        ) : s.hasData ? (
+          <View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: spacing.lg }}>
+              <View>
+                <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{win.isCurrent ? S.spentSoFar : fmt(t('moneyLive.spentIn'), { month: win.name })}</Text>
+                <Text style={[serif(30), { color: colors.onSurface }]}>{formatRupees(s.spentPaise)}</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>
+                  {`${S.inLabel} `}
+                  <Text style={{ color: colors.onSurface, fontWeight: '700' }}>{formatRupees(s.inPaise)}</Text>
+                </Text>
+                {compare ? <Text style={[typography.labelMedium, { color: colors.primary }]}>{compare}</Text> : null}
+              </View>
+            </View>
+            <DailySpendSection daily={s.daily} win={win} lookups={lk} picked={picked} onPick={setPicked} onSeeEntries={() => nav.openEntries()} />
+            <CategorySection
+              categories={s.categories}
+              totalPaise={s.spentPaise}
+              lookups={lk}
+              versus={prev.shortName}
+              onPick={(category) => nav.openEntries({ category })}
+            />
+            <MethodSection methods={s.methods} />
+            <MerchantSection merchants={s.merchants} lookups={lk} />
+          </View>
+        ) : (
+          <View style={{ marginTop: spacing.xxl }}>
+            <EmptyEntries height={120} />
+            <Text testID="month-empty" style={[typography.bodyMedium, { color: colors.onSurfaceVariant, marginVertical: spacing.md }]}>
+              {S.noEntries}
+            </Text>
+            <Button testID="summary-add" mode="contained-tonal" icon="plus" onPress={() => nav.go('k5')} contentStyle={{ height: 48 }}>
+              {t('moneyUi.addFirst')}
+            </Button>
+          </View>
+        )}
+      </Pressable>
     </ScreenScaffold>
   );
 }

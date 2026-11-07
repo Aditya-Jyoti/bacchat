@@ -13,12 +13,16 @@ export function MonthGrid({
   selected,
   today,
   onPick,
+  dimFuture = true,
 }: {
   year: number;
   month: number;
-  selected: Date;
+  /** Null when nothing is picked yet. */
+  selected: Date | null;
   today: Date;
   onPick: (d: Date) => void;
+  /** Entries are in the past, so future days are dimmed; goal dates are in the future, so not there. */
+  dimFuture?: boolean;
 }): React.JSX.Element {
   const { colors, typography } = useTheme();
   const lead = new Date(year, month, 1).getDay();
@@ -39,9 +43,9 @@ export function MonthGrid({
           {cells.slice(r * 7, r * 7 + 7).map((d, c) => {
             if (d === null) return <View key={c} style={{ flex: 1, height: 42 }} />;
             const date = new Date(year, month, d);
-            const isSel = sameDay(date, selected);
+            const isSel = selected ? sameDay(date, selected) : false;
             const isToday = sameDay(date, today);
-            const future = date.getTime() > today.getTime() && !isToday;
+            const future = dimFuture && date.getTime() > today.getTime() && !isToday;
             return (
               <View key={c} style={{ flex: 1, height: 42, alignItems: 'center', justifyContent: 'center' }}>
                 <Pressable

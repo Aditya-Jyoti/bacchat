@@ -34,6 +34,8 @@ export function useBudgetData(): BudgetData {
   const pace = useBudgetPace();
   const spend = useSpendByCategory();
   const cats = useCategoryMap();
+  const budgets = useDbQuery((db) => db.budgets.list());
+  const byId = useMemo(() => new Map((budgets.data ?? []).map((b) => [b.id, b] as const)), [budgets.data]);
   const now = useNow();
   const dim = daysInMonth(now);
   const day = dayOfMonth(now);
@@ -42,12 +44,12 @@ export function useBudgetData(): BudgetData {
       (pace.data ?? []).map((p) => ({
         budgetId: p.budgetId,
         categoryId: p.categoryId,
-        name: cats.get(p.categoryId)?.name ?? p.categoryId,
-        icon: cats.get(p.categoryId)?.icon ?? 'category',
+        name: byId.get(p.budgetId)?.name || cats.get(p.categoryId)?.name || p.categoryId,
+        icon: byId.get(p.budgetId)?.icon || cats.get(p.categoryId)?.icon || 'category',
         spentPaise: p.spentPaise,
         limitPaise: p.limitPaise,
       })),
-    [pace.data, cats],
+    [pace.data, cats, byId],
   );
   return {
     loading: pace.loading || spend.loading || !pace.data || !spend.data,
@@ -68,7 +70,7 @@ export function useEditableBudgets(): { loading: boolean; budgets: EditableBudge
   const cats = useCategoryMap();
   const budgets = useMemo(
     () =>
-      (q.data ?? []).map((b) => ({ ...b, name: cats.get(b.categoryId)?.name ?? b.categoryId, icon: cats.get(b.categoryId)?.icon ?? 'category' })),
+      (q.data ?? []).map((b) => ({ ...b, name: b.name || cats.get(b.categoryId)?.name || b.categoryId, icon: b.icon || cats.get(b.categoryId)?.icon || 'category' })),
     [q.data, cats],
   );
   return { loading: q.loading || !q.data, budgets };

@@ -11,6 +11,10 @@ import K23_You from '../K23_You';
 import K24_Settings from '../K24_Settings';
 import K25_BackupSync, { passphraseStrength } from '../K25_BackupSync';
 import K26_Syncing from '../K26_Syncing';
+import { useSettingsGroups } from '../parts/SettingsGroup';
+
+// Settings groups start collapsed; these tests reach rows inside them.
+beforeEach(() => useSettingsGroups.getState().openAll());
 
 const R = '\u20B9';
 
@@ -30,8 +34,8 @@ describe.each(['light', 'dark'] as const)('you screens (%s)', (mode) => {
     expect(getByTestId('you-stat-1')).toHaveTextContent('1,284entries');
     expect(getByTestId('you-stat-2')).toHaveTextContent('2goals reached');
     expect(getByText('Backup is off')).toBeTruthy();
-    expect(getByText('Accounts & UPI IDs')).toBeTruthy();
-    expect(getByText('5 accounts \u00B7 2 cards \u00B7 3 UPI IDs')).toBeTruthy();
+    expect(getByText('Accounts')).toBeTruthy();
+    expect(getByText('5 accounts \u00B7 2 cards')).toBeTruthy();
     expect(getByText(`${R}45,000 / month`)).toBeTruthy();
     expect(getByText('Recurring & SIPs')).toBeTruthy();
     expect(getByText('9 active')).toBeTruthy();
@@ -72,14 +76,13 @@ describe.each(['light', 'dark'] as const)('you screens (%s)', (mode) => {
   it('k24 toggles switches, colour source text and confirms delete', () => {
     const navigate = jest.fn();
     const { getByText, getByTestId, queryByText } = renderWithTheme(withNav(<K24_Settings />, navigate), mode);
-    expect(getByText('LOOK')).toBeTruthy();
+    expect(getByText('Look and feel')).toBeTruthy();
     expect(getByText('Colours from wallpaper')).toBeTruthy();
     expect(getByText('On this phone only. Never uploaded.')).toBeTruthy();
-    expect(getByText('PRIVACY & SECURITY')).toBeTruthy();
+    expect(getByText('Privacy and lock')).toBeTruthy();
     expect(getByTestId('settings-colour-source')).toBeTruthy();
     fireEvent(getByTestId('settings-switch-wallpaper'), 'valueChange', false);
     expect(getByText('Using the warm Khata palette')).toBeTruthy();
-    fireEvent(getByTestId('settings-switch-upi'), 'valueChange', true);
     fireEvent.press(getByTestId('theme-dark'));
     fireEvent.press(getByTestId('settings-row-backup'));
     expect(navigate).toHaveBeenCalledWith(ROUTES.k25);
@@ -122,32 +125,42 @@ describe.each(['light', 'dark'] as const)('you screens (%s)', (mode) => {
     expect(navigate).toHaveBeenCalledWith(ROUTES.k25);
   });
 
-  it('k17 lists upcoming from the database, filters by chip and shows cash flow', async () => {
-    const { getByText, getAllByTestId, getByTestId, queryByTestId, findAllByTestId, getAllByText, getByLabelText } = renderWithTheme(<K17_ComingUp />, mode);
-    expect(getByText('Coming up')).toBeTruthy();
-    expect(getByText('Cash flow')).toBeTruthy();
-    expect(getByText('last 6 months')).toBeTruthy();
-    // Oct 24 to Nov 14, the same window as the design's calendar strip.
-    expect(await findAllByTestId('upcoming-item')).toHaveLength(7);
-    expect(getByText('Axis Bluechip SIP')).toBeTruthy();
-    expect(getByText('ICICI Amazon Pay bill')).toBeTruthy();
-    expect(getByText(`${R}14,820`)).toBeTruthy();
-    expect(getByText(`${R}22,000`)).toBeTruthy();
-    expect(getAllByText(`SIP \u00B7 SBI Salary`)).toHaveLength(3);
-    expect(getAllByText('Card due')).toHaveLength(2);
-    for (const i of [7, 10, 13, 14, 18, 23]) expect(getByTestId(`month-dot-${i}`)).toBeTruthy();
-    fireEvent.press(getByTestId('filter-sip'));
-    expect(getAllByTestId('upcoming-item')).toHaveLength(4);
-    expect(queryByTestId('month-dot-7')).toBeNull();
-    fireEvent.press(getByTestId('filter-sip'));
-    fireEvent.press(getByTestId('filter-bill'));
-    expect(getAllByTestId('upcoming-item')).toHaveLength(3);
-    fireEvent.press(getByTestId('filter-sip'));
-    expect(queryByTestId('upcoming-item')).toBeNull();
-    expect(getByTestId('upcoming-empty')).toBeTruthy();
-    expect(getByLabelText(/Illustration of a calendar/)).toBeTruthy();
-    fireEvent.press(getByTestId('paired-col-5'));
-    expect(getByTestId('paired-tooltip')).toBeTruthy();
+  it('k17 is a real month calendar: this month from today, other months with repeats, a day on tap, a colour key', async () => {
+    const r = renderWithTheme(<K17_ComingUp />, mode);
+    expect(r.getByText('Coming up')).toBeTruthy();
+    expect(r.getByText('Cash flow')).toBeTruthy();
+    expect(r.getByTestId('calendar-title').props.children).toBe('October 2026');
+    expect(r.getByTestId('calendar-prev').props.accessibilityState.disabled).toBe(true);
+    // Today is Sat 24 Oct: the rest of October.
+    expect(await r.findAllByTestId('upcoming-item')).toHaveLength(3);
+    expect(r.getByText('Axis Bluechip SIP')).toBeTruthy();
+    expect(r.getByText(`\u2212${R}14,820`)).toBeTruthy();
+    expect(r.getByTestId('calendar-dot-25-sip')).toBeTruthy();
+    expect(r.getByTestId('calendar-dot-31-bill')).toBeTruthy();
+    // November: the monthly SIP and bills come round again.
+    fireEvent.press(r.getByTestId('calendar-next'));
+    expect(r.getByTestId('calendar-title').props.children).toBe('November 2026');
+    await r.findByText('Rent');
+    expect(r.getByTestId('calendar-dot-25-sip')).toBeTruthy();
+    expect(r.getAllByText('Axis Bluechip SIP')).toHaveLength(1);
+    fireEvent.press(r.getByTestId('calendar-next'));
+    fireEvent.press(r.getByTestId('calendar-next'));
+    expect(r.getByTestId('calendar-title').props.children).toBe('January 2027');
+    await r.findByText('Rent');
+    // Tap a day for just that day; tap again for the whole month.
+    fireEvent.press(r.getByTestId('calendar-day-1'));
+    expect(r.getAllByTestId('upcoming-item').length).toBe(1);
+    fireEvent.press(r.getByTestId('calendar-day-2'));
+    expect(r.queryByTestId('upcoming-item')).toBeNull();
+    expect(r.getByTestId('upcoming-empty')).toBeTruthy();
+    fireEvent.press(r.getByTestId('calendar-day-2'));
+    expect(r.getAllByTestId('upcoming-item').length).toBeGreaterThan(3);
+    fireEvent.press(r.getByTestId('legend-open'));
+    expect(r.getByTestId('legend-bill')).toBeTruthy();
+    expect(r.getByText('Money going out')).toBeTruthy();
+    fireEvent.press(r.getByTestId('legend-scrim'));
+    fireEvent.press(r.getByTestId('paired-col-5'));
+    expect(r.getByTestId('paired-tooltip')).toBeTruthy();
   });
 
   it('k17 cash flow columns come from the entries', async () => {

@@ -149,24 +149,31 @@ describe('listening and backfill', () => {
     expect(createIngestService({ db: createMemoryDb(), now: () => NOW, native: null }).start()).resolves.toBe('unavailable');
   });
 
-  it('enable asks for permission, switches reading on and backfills the last days once', async () => {
+  it('enable asks for permission and switches reading on, but never reads old inbox messages', async () => {
     const { db, native, svc } = setup();
     native.permissions = { readSms: false, receiveSms: false, postNotifications: true };
     native.inbox = [sms(BODY, NOW - 2 * DAY, '1'), sms('Rs 99.00 debited from A/c XX1234 on 23-10-26 to VPA chai@okaxis (UPI Ref No 429812345001)', NOW - 3 * DAY, '2'), sms(BODY, NOW - 60 * DAY, '3', 'VM-OLD')];
     expect(await svc.enable()).toBe('enabled');
     expect(usePreferences.getState().smsIngestEnabled).toBe(true);
-    expect(usePreferences.getState().smsBackfilledAt).toBe(NOW);
     expect(native.enabled).toBe(true);
     expect(svc.isRunning()).toBe(true);
-    // The 60 day old message is outside the 30 day window.
-    expect(await db.entries.list()).toHaveLength(2);
-    // Backfill adds entries but does not notify.
-    expect(native.notifications).toHaveLength(0);
-    // A second start does not scan again.
-    native.inbox.push(sms('Rs 10.00 debited from A/c XX1234 on 24-10-26 to VPA tea@okaxis (UPI Ref No 429812345002)', NOW - DAY, '4'));
+    // Messages already in the inbox are left alone, on enable and on every later start.
+    expect(await db.entries.list()).toHaveLength(0);
     svc.stop();
     await svc.start();
-    expect(await db.entries.list()).toHaveLength(2);
+    expect(await db.entries.list()).toHaveLength(0);
+    expect(native.notifications).toHaveLength(0);
+    // A message that arrives after reading is on is added.
+    native.emit(sms('Rs 10.00 debited from A/c XX1234 on 24-10-26 to VPA tea@okaxis (UPI Ref No 429812345002)', NOW - 60_000, 'new1'));
+    await svc.idle();
+    expect(await db.entries.list()).toHaveLength(1);
+  });
+
+  it('scanRecent still reads the last days when called on purpose', async () => {
+    const { db, native, svc } = setup();
+    native.inbox = [sms(BODY, NOW - 2 * DAY, '1'), sms(BODY, NOW - 60 * DAY, '3', 'VM-OLD')];
+    await svc.scanRecent();
+    expect(await db.entries.list()).toHaveLength(1);
   });
 
   it('enable reports a refusal and leaves the setting off', async () => {

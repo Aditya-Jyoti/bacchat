@@ -14,6 +14,8 @@ export type RowProps = {
   icon?: string;
   /** Custom leading element (e.g. the date block in Coming up). */
   leading?: React.ReactNode;
+  /** Colour for the amount (default onSurface), e.g. money in and out in Coming up. */
+  amountColor?: string;
   /** Flip the circle to surfaceContainerHigh/onSurface (debt rows). */
   neutral?: boolean;
   paddingVertical?: number;
@@ -23,7 +25,7 @@ export type RowProps = {
 };
 
 /** Compact hairline-ruled row used by the Home sections (36dp circle, 14sp title). */
-export function Row({ title, subtitle, amount, icon, leading, neutral, paddingVertical = 8, children, onPress, onLongPress }: RowProps): React.JSX.Element {
+export function Row({ title, subtitle, amount, amountColor, icon, leading, neutral, paddingVertical = 8, children, onPress, onLongPress }: RowProps): React.JSX.Element {
   const { colors, typography } = useTheme();
   const body = (
     <View
@@ -51,12 +53,12 @@ export function Row({ title, subtitle, amount, icon, leading, neutral, paddingVe
           <Text numberOfLines={1} style={[typography.bodyMedium, { color: colors.onSurface, flexShrink: 1 }]}>
             {title}
           </Text>
-          {amount && !subtitle ? <Text style={[typography.labelLarge, { color: colors.onSurface }]}>{amount}</Text> : null}
+          {amount && !subtitle ? <Text style={[typography.labelLarge, { color: amountColor ?? colors.onSurface }]}>{amount}</Text> : null}
         </View>
         {subtitle ? <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{subtitle}</Text> : null}
         {children}
       </View>
-      {amount && subtitle ? <Text style={[typography.labelLarge, { color: colors.onSurface }]}>{amount}</Text> : null}
+      {amount && subtitle ? <Text style={[typography.labelLarge, { color: amountColor ?? colors.onSurface }]}>{amount}</Text> : null}
     </View>
   );
   if (!onPress && !onLongPress) return body;

@@ -5,12 +5,15 @@
  * Hook into ingestion: createIngestService({ ..., extractor: ai.extractor }) (see ingestService.ts).
  * Nothing here logs message text, prompts or keys.
  */
+import { fetchModels, type ModelInfo } from '../lib/ai/provider/models';
+import type { ScreenRow } from '../lib/ingest/ocr';
+import { readScreenshotWithAiWhy, type ScreenshotAiResult } from '../lib/ai/screenshot';
+import { loadScreenshotImage, type ScreenshotImageLoader } from './screenshotImage';
 import { getOnDeviceLlm } from '../../modules/bacchat-llm/src';
 import type { OnDeviceLlm } from '../../modules/bacchat-llm/src';
 import type { BacchatDb } from '../data/db/repositories';
 import {
   AiRouter,
-  AnthropicProvider,
   ModelDownloadManager,
   ModelRegistry,
   OnDeviceProvider,
@@ -73,6 +76,8 @@ export type AiServiceOptions = {
   prefs?: () => AiPrefsData;
   /** Network seam for Wi-Fi-only model downloads (the same NetworkProbe sync uses). */
   probe?: NetworkProbe;
+  /** Reads and shrinks a screenshot for the AI reader (tests inject a fake). */
+  loadImage?: ScreenshotImageLoader;
 };
 
 const LOCAL_HOST = /^(?:localhost|127\.|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|.*\.local$)/i;
@@ -83,6 +88,18 @@ export function hostOf(baseUrl: string): string {
 
 export function createAiService(o: AiServiceOptions) {
   const prefs = o.prefs ?? aiPrefsSnapshot;
+  // A hoisted function: it uses the router created below, and only runs after that.
+  async function readScreenshotWhy(uri: string, referenceDay: number): Promise<ScreenshotAiResult | null> {
+    const p = prefs();
+    if (!p.aiScreenshotRead || !uri) return null;
+    try {
+      const image = await (o.loadImage ?? loadScreenshotImage)(uri);
+      if (!image) return { ok: false, why: 'The screenshot could not be opened for the AI reader.' };
+      return await readScreenshotWithAiWhy(image, { router, referenceDay, visionModel: undefined });
+    } catch (e) {
+      return { ok: false, why: e instanceof Error && e.message ? e.message : 'The AI request failed.' };
+    }
+  }
   const registry = o.registry ?? new ModelRegistry();
   const llm = o.onDevice ?? getOnDeviceLlm();
   const fetchImpl = ((url, init) => o.fetch(url, init as RequestInit)) as AdvisorFetch;
@@ -105,12 +122,7 @@ export function createAiService(o: AiServiceOptions) {
   // ---- cloud ----
   async function cloudEngine(): Promise<CloudEngine | null> {
     const p = prefs();
-    if (p.aiCloudProvider === 'anthropic') {
-      const key = await o.settings.getApiKey();
-      if (!key) return null;
-      const model = await o.settings.getModel();
-      return { provider: new AnthropicProvider({ apiKey: key, model, fetch: fetchImpl }), consentKey: consentKey('anthropic') };
-    }
+    // Only the OpenAI-compatible route (OpenRouter, OpenAI, Groq, a local server). Anthropic was removed.
     const base = p.aiOpenAiBaseUrl.trim();
     if (!base || !p.aiOpenAiModel.trim()) return null;
     const key = (await o.secure.get(AI_SECURE_KEYS.openaiKey)) ?? '';
@@ -156,7 +168,7 @@ export function createAiService(o: AiServiceOptions) {
 
   const currentConsentKey = (): string => {
     const p = prefs();
-    return consentKey(p.aiCloudProvider, p.aiOpenAiBaseUrl);
+    return consentKey('openai', p.aiOpenAiBaseUrl);
   };
 
   const extractor: Extractor = async (text, input) => {
@@ -185,6 +197,17 @@ export function createAiService(o: AiServiceOptions) {
     },
     cleanOcr: (names: readonly string[]): Promise<string[]> => cleanOcrMerchants(names, { router }).then((r) => r.names, () => [...names]),
     insight: (facts: unknown) => insightText(facts, { router }).catch(() => null),
+    /**
+     * Read a screenshot with the cloud model when the owner turned it on (Settings > AI). Null when it
+     * is off, no vision engine is ready or consent is missing, or on any failure: the caller then uses
+     * on-phone text recognition.
+     */
+    readScreenshot: async (uri: string, referenceDay: number): Promise<ScreenRow[] | null> => {
+      const r = await readScreenshotWhy(uri, referenceDay);
+      return r && r.ok ? r.rows : null;
+    },
+    /** As readScreenshot, but says why it gave nothing. Null when reading screenshots with AI is off. */
+    readScreenshotWhy,
 
     // ---- settings helpers ----
     prefs,
@@ -196,6 +219,11 @@ export function createAiService(o: AiServiceOptions) {
     },
     async hasOpenAiKey(): Promise<boolean> {
       return !!(await o.secure.get(AI_SECURE_KEYS.openaiKey));
+    },
+    /** Models the OpenAI-compatible endpoint offers (live list, else a built-in one). */
+    async listModels(baseUrl?: string): Promise<{ models: ModelInfo[]; live: boolean }> {
+      const key = (await o.secure.get(AI_SECURE_KEYS.openaiKey)) ?? undefined;
+      return fetchModels(baseUrl ?? prefs().aiOpenAiBaseUrl, (url, init) => o.fetch(url, init as RequestInit) as never, key);
     },
     /** Consent key for the provider now selected. */
     currentConsentKey,

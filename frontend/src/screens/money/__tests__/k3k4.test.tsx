@@ -9,6 +9,7 @@ import K3 from '../K3_MoneySummary';
 import K4 from '../K4_MoneyEntries';
 import { methodSplit, monthSummary, topMerchants } from '../summary/summaryData';
 import { useUndo } from '../parts/undoStore';
+import { setScreenshotPicker } from '../../../services';
 import { flat, renderLive, renderScreen, R } from './helpers';
 
 const NOW = new Date(2026, 9, 24, 21, 30).getTime();
@@ -90,14 +91,18 @@ describe.each(['light', 'dark'] as const)('k3 Money Summary (%s)', (mode) => {
     expect(await findByTestId('month-empty')).toBeTruthy();
   });
 
-  it('daily bars: today is selected, tooltip content and re-selection', async () => {
-    const { getByTestId, getByText, getAllByText, findByTestId } = await renderLive(<K3 />, mode);
+  it('daily bars: nothing open at first, a tap opens the day, a second tap or a tap elsewhere closes it', async () => {
+    const { getByTestId, getByText, getAllByText, queryByTestId, findByTestId } = await renderLive(<K3 />, mode);
     const bars = await findByTestId('daily-bars');
     fireEvent(bars, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 320, height: 260 } } });
     const sel = (i: number) => flat(getByTestId(`daily-bar-fill-${i}`).props.style).backgroundColor;
-    expect(sel(23)).toBe(c.primary);
+    expect(queryByTestId('daily-tooltip')).toBeNull();
+    expect(sel(23)).toBe(c.chart2);
     expect(sel(16)).toBe(c.chart3);
     expect(sel(0)).toBe(c.surfaceContainerHigh);
+    expect(getByTestId('daily-axis')).toBeTruthy();
+    act(() => fireEvent.press(getByTestId('daily-bar-23')));
+    expect(sel(23)).toBe(c.primary);
     expect(getByText('Sat 24 Oct')).toBeTruthy();
     expect(getByText('7 entries')).toBeTruthy();
     expect(getByText('See entries')).toBeTruthy();
@@ -111,6 +116,12 @@ describe.each(['light', 'dark'] as const)('k3 Money Summary (%s)', (mode) => {
     expect(getByText('Fri 2 Oct')).toBeTruthy();
     expect(getByText(`${R}429 below average`)).toBeTruthy();
     expect(getByText('7 days to go')).toBeTruthy();
+    act(() => fireEvent.press(getByTestId('daily-bar-1')));
+    expect(queryByTestId('daily-tooltip')).toBeNull();
+    act(() => fireEvent.press(getByTestId('daily-bar-4')));
+    expect(getByTestId('daily-tooltip')).toBeTruthy();
+    act(() => fireEvent.press(getByTestId('summary-body')));
+    expect(queryByTestId('daily-tooltip')).toBeNull();
   });
 
   it('gives each bar a TalkBack summary', async () => {
@@ -121,6 +132,7 @@ describe.each(['light', 'dark'] as const)('k3 Money Summary (%s)', (mode) => {
   it('See entries opens Entries', async () => {
     const { getByTestId, nav, findByTestId } = await renderLive(<K3 />, mode);
     fireEvent(await findByTestId('daily-bars'), 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 320, height: 260 } } });
+    act(() => fireEvent.press(getByTestId('daily-bar-3')));
     fireEvent.press(getByTestId('daily-tooltip'));
     expect(nav.navigate).toHaveBeenCalledWith('main', { screen: 'money', params: { screen: 'money/entries', params: undefined } });
   });
@@ -235,16 +247,46 @@ describe.each(['light', 'dark'] as const)('k4 Money Entries (%s)', (mode) => {
     expect(getByLabelText(/Illustration of an open notebook/)).toBeTruthy();
   });
 
-  it('navigates: search, add by hand, from screenshot, long-press', async () => {
+  it('navigates: search, add by hand, long-press', async () => {
     const { getByTestId, nav, findByTestId } = await renderLive(<K4 />, mode);
     fireEvent.press(getByTestId('search-bar'));
     expect(nav.navigate).toHaveBeenLastCalledWith('money/search');
     fireEvent.press(getByTestId('action-hand'));
     expect(nav.navigate).toHaveBeenLastCalledWith('money/add');
-    fireEvent.press(getByTestId('action-shot'));
-    expect(nav.navigate).toHaveBeenLastCalledWith('money/reading');
     fireEvent(await findByTestId('entry-Blinkit'), 'longPress');
     expect(nav.navigate).toHaveBeenLastCalledWith('money/entry_menu', { id: 'e-blinkit', name: 'Blinkit' });
+  });
+
+  it('tapping an entry opens it to edit', async () => {
+    const { nav, findByTestId } = await renderLive(<K4 />, mode);
+    fireEvent.press(await findByTestId('entry-Blinkit'));
+    expect(nav.navigate).toHaveBeenLastCalledWith('money/add', { id: 'e-blinkit' });
+  });
+
+  it('from screenshot opens the gallery and reads the chosen image', async () => {
+    setScreenshotPicker(async () => 'content://media/picker/0/shot-1');
+    try {
+      const { getByTestId, nav } = await renderLive(<K4 />, mode);
+      fireEvent.press(getByTestId('action-shot'));
+      await waitFor(() => expect(nav.navigate).toHaveBeenLastCalledWith('money/reading', { uri: 'content://media/picker/0/shot-1' }));
+    } finally {
+      setScreenshotPicker(null);
+    }
+  });
+
+  it('from screenshot stays on Entries when the picker is closed or fails', async () => {
+    for (const pick of [async () => null, async () => Promise.reject(new Error('no picker'))]) {
+      setScreenshotPicker(pick);
+      try {
+        const { getByTestId, nav } = await renderLive(<K4 />, mode);
+        fireEvent.press(getByTestId('action-shot'));
+        await act(async () => {});
+        expect(nav.navigate).not.toHaveBeenCalledWith('money/reading', expect.anything());
+        expect(nav.navigate).not.toHaveBeenCalledWith('money/reading');
+      } finally {
+        setScreenshotPicker(null);
+      }
+    }
   });
 
   it('tap confirms a To review entry in the database', async () => {

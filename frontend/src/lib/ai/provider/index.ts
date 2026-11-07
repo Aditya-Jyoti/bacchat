@@ -8,3 +8,4 @@ export * from './ondevice';
 export * from './registry';
 export * from './download';
 export * from './sha256';
+export * from './models';

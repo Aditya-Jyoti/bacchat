@@ -7,7 +7,8 @@ export type PaceBarProps = {
   /** Spent share of the budget, 0..1. */
   fraction: number;
   /** Where today sits in the month, 0..1. Draws a 2dp marker 20dp tall. */
-  todayFraction: number;
+  /** Where today falls in the month. Null hides the marker. */
+  todayFraction: number | null;
   /** Fill override, e.g. colors.caution when over budget. Defaults to primary. */
   color?: string;
   /** Spoken summary, e.g. "69 percent spent, 77 percent of the month gone". */
@@ -18,7 +19,7 @@ export type PaceBarProps = {
 export function PaceBar({ fraction, todayFraction, color, accessibilityLabel }: PaceBarProps): React.JSX.Element {
   const { colors } = useTheme();
   const f = Number.isFinite(fraction) ? Math.max(0, Math.min(1, fraction)) : 0;
-  const d = Number.isFinite(todayFraction) ? Math.max(0, Math.min(1, todayFraction)) : 0;
+  const d = todayFraction != null && Number.isFinite(todayFraction) ? Math.max(0, Math.min(1, todayFraction)) : null;
   return (
     <View
       accessible
@@ -29,10 +30,12 @@ export function PaceBar({ fraction, todayFraction, color, accessibilityLabel }: 
       style={{ height: 10, borderRadius: 5, backgroundColor: colors.surfaceContainerHigh, justifyContent: 'center' }}
     >
       <View testID="pace-bar-fill" style={{ width: `${f * 100}%`, height: 10, borderRadius: 5, backgroundColor: color ?? colors.primary }} />
-      <View
-        testID="pace-bar-today"
-        style={{ position: 'absolute', left: `${d * 100}%`, top: -5, width: 2, height: 20, borderRadius: 1, backgroundColor: colors.onSurface }}
-      />
+      {d != null ? (
+        <View
+          testID="pace-bar-today"
+          style={{ position: 'absolute', left: `${d * 100}%`, top: -5, width: 2, height: 20, borderRadius: 1, backgroundColor: colors.onSurface }}
+        />
+      ) : null}
     </View>
   );
 }

@@ -1,38 +1,20 @@
 import { fireEvent, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
-import { createMemorySecureStore, SECURE_KEYS } from '../../../services';
+import { createMemorySecureStore } from '../../../services';
 import { renderWithTheme } from '../../../testUtils';
 import K24_Settings from '../K24_Settings';
+import { useSettingsGroups } from '../parts/SettingsGroup';
+
+// Settings groups start collapsed; these tests reach rows inside them.
+beforeEach(() => useSettingsGroups.getState().openAll());
 
 describe.each(['light', 'dark'] as const)('k24 advisor and server settings (%s)', (mode) => {
-  it('saves the key to the secure store, masks it and removes it', async () => {
-    const secure = createMemorySecureStore();
-    const { getByTestId, findByText, getByText, queryByTestId, services } = renderWithTheme(<K24_Settings />, mode, { servicesOptions: { secure } });
-    expect(getByText('AI ADVISOR')).toBeTruthy();
-    await findByText('No key yet');
-    const field = getByTestId('advisor-key');
-    expect(field.props.secureTextEntry).toBe(true);
-    expect(getByTestId('advisor-key-save').props.accessibilityState.disabled).toBe(true);
-    expect(queryByTestId('advisor-key-remove')).toBeNull();
-    fireEvent.changeText(field, 'sk-secret-123');
-    fireEvent.press(getByTestId('advisor-key-save'));
-    await findByText('Key saved on this phone');
-    expect(await services.settings.getApiKey()).toBe('sk-secret-123');
-    expect(secure.dump()[SECURE_KEYS.apiKey]).toBe('sk-secret-123');
-    expect(getByTestId('advisor-key').props.value).toBe('');
-    expect(queryByTestId('settings-advisor')).toBeTruthy();
-    fireEvent.press(getByTestId('advisor-key-remove'));
-    await findByText('No key yet');
-    expect(await services.settings.getApiKey()).toBeNull();
-  });
-
-  it('saves the model name', async () => {
-    const { getByTestId, services, findByDisplayValue } = renderWithTheme(<K24_Settings />, mode);
-    await findByDisplayValue('claude-sonnet-5-5');
-    fireEvent.changeText(getByTestId('advisor-model'), 'claude-test-model');
-    fireEvent.press(getByTestId('advisor-model-save'));
-    await waitFor(async () => expect(await services.settings.getModel()).toBe('claude-test-model'));
+  it('has no separate Anthropic key section any more', () => {
+    useSettingsGroups.getState().openAll();
+    const { queryByTestId } = renderWithTheme(<K24_Settings />, mode);
+    expect(queryByTestId('settings-advisor')).toBeNull();
+    expect(queryByTestId('api-key-input')).toBeNull();
   });
 
   it('saves the sync server address and rejects a bad one', async () => {

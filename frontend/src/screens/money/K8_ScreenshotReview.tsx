@@ -20,18 +20,23 @@ import {
   addCount,
   commitImport,
   getOcrEngine,
-  importDefaults,
+  defaultsOf,
   loadPlan,
+  PAID_WITH_KEY,
+  paidWithChoices,
   loadTrusted,
   rowsFromText,
   trustedChoices,
   unresolved,
   type Choice,
   type Decisions,
-  type ImportDefaults,
   type LoadedPlan,
+  type PaidWithChoices,
 } from './importFlow';
+import { OptionPicker } from '../../components/OptionPicker';
+import { OutlinedField } from '../../components/OutlinedField';
 import { useImportSession } from './parts/importSession';
+import { ReadText } from './review/ReadText';
 import { useMoneyNav } from './parts/nav';
 import { S, fmt } from './parts/strings';
 import { PillButton, ScreenFrame, TopBar, useSerif } from './parts/ui';
@@ -41,7 +46,7 @@ const isChoice = (v: unknown): v is Choice => v === 'shot' || v === 'mail' || v 
 
 const PICK_LABEL: Record<Choice, string> = { shot: 'Screenshot', mail: 'Email', both: 'Both' };
 
-type Ctx = { loaded: LoadedPlan; cats: Category[]; trusted: Record<number, Choice>; defaults: ImportDefaults };
+type Ctx = { loaded: LoadedPlan; cats: Category[]; trusted: Record<number, Choice>; paidWith: PaidWithChoices };
 
 export default function K8_ScreenshotReview(): React.JSX.Element {
   const { colors, typography, spacing } = useTheme();
@@ -50,6 +55,7 @@ export default function K8_ScreenshotReview(): React.JSX.Element {
   const db = useWriters();
   const now = useNow();
   const session = useImportSession();
+  const seen = session.seen;
   const [rows, setRows] = useState<ScreenRow[] | null>(() => {
     if (session.rows) return session.rows;
     // Opened without k7 (a deep link or a preview): read with the OCR engine.
@@ -58,6 +64,8 @@ export default function K8_ScreenshotReview(): React.JSX.Element {
   });
   const [ctx, setCtx] = useState<Ctx | null>(null);
   const [busy, setBusy] = useState(false);
+  const [paidPick, setPaidPick] = useState<string | null>(null);
+  const [pickingPaid, setPickingPaid] = useState(false);
   const [skipped, setSkipped] = useState<Set<number>>(new Set());
   const [picked, setPicked] = useState<Record<number, CategoryPick>>({});
 
@@ -75,10 +83,10 @@ export default function K8_ScreenshotReview(): React.JSX.Element {
     let live = true;
     void (async () => {
       const loaded = await loadPlan(db, rows);
-      const [cats, trusted, defaults] = await Promise.all([db.categories.list(), loadTrusted(db, loaded.plan), importDefaults(db)]);
+      const [cats, trusted, paidWith] = await Promise.all([db.categories.list(), loadTrusted(db, loaded.plan), paidWithChoices(db)]);
       if (!live) return;
       useImportSession.getState().setPlan(loaded);
-      setCtx({ loaded, cats: cats.sort((a, b) => a.name.localeCompare(b.name)), trusted: trustedChoices(loaded.plan, trusted), defaults });
+      setCtx({ loaded, cats: cats.sort((a, b) => a.name.localeCompare(b.name)), trusted: trustedChoices(loaded.plan, trusted), paidWith });
     })();
     return () => {
       live = false;
@@ -138,10 +146,14 @@ export default function K8_ScreenshotReview(): React.JSX.Element {
     [plan?.counts.conflict ?? 0, S.statConflict, true],
   ];
 
+  // Which card, bank, UPI or cash the imported payments were made with (all rows of this import).
+  const paidKey = paidPick ?? ctx?.paidWith.key ?? '';
+  const paidOption = ctx?.paidWith.options.find((o) => o.key === paidKey) ?? ctx?.paidWith.options[0];
   const add = (): void => {
-    if (!ctx || busy || open.length > 0) return;
+    if (!ctx || busy || open.length > 0 || !paidOption) return;
     setBusy(true);
-    void commitImport(db, ctx.loaded, decisions, ctx.defaults, session.uri ? { uri: session.uri, readAt: now } : undefined)
+    void db.meta.set(PAID_WITH_KEY, paidOption.key);
+    void commitImport(db, ctx.loaded, decisions, defaultsOf(paidOption), session.uri ? { uri: session.uri, readAt: now } : undefined)
       .then(() => {
         useImportSession.getState().reset();
         nav.go('k4');
@@ -164,6 +176,19 @@ export default function K8_ScreenshotReview(): React.JSX.Element {
         <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant, marginTop: spacing.sm }]}>
           {fmt(t('moneyLive.checkedAgainst'), { n: ctx?.loaded.checked ?? 0 })}
         </Text>
+        {ctx && paidOption ? (
+          <View style={{ marginTop: spacing.md }}>
+            <OutlinedField
+              testID="import-paid-with"
+              label={t('moneyLive.importPaidWith')}
+              leadingIcon="credit_card"
+              dropdown
+              value={paidOption.label}
+              onPress={() => setPickingPaid(true)}
+              helper={t('moneyLive.importPaidWithHelp')}
+            />
+          </View>
+        ) : null}
         {!ctx ? <SkeletonRows count={4} /> : null}
         {ctx && view.length === 0 ? (
           <View testID="review-empty" style={{ paddingTop: spacing.xl }}>
@@ -204,10 +229,29 @@ export default function K8_ScreenshotReview(): React.JSX.Element {
               picked={picked[i]}
               categories={ctx?.cats ?? []}
               onPickCategory={(p) => setPicked((s) => ({ ...s, [i]: p }))}
+              altAmountText={item.row.amountAlt != null ? formatRupees(item.row.amountAlt) : undefined}
+              onUseAlt={() =>
+                setRows((rs) =>
+                  rs ? rs.map((r, k) => (k === i && r.amountAlt != null ? { ...r, amountPaise: r.amountAlt, amountAlt: r.amountPaise } : r)) : rs,
+                )
+              }
             />
           );
         })}
+        {seen ? <ReadText seen={seen} /> : null}
       </ScrollView>
+      <OptionPicker
+        visible={pickingPaid}
+        title={t('moneyLive.importPaidWith')}
+        options={(ctx?.paidWith.options ?? []).map((o) => o.label)}
+        value={paidOption?.label ?? ''}
+        onSelect={(label) => {
+          const o = ctx?.paidWith.options.find((x) => x.label === label);
+          if (o) setPaidPick(o.key);
+          setPickingPaid(false);
+        }}
+        onClose={() => setPickingPaid(false)}
+      />
       <View style={{ paddingHorizontal: spacing.screenMargin, paddingTop: 10, paddingBottom: spacing.xl }}>
         {!ctx || open.length > 0 ? (
           <PillButton

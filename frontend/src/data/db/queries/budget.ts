@@ -39,13 +39,25 @@ export type BudgetAlert = {
 
 /** Pace for every budget for the month containing `now`. */
 export async function budgetPace(db: BacchatDb, now: number): Promise<BudgetPace[]> {
-  const [budgets, entries] = await Promise.all([
+  const [budgets, entries, cats] = await Promise.all([
     db.budgets.list(),
     db.entries.between(startOfMonth(now), addMonths(now, 1)),
+    db.categories.list(),
   ]);
+  // A spend tagged with a budget counts there only. An untagged spend whose category is linked to a
+  // budget counts there; otherwise toward its category's own budget.
   const spentBy = new Map<string, number>();
+  const taggedBy = new Map<string, number>();
+  const live = new Set(budgets.map((b) => b.id));
+  const linked = new Map(cats.filter((c) => c.budgetId && live.has(c.budgetId)).map((c) => [c.id, c.budgetId as string] as const));
   for (const e of entries) {
-    if (e.direction !== 'out' || !e.categoryId) continue;
+    if (e.direction !== 'out' || e.transferToAccountId) continue;
+    const to = e.budgetId && live.has(e.budgetId) ? e.budgetId : e.categoryId ? linked.get(e.categoryId) : undefined;
+    if (to) {
+      taggedBy.set(to, (taggedBy.get(to) ?? 0) + e.amountPaise);
+      continue;
+    }
+    if (!e.categoryId) continue;
     spentBy.set(e.categoryId, (spentBy.get(e.categoryId) ?? 0) + e.amountPaise);
   }
   const n = daysInMonth(now);
@@ -53,7 +65,7 @@ export async function budgetPace(db: BacchatDb, now: number): Promise<BudgetPace
   return budgets
     .filter((b) => b.monthlyPaise > 0)
     .map<BudgetPace>((b) => {
-      const spent = spentBy.get(b.categoryId) ?? 0;
+      const spent = (b.categoryId ? spentBy.get(b.categoryId) ?? 0 : 0) + (taggedBy.get(b.id) ?? 0);
       const expected = Math.round((b.monthlyPaise * today) / n);
       const projected = Math.round((spent * n) / today);
       const daysLeft = n - today;

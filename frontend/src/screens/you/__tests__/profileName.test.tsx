@@ -66,4 +66,14 @@ describe('profile name', () => {
     await waitFor(() => expect(usePreferences.getState().profileName).toBe('Asha'));
   });
 
+  it('Settings keeps a typed name when the field loses focus or Enter is pressed, without Save', async () => {
+    const s = renderWithTheme(<K24_Settings />, 'light', { servicesOptions: real });
+    fireEvent.changeText(s.getByTestId('profile-name'), 'Ravi');
+    fireEvent(s.getByTestId('profile-name'), 'blur');
+    await waitFor(() => expect(usePreferences.getState().profileName).toBe('Ravi'));
+    fireEvent.changeText(s.getByTestId('profile-name'), 'Ravi K');
+    fireEvent(s.getByTestId('profile-name'), 'submitEditing');
+    await waitFor(() => expect(usePreferences.getState().profileName).toBe('Ravi K'));
+  });
+
 });

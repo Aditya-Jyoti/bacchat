@@ -230,3 +230,91 @@ ModelDownloadManager honours the aiModelsWifiOnly preference (default on) throug
 - Context: the app seeded the design's sample notebook on first launch, nothing ever left sample mode, and Settings "Delete all data" was a no-op. A real user could not get an empty notebook.
 - Decision: (1) A new install starts empty. `createServices` still seeds by default (tests and `createTestServices` keep the seeded db), but the app and the headless SMS task pass `seed: false`; they add the standard categories only. The sample is added by `services.seedSample()`, called from the Welcome button "Look around with sample data". (2) `services.clearAllData()` is a hard wipe through a new `BacchatDb.wipe()` (all tables and meta, not tombstones), then re-seeds the standard and India categories, empties the goal plan, budget and alerts stores, clears lastNavRefreshDay, resets the sync applied-map and merge bases, leaves sample mode (SAMPLE_EXITED_FLAG) and notifies. First-run state, other preferences, the database key, API keys and sync credentials are untouched. `seedIfEmpty` honours SAMPLE_EXITED_FLAG so a cleared notebook is never silently refilled. (3) Start fresh and Restore from backup both begin from an empty notebook. (4) The sample stores (budget total 45,000, Goa plan) keep their sample defaults so tests and sample mode are unchanged; a new install resets them when the person picks Start fresh. K11 and K14 pre-fill the design example only while sample mode is on.
 - Consequences: a database from an earlier build that holds sample data stays in sample mode with the honest Home note until cleared in Settings. Wiping is local only: copies already synced to the cloud are not deleted, and because sync bookkeeping is reset a later sync restores from the cloud copy. If cloud deletion is wanted, that is a separate, explicit action (follow-up). Hard wipe leaves no tombstones, so other devices do not receive deletions.
+
+## Investments entered by hand (2026-11-06)
+
+- Context: live mutual fund and NPS values need dependable, verified data sources. The AMFI and NPS fetchers exist but are unverified, and the NPS address is a guess.
+- Decision: the main way to record funds and NPS is by hand in k11 (Investment, then Mutual funds or NPS). The amount is the amount invested and is shown with a plain note that it does not follow market prices. Holdings and NAV refresh stay in the code for a later verified source.
+- Consequences: net worth counts what was invested, not today's value, for these accounts. The Settings NPS NAV address row remains but only matters once holdings exist.
+
+## Settings in collapsible groups, rows without behaviour hidden (2026-11-06)
+
+- Context: k24 had grown into one long list, and several rows did nothing when tapped or switched (number format, export, import, read payment emails, read UPI app notifications, calm nudges, bill reminders, hide amounts on open).
+- Decision: k24 shows five collapsible groups (Look and feel, Adding entries, Privacy and lock, Backup and sync, AI). Only Look and feel starts open; each header has a one-line summary. Which groups are open is kept for the session. Rows and switches with nothing behind them are not shown until they are built. The NPS NAV address section is hidden too (funds are entered by hand); `NpsNavSection` stays in code and keeps its test.
+- Consequences: a deviation from the design's flat k24 list, made at the owner's request.
+
+## k30 Categories (2026-11-06)
+
+- Context: the You tab had a Categories row with no screen behind it; the design never defined one.
+- Decision: new screen k30 (`you/categories`). Lists categories with icon and entry count; + adds one (name and an icon from the 180-icon catalog); tapping edits the name and icon or hides it. The edit form replaces the list on the same screen, so no extra k-id is needed. `Category.hidden` is a new optional field (records are stored as JSON, so no migration). Hidden categories stay on their entries and in lookups, and are left out of CategoryChoices (k8, k27, k28). Names must be unique (case-insensitive). No delete, so entries never lose their category.
+
+## Screenshot import picks from the gallery (2026-11-06)
+
+- Context: k4 "From screenshot" opened k7 with no image, so the reader showed the design's sample rows.
+- Decision: the button first opens the Android system photo picker (`expo-image-picker`, `services/screenshotPicker.ts`), and k7 opens only with the chosen image's uri. The photo picker needs no storage permission; the library's CAMERA, READ_EXTERNAL_STORAGE and RECORD_AUDIO permissions are blocked in app.json.
+- Also: Metro maps `libsodium-wrappers-sumo` to an empty module on Android and iOS (`metro.config.js`); the WASM build imports node:fs and broke the device bundle. The device uses react-native-libsodium.
+
+## SMS reading starts from now, no inbox backfill (2026-11-06)
+
+- Context: turning on SMS reading scanned the last 30 days of the inbox once and added everything it found.
+- Decision: no automatic inbox scan. Reading covers new messages only, plus messages the receiver queued while the app was closed. Past spending is added with a screenshot import. `scanRecent` stays in the ingest service for a deliberate use later but nothing calls it. Supersedes "one backfill of the last 30 days on first enable" above.
+
+## Screenshots may be read by the owner's AI model (2026-11-06)
+
+- Context: on-phone OCR mixes avatar letters and logos into names and cannot see colour, so money in reads as a spend.
+- Decision: an opt-in switch sends the shrunk screenshot to the owner's cloud model (their key, their provider) and gets rows back. This is the one place where names and amounts leave the phone, so it is off by default, needs the provider's message-text consent, says so in Settings and on k7, and falls back to on-phone OCR. The model's rows are validated and still go through reconciliation and the k8 review; nothing is added without the owner.
+- Consequences: a deliberate exception to "only aggregates are sent", chosen by the owner. Cost is roughly a tenth of a cent per screenshot on a small vision model.
+
+## Mutual fund data stays manual (2026-11-06)
+
+- Kite (Zerodha) and the Groww Trade API were considered. Groww's API covers stocks and F&O only (no mutual fund holdings), costs about Rs 499 a month and needs daily approval of the key. Both dropped at the owner's request; funds and NPS are entered by hand.
+
+## No card digits on accounts (2026-11-06)
+
+- k11 asks for a name, bank and balance only; the last 4 digits field is gone at the owner's request. Consequence: bank SMS can no longer be tied to an account by card digits; such entries are added without an account and can be assigned when edited.
+
+## Goals without accounts, optional date and plan (2026-11-06)
+
+- Allocations may use the account id `unassigned` (goalWrites.UNASSIGNED) for money set aside without naming an account; it counts toward the goal and toward no account's free balance. The goal's date and monthly plan are optional; the design's months stepper and "still free" plan line are replaced by a calendar and a plain "about X a month" line. Deviation from the k14 design, at the owner's request.
+- Versioning: app.json version and android versionCode go up with every build installed on a device.
+
+## One AI model for everything, picked from a list (2026-11-07)
+
+- The owner asked for one global choice and no typed model ids. Per-feature modes and the screenshot-only model are removed from Settings; the chosen model reads screenshots too, so the dropdown shows only models that read images and call tools by default (OpenRouter's /models says so), cheapest first.
+
+## Only OpenAI-compatible providers (2026-11-07)
+
+- At the owner's request Anthropic is removed from the app. One route (any OpenAI-compatible endpoint, OpenRouter by quick pick) with one model for everything keeps setup simple. Supersedes the "Anthropic or OpenAI-compatible" choice in earlier entries.
+
+## Owner's round, 2026-11-07
+
+- Named budgets: Budget gains optional name and icon (categoryId '' for named ones); Entry gains budgetId. Tagged spends count only toward their budget.
+- Own/owe split and Yours to spend removed in favour of a plain list of accounts; debt still shows on its own (card dues row, Cards and loans group).
+- UPI ids are no longer shown or managed; the data model keeps the table so older data and sync still load.
+- Home sections are collapsible; a deviation from the design's always-open sections, at the owner's request.
+
+## Goals kept in an account (2026-11-07)
+
+- Supersedes "goal money outside accounts counts in net worth" from earlier the same day. Goal.accountId names the account the goal lives in; setting money aside raises that account's balance (opening figure moves, entries untouched) and taking it out lowers it. Net worth counts accounts only.
+
+## Events added by hand in Coming up (2026-11-07)
+
+- The design's k17 only projects recurring items from data. At the owner's request it now takes events added by hand (pay day, bill, transfer, investment) with a repeat (once, weekly, monthly, quarterly, yearly), stored as Recurring rows (cadence 'once' added; kinds income and transfer added). The form replaces the list on the same screen (like k30) rather than adding a new k-id. Edge k17 -> k11 added for investment and card rows.
+- An investment's next payment date repeats every month unless set otherwise (Account.paymentRepeat), since SIPs are monthly.
+- Home Coming up shows three items plus a link, not four.
+
+## Visual pass (2026-11-07)
+
+- The owner found the app too plain and the tab highlight missing. Deviations from the Khata design, at the owner's request: the tab pill and the Home range chips use primaryContainer instead of secondaryContainer (which is nearly the colour of the bar on the warm palette), Home section headers get a tinted icon circle, and the net worth hero sits on a surfaceContainer panel (a card where the design has bare paper). The k3 daily chart gains an amount scale.
+
+## Categories feed named budgets; real calendar; red and green due amounts (2026-11-07)
+
+- Category.budgetId links a category to a named budget. Precedence for a spend: its own tag (Entry.budgetId), else its category's linked budget, else its category's own budget. Counted once.
+- k17's four-week strip and filter chips are replaced by a month calendar with arrows and a colour key behind a ? (owner's request; the chips overflowed).
+- Deviation from "no red for spending", at the owner's explicit request: in Coming up (k17 and Home), money going out on a due date is red with a minus and money coming in is green with a plus. Fixed roles moneyOut and moneyIn; spends in entries and summaries are unchanged.
+
+
+## Telling accounts apart without card digits (2026-11-07)
+
+- Card and account digits are no longer asked for, so messages are matched to accounts by wording and name (lib/ingest/accountMatch): "credit card" picks a card account, "a/c" / "account" / "savings" / "debit card" a bank account, and the account name's distinctive word (or the SMS sender id) picks which. Ambiguous messages get no account rather than a wrong one. The AI extractor is not involved: it only sees message text, not the owner's accounts.
+- Screenshot imports ask "Paid with" once per import (k8) instead of always filing under the first UPI id or cash.

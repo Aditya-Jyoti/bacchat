@@ -1,6 +1,6 @@
 /**
- * k24: the "Read bank SMS" row, wired to the ingest service. Turning it on asks for SMS access,
- * adds recent bank messages once, and then watches new ones. Everything stays on this phone. When
+ * k24: the "Read bank SMS" row, wired to the ingest service. Turning it on asks for SMS access
+ * and then watches new messages only (older ones are not read; a screenshot import covers the past). Everything stays on this phone. When
  * access is not allowed, pasting a message still works.
  */
 import React, { useEffect, useState } from 'react';

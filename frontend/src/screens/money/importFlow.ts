@@ -14,6 +14,7 @@ import { formatRupees } from '../../lib/format';
 import { parseOcrLines, planScreenshotImport, type ImportPlan, type ImportPlanItem, type ScreenRow } from '../../lib/ingest';
 import { normalizeMerchant } from '../../lib/reconciliation';
 import { sha256, toHex, utf8 } from '../../lib/sync/targets/sha256';
+import { buildMethodOptions, type MethodOption } from './parts/addEntry';
 
 /** Reads an image and returns the text lines found. May be async (a real OCR engine). */
 export type OcrEngine = (imageUri: string | null) => string[] | Promise<string[]>;
@@ -138,6 +139,26 @@ export async function importDefaults(db: BacchatDb): Promise<ImportDefaults> {
   const cash = accounts.find((a) => a.kind === 'cash');
   return { method: 'cash', accountId: cash?.id ?? null, upiId: null };
 }
+
+/** Meta key for the "Paid with" picked last time on k8, so the next import starts there. */
+export const PAID_WITH_KEY = 'import.paidWith';
+
+export type PaidWithChoices = { options: MethodOption[]; key: string };
+
+/**
+ * The "Paid with" choices for a screenshot import (cards, banks, UPI, cash, as in k5) and which
+ * one to start on: the one picked last time if it still exists, else the old default (first UPI
+ * id, else cash).
+ */
+export async function paidWithChoices(db: BacchatDb): Promise<PaidWithChoices> {
+  const [accounts, upis, last, fallback] = await Promise.all([db.accounts.list(), db.upiIds.list(), db.meta.get(PAID_WITH_KEY), importDefaults(db)]);
+  const options = buildMethodOptions(accounts, upis);
+  const fromFallback = options.find((o) => o.method === fallback.method && o.accountId === fallback.accountId && o.upiId === fallback.upiId);
+  const key = (last && options.some((o) => o.key === last) ? last : null) ?? fromFallback?.key ?? options[0]?.key ?? '';
+  return { options, key };
+}
+
+export const defaultsOf = (o: MethodOption): ImportDefaults => ({ method: o.method, accountId: o.accountId, upiId: o.upiId });
 
 /** Where a read screenshot lives on this phone. Only metadata is recorded (see recordScreenshot). */
 export type ShotMeta = { uri: string; sizeBytes?: number | null; readAt: number };

@@ -9,6 +9,9 @@ import {
   conflictIndexes,
   getOcrEngine,
   importDefaults,
+  defaultsOf,
+  PAID_WITH_KEY,
+  paidWithChoices,
   loadPlan,
   loadTrusted,
   rowsFromText,
@@ -169,6 +172,21 @@ describe('commitImport', () => {
     const db = createMemoryDb();
     await db.accounts.put({ id: 'c', name: 'Cash', kind: 'cash', balancePaise: 0, icon: 'payments' });
     expect(await importDefaults(db)).toEqual({ method: 'cash', accountId: 'c', upiId: null });
+  });
+
+  it('Paid with offers cards and banks, starts on the old default, then on the last one picked', async () => {
+    const db = createMemoryDb();
+    await db.accounts.putMany([
+      { id: 'c', name: 'Cash', kind: 'cash', balancePaise: 0, icon: 'payments' },
+      { id: 'cc', name: 'Slice Credit', kind: 'card', balancePaise: 0, icon: 'credit_card' },
+    ]);
+    const first = await paidWithChoices(db);
+    expect(first.options.map((o) => o.label)).toContain('Slice Credit');
+    expect(first.options.find((o) => o.key === first.key)?.method).toBe('cash');
+    const card = first.options.find((o) => o.label === 'Slice Credit')!;
+    expect(defaultsOf(card)).toEqual({ method: 'card', accountId: 'cc', upiId: null });
+    await db.meta.set(PAID_WITH_KEY, card.key);
+    expect((await paidWithChoices(db)).key).toBe(card.key);
   });
 });
 

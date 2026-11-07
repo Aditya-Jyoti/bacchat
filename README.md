@@ -111,6 +111,13 @@ curl localhost:8080/healthz
 DEMO_URL=http://localhost:8080 npm run demo     # run the walkthrough against the container
 ```
 
+To host it on a server with HTTPS (Caddy in front, automatic Let's Encrypt certificate):
+
+```bash
+cd backend && cp .env.example .env    # set BACCHAT_DOMAIN=sync.yourdomain.com
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
 Point the app at your server in Settings, Backup and sync. Environment variables, the API and
 self-hosting notes are in [backend/README.md](backend/README.md) and [docs/backend.md](docs/backend.md).
 

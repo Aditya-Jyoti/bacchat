@@ -5,17 +5,18 @@ import React from 'react';
 import { createMemoryDb } from '../../../data/db';
 import { usePreferences } from '../../../lib/preferences';
 import { createMemoryStorage, setStorage } from '../../../lib/storage';
-import { createMemorySecureStore, createTestServices, SECURE_KEYS, type Services } from '../../../services';
+import { createMemorySecureStore, createTestServices, type Services } from '../../../services';
 import { renderWithTheme } from '../../../testUtils';
+import { AI_SECURE_KEYS } from '../../../services/aiService';
 import K18_Ask from '../K18_Ask';
 
 const reply = (text: string, tool?: string) =>
   tool
     ? [
-        { body: { content: [{ type: 'tool_use', id: 't1', name: tool, input: {} }], stop_reason: 'tool_use', usage: {} } },
-        { body: { content: [{ type: 'text', text }], stop_reason: 'end_turn', usage: {} } },
+        { body: { choices: [{ message: { content: null, tool_calls: [{ id: 't1', type: 'function', function: { name: tool, arguments: '{}' } }] }, finish_reason: 'tool_calls' }], usage: {} } },
+        { body: { choices: [{ message: { content: text }, finish_reason: 'stop' }], usage: {} } },
       ]
-    : [{ body: { content: [{ type: 'text', text }], stop_reason: 'end_turn', usage: {} } }];
+    : [{ body: { choices: [{ message: { content: text }, finish_reason: 'stop' }], usage: {} } }];
 
 function services(replies: { body: unknown }[], db = createMemoryDb()): Services {
   const queue = [...replies];
@@ -23,7 +24,7 @@ function services(replies: { body: unknown }[], db = createMemoryDb()): Services
     const r = queue.shift() ?? { body: {} };
     return { ok: true, status: 200, json: async () => r.body, text: async () => JSON.stringify(r.body) };
   });
-  return createTestServices({ secure: createMemorySecureStore({ [SECURE_KEYS.apiKey]: 'sk-test' }), db, seed: false, fetch: fn as never });
+  return createTestServices({ secure: createMemorySecureStore({ [AI_SECURE_KEYS.openaiKey]: 'sk-test' }), db, seed: false, fetch: fn as never });
 }
 
 function mount(s: Services) {

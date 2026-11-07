@@ -5,6 +5,7 @@ import { accountAllocations, type Account, type AccountAllocation } from '../../
 import { useAccounts, useDbQuery, useGoalsWithTotals, useNow } from '../../services';
 import { byText } from './sections/goalPlan';
 import type { GoalAlloc, GoalView } from './goalTypes';
+import { t } from '../../lib/i18n';
 
 const COLORS: readonly ColorKey[] = ['p', 'k2', 'k3', 'k4'];
 
@@ -36,12 +37,13 @@ export function useGoalsData(): GoalsData {
       targetPaise: goal.targetPaise,
       by: byText(goal.targetDate),
       targetDate: goal.targetDate ?? null,
+      accountId: goal.accountId ?? null,
       allocations: total.parts
         .filter((p) => p.amountPaise > 0)
         .map<GoalAlloc>((p, i) => ({
           accountId: p.accountId,
-          from: byId.get(p.accountId)?.name ?? '',
-          icon: byId.get(p.accountId)?.icon ?? 'account_balance',
+          from: byId.get(p.accountId)?.name ?? t('goalsUi.notInAccount'),
+          icon: byId.get(p.accountId)?.icon ?? 'savings',
           paise: p.amountPaise,
           color: COLORS[i % COLORS.length],
         })),

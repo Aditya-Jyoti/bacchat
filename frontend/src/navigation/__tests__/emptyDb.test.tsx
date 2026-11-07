@@ -128,7 +128,7 @@ describe('empty states say what to do next', () => {
     ['k10', 'accounts-empty', 'No accounts yet. Add one by name to begin.'],
     ['k12', null, 'Nothing here yet. Start with one thing you are saving for.'],
     ['k15', 'budget-none', 'No budget yet'],
-    ['k17', null, 'Nothing coming up in the next three weeks.'],
+    ['k17', null, 'Nothing else this month. Tap + to add a pay day, a bill or a transfer.'],
     ['k19', 'search-nothing', 'Nothing to search yet. Entries you add will show up here.'],
     ['k23', null, 'Starting your khata today'],
   ] as const)('%s', async (kid, testID, text) => {

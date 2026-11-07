@@ -10,6 +10,8 @@ type State = {
 
 type Actions = {
   setMonthly: (goalId: string, paise: number) => void;
+  /** Forget a goal's monthly amount (No monthly amount, or the goal was deleted). */
+  remove: (goalId: string) => void;
   /** Sample plan back (explore with sample data). */
   reset: () => void;
   /** No plans at all (a real, empty notebook). */
@@ -25,6 +27,13 @@ export const useGoalPlans = registerPersisted(
     persist(
       (set) => ({
         ...initial(),
+        remove: (goalId) => {
+          set((s) => {
+            const next = { ...s.monthly };
+            delete next[goalId];
+            return { monthly: next };
+          });
+        },
         setMonthly: (goalId, paise) => {
           set((s) => ({ monthly: { ...s.monthly, [goalId]: paise } }));
         },

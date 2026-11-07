@@ -72,7 +72,7 @@ export type IngestServiceOptions = {
 };
 
 export interface IngestService {
-  /** Ask for SMS (and notification) permission, switch reading on, scan recent days once. */
+  /** Ask for SMS (and notification) permission and switch reading on. Reads new messages only, never the old inbox. */
   enable(): Promise<EnableResult>;
   /** Switch reading off, stop listening and forget anything queued. */
   disable(): Promise<void>;
@@ -82,7 +82,7 @@ export interface IngestService {
   isRunning(): boolean;
   /** Parse and ingest one message. Serialised, so quick bursts cannot race on the same entry. */
   processSms(sms: RawSms, opts?: { notify?: boolean }): Promise<MessageResult>;
-  /** Scan the last N days of the inbox. Summary only; no per-message notifications. */
+  /** Scan the last N days of the inbox. Summary only; no per-message notifications. Never called automatically. */
   scanRecent(days?: number): Promise<BatchSummary>;
   /** Manual path: text the user pasted (an SMS or an email). */
   pasteMessage(text: string): Promise<MessageResult>;
@@ -169,7 +169,8 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
       c = (await opts.extractor(sms.body, { source: 'sms', receivedAt: sms.receivedAt, rawRef }).catch(() => null)) ?? c;
     }
     if (!c) return { kind: 'unreadable' };
-    return ingest(c);
+    // The sender (VM-SLICEIT) and text tell which account it is; used while adding, not stored.
+    return ingest({ ...c, issuerText: `${sms.address} ${sms.body}` });
   }
 
   function notify(sum: BatchSummary): void {
@@ -243,11 +244,9 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
           }
         });
       });
+      // Only messages that arrive from now on (and ones queued while the app was closed) are read.
+      // Older inbox messages are never scanned automatically; a screenshot import covers the past.
       await drainQueue();
-      if (prefs().smsBackfilledAt == null) {
-        await scanRecent();
-        prefs().setSmsBackfilledAt(now());
-      }
       return 'started';
     },
 
@@ -310,7 +309,7 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
           c = (await opts.extractor(trimmed, { source: isMail ? 'mail' : 'sms', receivedAt, rawRef, email }).catch(() => null)) ?? c;
         }
         if (!c) return { kind: 'unreadable' } as MessageResult;
-        return ingest(c);
+        return ingest({ ...c, issuerText: trimmed });
       });
     },
 

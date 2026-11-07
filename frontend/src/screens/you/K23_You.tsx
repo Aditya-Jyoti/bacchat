@@ -11,11 +11,15 @@ import { GroupCaption, YouRow } from './parts/YouRow';
 import { useKidNav } from './parts/useKidNav';
 import { useBudget } from './budgetStore';
 import { grouped, monthsSince, profileLine, useBackupCard, useYouCounts } from './useYouData';
+import { getAppVersion } from '../../lib/appConfig';
+import { useAiPreferences } from '../../lib/ai/prefs';
 import { t } from '../../lib/i18n';
 
 export default function K23_You(): React.JSX.Element {
   const { colors, typography, shapes } = useTheme();
   const { go } = useKidNav();
+  // The model chosen in Settings > AI (one global choice), shown on the Ask row.
+  const aiModel = useAiPreferences((st) => (st.aiMode === 'off' ? '' : st.aiOpenAiModel.trim()));
   const counts = useYouCounts();
   const now = useNow();
   const budgetTotal = useBudget((b) => b.totalPaise);
@@ -125,15 +129,15 @@ export default function K23_You(): React.JSX.Element {
         <Glyph name="chevron_right" color={colors.onSurface} />
       </Pressable>
       <GroupCaption>{t('youUi.yourMoney')}</GroupCaption>
-      <YouRow testID="you-row-accounts" icon="account_balance" title={t('youUi.accountsUpi')} subtitle={counts ? t('youUi.accountsSub', { accounts: counts.accounts, cards: counts.cards, upi: counts.upiIds }) : undefined} onPress={() => go('k10')} />
-      <YouRow icon="category" title={t('youUi.categories')} subtitle={t('youUi.categoriesSub')} onPress={() => undefined} />
+      <YouRow testID="you-row-accounts" icon="account_balance" title={t('youUi.accounts')} subtitle={counts ? t('youUi.accountsSubNoUpi', { accounts: counts.accounts, cards: counts.cards }) : undefined} onPress={() => go('k10')} />
+      <YouRow testID="you-row-categories" icon="category" title={t('youUi.categories')} subtitle={counts ? t('youUi.categoriesSub', { n: counts.categories }) : undefined} onPress={() => go('k30')} />
       <YouRow testID="you-row-budgets" icon="account_balance_wallet" title={t('youUi.budgets')} subtitle={t('youUi.budgetsSub', { amount: formatRupees(budgetTotal) })} onPress={() => go('k15')} />
       <YouRow testID="you-row-recurring" icon="event_repeat" title={t('youUi.recurring')} subtitle={counts ? t('youUi.recurringSub', { n: counts.recurring }) : undefined} onPress={() => go('k17')} />
       <GroupCaption>{t('youUi.bacchat')}</GroupCaption>
-      <YouRow testID="you-row-ask" icon="auto_awesome" title={t('youUi.askBacchat')} subtitle={t('youUi.yourKey')} onPress={() => go('k18')} />
+      <YouRow testID="you-row-ask" icon="auto_awesome" title={t('youUi.askBacchat')} subtitle={aiModel ? t('youUi.yourKey', { model: aiModel }) : t('youUi.aiNotSet')} onPress={() => go('k18')} />
       <YouRow testID="you-row-arrange" icon="dashboard_customize" title={t('youUi.arrangeHome')} onPress={() => go('k2')} />
       <YouRow testID="you-row-settings" icon="settings" title={t('youUi.settings')} onPress={() => go('k24')} />
-      <YouRow icon="volunteer_activism" title={t('youUi.about')} subtitle={t('youUi.aboutSub')} onPress={() => undefined} />
+      <YouRow testID="you-row-about" icon="volunteer_activism" title={t('youUi.about')} subtitle={t('youUi.aboutSub', { version: getAppVersion() || '0.1.0' })} />
     </ScreenScaffold>
   );
 }

@@ -8,13 +8,10 @@ import { Switch, Text, View } from 'react-native';
 import { Button, Chip, SegmentedButtons, TextInput } from 'react-native-paper';
 
 import {
-  FEATURE_GROUPS,
   OPENAI_COMPATIBLE_PRESETS,
   consentKey,
   useAiPreferences,
-  type AiFeatureGroup,
   type AiMode,
-  type CloudProviderId,
 } from '../../../lib/ai';
 import { t } from '../../../lib/i18n';
 import { useServices } from '../../../services';
@@ -22,6 +19,7 @@ import { hostOf } from '../../../services/aiService';
 import { useTheme } from '../../../theme';
 import { GroupCaption, YouRow } from '../parts/YouRow';
 import { AiModelsSection } from './AiModelsSection';
+import { ModelPicker } from './ModelPicker';
 
 const MODES: { value: AiMode; label: string }[] = [
   { value: 'off', label: 'aiUi.modeOff' },
@@ -31,8 +29,6 @@ const MODES: { value: AiMode; label: string }[] = [
 ];
 const LONG: Record<AiMode, string> = { off: 'aiUi.modeOffLong', cloud: 'aiUi.modeCloudLong', device: 'aiUi.modeDeviceLong', auto: 'aiUi.modeAutoLong' };
 const SUMMARY: Record<AiMode, string> = { off: 'aiUi.summaryOff', cloud: 'aiUi.summaryCloud', device: 'aiUi.summaryDevice', auto: 'aiUi.summaryAuto' };
-const FEATURE_TITLE: Record<AiFeatureGroup, string> = { advisor: 'aiUi.featAdvisor', ingestion: 'aiUi.featIngestion', categorise: 'aiUi.featCategorise' };
-const CHIP_LABEL: Record<AiMode, string> = { off: 'aiUi.modeOff', cloud: 'aiUi.modeCloud', device: 'aiUi.overridePhone', auto: 'aiUi.modeAuto' };
 
 const validUrl = (u: string): boolean => /^https?:\/\/[^\s/]+/i.test(u.trim());
 
@@ -40,8 +36,6 @@ export function AiSection(): React.JSX.Element {
   const { colors, typography } = useTheme();
   const { ai } = useServices();
   const mode = useAiPreferences((s) => s.aiMode);
-  const overrides = useAiPreferences((s) => s.aiFeatureModes);
-  const provider = useAiPreferences((s) => s.aiCloudProvider);
   const baseUrl = useAiPreferences((s) => s.aiOpenAiBaseUrl);
   const savedModel = useAiPreferences((s) => s.aiOpenAiModel);
   const consent = useAiPreferences((s) => s.aiConsent);
@@ -62,9 +56,9 @@ export function AiSection(): React.JSX.Element {
     };
   }, [ai]);
 
-  const cloudish = mode === 'cloud' || mode === 'auto' || Object.values(overrides).some((m) => m === 'cloud' || m === 'auto');
-  const consentGiven = consent[consentKey(provider, baseUrl)] != null;
-  const providerName = provider === 'anthropic' ? t('aiUi.providerAnthropic') : hostOf(baseUrl) || t('aiUi.providerOpenAi');
+  const cloudish = mode === 'cloud' || mode === 'auto';
+  const consentGiven = consent[consentKey('openai', baseUrl)] != null;
+  const providerName = hostOf(baseUrl) || t('aiUi.providerOpenAi');
   const urlOk = validUrl(url);
   const local = /^(?:localhost|127\.|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|.*\.local$)/i.test(hostOf(url));
   const note = [typography.bodySmall, { color: colors.onSurfaceVariant, paddingTop: 4 }];
@@ -101,18 +95,8 @@ export function AiSection(): React.JSX.Element {
 
       {cloudish ? (
         <View testID="ai-cloud" style={{ paddingTop: 12 }}>
-          <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant, paddingBottom: 6 }]}>{t('aiUi.providerLabel')}</Text>
-          <SegmentedButtons
-            value={provider}
-            onValueChange={(v) => prefs.setCloudProvider(v as CloudProviderId)}
-            buttons={[
-              { value: 'anthropic', label: t('aiUi.providerAnthropic'), testID: 'ai-provider-anthropic', showSelectedCheck: false },
-              { value: 'openai', label: t('aiUi.providerOpenAi'), testID: 'ai-provider-openai', showSelectedCheck: false },
-            ]}
-          />
-          {provider === 'anthropic' ? (
-            <Text testID="ai-anthropic-note" style={note}>{t('aiUi.anthropicNote')}</Text>
-          ) : (
+          <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant, paddingBottom: 6 }]}>{t('aiUi.providerOnly')}</Text>
+          {(
             <View testID="ai-openai" style={{ gap: 8, paddingTop: 8 }}>
               <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{t('aiUi.presetCaption')}</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -122,8 +106,10 @@ export function AiSection(): React.JSX.Element {
                     testID={`ai-preset-${p.id}`}
                     compact={false}
                     onPress={() => {
+                      // A quick pick saves at once, so the key is never sent to the wrong address.
                       setUrl(p.baseUrl);
                       setModel(p.model);
+                      prefs.setOpenAi({ baseUrl: p.baseUrl, model: p.model });
                     }}
                   >
                     {p.label}
@@ -132,7 +118,14 @@ export function AiSection(): React.JSX.Element {
               </View>
               <TextInput testID="ai-base-url" mode="outlined" label={t('aiUi.baseUrlLabel')} value={url} onChangeText={setUrl} autoCapitalize="none" autoCorrect={false} keyboardType="url" error={!!url && !urlOk} />
               <Text style={note}>{!url || urlOk ? t('aiUi.baseUrlHelp') : t('aiUi.baseUrlBad')}</Text>
-              <TextInput testID="ai-openai-model" mode="outlined" label={t('aiUi.modelLabel')} value={model} onChangeText={setModel} autoCapitalize="none" autoCorrect={false} />
+              <ModelPicker
+                value={savedModel}
+                load={() => ai.listModels(urlOk ? url : baseUrl)}
+                onSelect={(id) => {
+                  setModel(id);
+                  prefs.setOpenAi({ model: id });
+                }}
+              />
               <View style={{ flexDirection: 'row' }}>
                 <Button testID="ai-endpoint-save" mode="outlined" disabled={!urlOk} contentStyle={{ height: 48 }} style={{ borderColor: colors.outline }} onPress={saveEndpoint}>
                   {t('aiUi.save')}
@@ -185,27 +178,6 @@ export function AiSection(): React.JSX.Element {
           {!consentGiven && skippedAt != null ? <Text testID="ai-consent-skipped" style={note}>{t('aiUi.consentSkipped')}</Text> : null}
         </View>
       ) : null}
-
-      <GroupCaption>{t('aiUi.overridesCaption')}</GroupCaption>
-      <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{t('aiUi.overridesHelp')}</Text>
-      {FEATURE_GROUPS.map((f) => {
-        const current = overrides[f] ?? null;
-        return (
-          <View key={f} testID={`ai-override-${f}`} style={{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.outlineVariant, gap: 6 }}>
-            <Text style={[typography.bodyLarge, { fontSize: 15, color: colors.onSurface }]}>{t(FEATURE_TITLE[f])}</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              <Chip testID={`ai-override-${f}-inherit`} selected={current == null} showSelectedCheck onPress={() => prefs.setFeatureMode(f, null)}>
-                {t('aiUi.inherit')}
-              </Chip>
-              {(['off', 'cloud', 'device', 'auto'] as AiMode[]).map((m) => (
-                <Chip key={m} testID={`ai-override-${f}-${m}`} selected={current === m} showSelectedCheck onPress={() => prefs.setFeatureMode(f, m)}>
-                  {t(CHIP_LABEL[m])}
-                </Chip>
-              ))}
-            </View>
-          </View>
-        );
-      })}
 
       <AiModelsSection />
     </View>

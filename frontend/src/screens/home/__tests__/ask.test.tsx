@@ -4,8 +4,9 @@ import { AccessibilityInfo } from 'react-native';
 import { act, fireEvent, waitFor } from '@testing-library/react-native';
 
 import { ROUTES } from '../../../navigation/screenManifest';
-import { createMemorySecureStore, SECURE_KEYS } from '../../../services';
+import { createMemorySecureStore } from '../../../services';
 import { renderWithTheme } from '../../../testUtils';
+import { AI_SECURE_KEYS } from '../../../services/aiService';
 import K18_Ask from '../K18_Ask';
 
 type Reply = { status?: number; body?: unknown; throws?: Error; hang?: boolean };
@@ -28,12 +29,12 @@ function mockFetch(replies: Reply[]) {
   return { fn, calls };
 }
 
-const textReply = (text: string): Reply => ({ body: { content: [{ type: 'text', text }], stop_reason: 'end_turn', usage: {} } });
+const textReply = (text: string): Reply => ({ body: { choices: [{ message: { content: text }, finish_reason: 'stop' }], usage: {} } });
 const toolReply = (tool: string): Reply => ({
-  body: { content: [{ type: 'tool_use', id: `t-${tool}`, name: tool, input: {} }], stop_reason: 'tool_use', usage: {} },
+  body: { choices: [{ message: { content: null, tool_calls: [{ id: `t-${tool}`, type: 'function', function: { name: tool, arguments: '{}' } }] }, finish_reason: 'tool_calls' }], usage: {} },
 });
 
-const withKey = () => createMemorySecureStore({ [SECURE_KEYS.apiKey]: 'sk-test-key' });
+const withKey = () => createMemorySecureStore({ [AI_SECURE_KEYS.openaiKey]: 'sk-test-key' });
 
 function mount(mode: 'light' | 'dark', replies: Reply[], opts: { key?: boolean; navigate?: jest.Mock } = {}) {
   const f = mockFetch(replies);
@@ -54,7 +55,7 @@ describe.each(['light', 'dark'] as const)('k18 Ask (%s)', (mode) => {
     const { getByText, getByLabelText, findByTestId } = mount(mode, []);
     await findByTestId('ask-intro');
     expect(getByText('Ask Bacchat')).toBeTruthy();
-    expect(getByText('Your key \u00B7 Claude')).toBeTruthy();
+    expect(getByText('Your key \u00B7 gpt-4o-mini')).toBeTruthy();
     expect(getByText('Only totals were shared, never transactions.')).toBeTruthy();
     expect(getByLabelText('Ask about your money\u2026')).toBeTruthy();
   });

@@ -1,4 +1,4 @@
-import { parseOcrLines, planScreenshotImport, reconcileScreenRows, type ExistingEntry } from '../ocr';
+import { cleanRowName, parseOcrLines, planScreenshotImport, readLooseAmount, reconcileScreenRows, SKIP_ROW, type ExistingEntry } from '../ocr';
 import type { MerchantHistory } from '../../../data/db/models';
 import { normalizeMerchant } from '../../reconciliation';
 
@@ -144,5 +144,95 @@ describe('reconcile screenshot rows with the shared reconciler', () => {
   it('is not blocked when there is no conflict', () => {
     const rows = parseOcrLines(['Chai Point \u20B940 9:05 am'], { referenceDay: REF });
     expect(planScreenshotImport(rows, existing, []).blocked).toBe(false);
+  });
+});
+
+describe('payments app list with avatars, round-ups and interest (name and amount on one line, date below)', () => {
+  const ref = new Date(2026, 10, 6, 20).getTime();
+  const lines = [
+    'blinkit Blinkit ₹1,120', "6 Nov '26",
+    'Nov Round ups ₹67.2', "6 Nov '26",
+    'K Kuldeep Sahu ₹253', "6 Nov '26",
+    'V Vivek Kumar ₹100', "6 Nov '26",
+    'district District ₹1,421.8', "6 Nov '26",
+    'R Rohit ₹151', "6 Nov '26",
+    'Nov savings interest ₹6.18', "6 Nov '26",
+    'Oct Atom interest ₹2.40', "31 Oct '26",
+    'Round-up ₹8', "6 Nov '26",
+  ];
+
+  it('keeps real payments with clean names, amounts and the day', () => {
+    const rows = parseOcrLines(lines, { referenceDay: ref });
+    expect(rows.map((r) => [r.merchant, r.amountPaise])).toEqual([
+      ['Blinkit', 112000],
+      ['Kuldeep Sahu', 25300],
+      ['Vivek Kumar', 10000],
+      ['District', 142180],
+      ['Rohit', 15100],
+    ]);
+    for (const r of rows) {
+      expect(new Date(r.at).toDateString()).toBe(new Date(2026, 10, 6).toDateString());
+      expect(r.timeKnown).toBe(false);
+    }
+  });
+
+  it('skips round-ups and interest of any month', () => {
+    for (const name of ['Nov Round ups', 'Round-up', 'round up', 'Nov savings interest', 'Atom interest', 'Dec Atom Interest']) {
+      expect(SKIP_ROW.test(name)).toBe(true);
+    }
+    for (const name of ['Blinkit', 'Interesting Cafe', 'Roundabout Diner', 'Kuldeep Sahu']) {
+      expect(SKIP_ROW.test(name)).toBe(false);
+    }
+  });
+
+  it('tidies avatar letters and repeated logo words only when they match the name', () => {
+    expect(cleanRowName('K Kuldeep Sahu')).toBe('Kuldeep Sahu');
+    expect(cleanRowName('blinkit Blinkit')).toBe('Blinkit');
+    expect(cleanRowName('A Kuldeep')).toBe('A Kuldeep');
+    expect(cleanRowName('Big Bazaar')).toBe('Big Bazaar');
+    expect(cleanRowName('Rohit')).toBe('Rohit');
+  });
+});
+
+describe('amounts without the rupee sign (text recognition dropped it)', () => {
+  const ref = new Date(2026, 10, 6, 20).getTime();
+  it('reads a number at the end of a name line as the amount', () => {
+    const rows = parseOcrLines(['Blinkit 1,120', "6 Nov '26", 'District 1,421.8', "6 Nov '26", 'R Rohit 151', "6 Nov '26", 'Nov Round ups 67.2', "6 Nov '26"], { referenceDay: ref });
+    expect(rows.map((r) => [r.merchant, r.amountPaise])).toEqual([
+      ['Blinkit', 112000],
+      ['District', 142180],
+      ['Rohit', 15100],
+    ]);
+  });
+  it('does not take dates, long reference numbers or numbers without a name', () => {
+    expect(parseOcrLines(['Sat, 24 Oct', '6 Nov 2026', 'Ref 429812345001', '1,120'], { referenceDay: ref })).toEqual([]);
+  });
+});
+
+describe('readLooseAmount: rupee sign dropped or misread (real ML Kit output)', () => {
+  it('drops a stray letter and takes a 7 as the rupee sign when the rest is a proper amount', () => {
+    expect(readLooseAmount('1,120')).toEqual({ paise: 112000 });
+    expect(readLooseAmount('T67.2')).toEqual({ paise: 6720 });
+    expect(readLooseAmount('7253')).toEqual({ paise: 25300 });
+    expect(readLooseAmount('7100')).toEqual({ paise: 10000 });
+    expect(readLooseAmount('100')).toEqual({ paise: 10000 });
+  });
+  it('keeps both readings when either could be right, so the owner can check', () => {
+    expect(readLooseAmount('71,421.8')).toEqual({ paise: 7142180, alt: 142180 });
+  });
+  it('refuses reference numbers and ungrouped thousands', () => {
+    expect(readLooseAmount('429812345001')).toBeNull();
+    expect(readLooseAmount('12345')).toBeNull();
+  });
+  it('end to end on the owner’s real screenshot text', () => {
+    const lines = ['Activity', 'Search transactions', 'Blinkit  1,120', "6 Nov '26", 'Nov Round ups  T67.2', "6 Nov '26", 'Kuldeep Sahu  7253', "6 Nov '26", 'Vivek Kumar  100', "6 Nov '26", 'District  71,421.8', "6 Nov '26", 'Rohit  151', "6 Nov '26"];
+    const rows = parseOcrLines(lines, { referenceDay: new Date(2026, 10, 6, 23).getTime() });
+    expect(rows.map((r) => [r.merchant, r.amountPaise, r.amountAlt])).toEqual([
+      ['Blinkit', 112000, undefined],
+      ['Kuldeep Sahu', 25300, undefined],
+      ['Vivek Kumar', 10000, undefined],
+      ['District', 7142180, 142180],
+      ['Rohit', 15100, undefined],
+    ]);
   });
 });

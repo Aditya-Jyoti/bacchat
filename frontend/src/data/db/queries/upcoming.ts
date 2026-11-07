@@ -1,9 +1,9 @@
 import type { BacchatDb } from '../repositories';
-import type { Cadence, EntryDirection, Recurring } from '../models';
+import type { Cadence, EntryDirection, Recurring, Repeat } from '../models';
 import { ledger } from './balances';
 import { addDays, addMonthsClamped, dateKey, parseDateKey, startOfDay } from '../dates';
 
-export type UpcomingKind = 'sip' | 'bill' | 'monthly' | 'cardDue';
+export type UpcomingKind = 'sip' | 'bill' | 'monthly' | 'income' | 'transfer' | 'cardDue';
 
 export type UpcomingItem = {
   /** Local date key YYYY-MM-DD. */
@@ -16,6 +16,8 @@ export type UpcomingItem = {
   kind: UpcomingKind;
   recurringId: string | null;
   accountId: string | null;
+  /** A date with no amount (an investment's next payment date). */
+  noAmount?: boolean;
 };
 
 function step(ms: number, cadence: Cadence, k: number, anchorDay: number): number {
@@ -36,17 +38,23 @@ function withDay(ms: number, day: number): number {
   return new Date(d.getFullYear(), d.getMonth(), day).getTime();
 }
 
-/** Occurrences of one recurring item in [fromMs, toMs). Month-end days clamp (31st -> 28th). */
-export function occurrences(r: Recurring, fromMs: number, toMs: number): number[] {
-  const first = parseDateKey(r.nextDue);
+/** Dates a repeat lands on in [fromMs, toMs), starting at `firstKey`. Month-end days clamp (31st -> 28th). */
+export function repeatDates(firstKey: string, repeat: Repeat, fromMs: number, toMs: number): number[] {
+  const first = parseDateKey(firstKey);
+  if (repeat === 'once') return first >= fromMs && first < toMs ? [first] : [];
   const anchor = new Date(first).getDate();
   const out: number[] = [];
   for (let k = 0; k < 2000; k++) {
-    const t = k === 0 ? first : step(first, r.cadence, k, anchor);
+    const t = k === 0 ? first : step(first, repeat, k, anchor);
     if (t >= toMs) break;
     if (t >= fromMs) out.push(t);
   }
   return out;
+}
+
+/** Occurrences of one recurring item in [fromMs, toMs). */
+export function occurrences(r: Recurring, fromMs: number, toMs: number): number[] {
+  return repeatDates(r.nextDue, r.cadence, fromMs, toMs);
 }
 
 /** Next date a card bill is due on or after `from`, given a due day of month. */
@@ -64,7 +72,17 @@ export function nextDueDate(dueDay: number, from: number): number {
  */
 export async function upcoming(db: BacchatDb, now: number, days = 45): Promise<UpcomingItem[]> {
   const from = startOfDay(now);
-  const to = addDays(from, days);
+  return upcomingBetween(db, now, from, addDays(from, days));
+}
+
+/**
+ * Everything dated in [fromMs, toMs): recurring items and events on every date they repeat on, card
+ * dues and investment payment dates. Used for any month of the calendar (k17). A card's current
+ * dues show on its next due date from today; later due dates show without an amount (not known yet).
+ */
+export async function upcomingBetween(db: BacchatDb, now: number, fromMs: number, toMs: number): Promise<UpcomingItem[]> {
+  const from = fromMs;
+  const to = toMs;
   const [recs, { accounts, debts }] = await Promise.all([db.recurring.list(), ledger(db)]);
   const items: UpcomingItem[] = [];
   for (const r of recs) {
@@ -79,16 +97,19 @@ export async function upcoming(db: BacchatDb, now: number, days = 45): Promise<U
         kind: r.kind,
         recurringId: r.id,
         accountId: r.accountId ?? null,
+        noAmount: r.amountPaise <= 0 ? true : undefined,
       });
     }
   }
   for (const d of debts) {
     const acct = accounts.find((a) => a.id === d.accountId);
     if (!acct || acct.kind !== 'card' || d.outstandingPaise <= 0) continue;
-    // A card bill repeats monthly; project each due date inside the window with the current outstanding for the first.
-    let t = nextDueDate(d.dueDay, from);
-    let first = true;
+    // A card bill repeats monthly. The next due date from today carries the current dues; later ones
+    // have no amount yet. Due dates before today are not shown.
+    const firstDue = nextDueDate(d.dueDay, startOfDay(now));
+    let t = nextDueDate(d.dueDay, Math.max(from, startOfDay(now)));
     while (t < to) {
+      const first = t === firstDue;
       items.push({
         date: dateKey(t),
         atMs: t,
@@ -99,13 +120,26 @@ export async function upcoming(db: BacchatDb, now: number, days = 45): Promise<U
         kind: 'cardDue',
         recurringId: null,
         accountId: acct.id,
+        noAmount: first ? undefined : true,
       });
-      first = false;
       t = nextDueDate(d.dueDay, addDays(t, 1));
     }
   }
+  // Investments with a next payment date set by hand (k11), repeating every month unless set otherwise. No amount.
+  for (const a of accounts) {
+    if (!a.nextPaymentDate) continue;
+    let dates: number[] = [];
+    try {
+      dates = repeatDates(a.nextPaymentDate, a.paymentRepeat ?? 'monthly', from, to);
+    } catch {
+      dates = [];
+    }
+    for (const due of dates) {
+      items.push({ date: dateKey(due), atMs: due, title: a.name, icon: a.icon, amountPaise: 0, direction: 'out', kind: 'sip', recurringId: null, accountId: a.id, noAmount: true });
+    }
+  }
   return items
-    .filter((i) => i.amountPaise > 0)
+    .filter((i) => i.amountPaise > 0 || i.noAmount)
     .sort((a, b) => a.atMs - b.atMs || a.title.localeCompare(b.title));
 }
 

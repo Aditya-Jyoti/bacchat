@@ -3,6 +3,7 @@
  * Paid with, Date and Time (open k6), note, split with friends and Save.
  * Route params from k6: date (yyyy-mm-dd) and time ("5:30 pm").
  */
+import { t } from '../../lib/i18n';
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SegmentedButtons, Switch } from 'react-native-paper';
@@ -16,6 +17,7 @@ import { useTheme } from '../../theme';
 import { entryDateLabel, fromIso, toIso } from './parts/dates';
 import { OutlinedField } from './parts/OutlinedField';
 import { PayeeField } from './parts/PayeeField';
+import { CategoryChoices } from './parts/CategoryChoices';
 import { buildMethodOptions, methodKey, payeesFromHistory, saveEntry, type MethodOption } from './parts/addEntry';
 import { useMoneyNav } from './parts/nav';
 import { S } from './parts/strings';
@@ -45,6 +47,9 @@ export default function K5_AddEntry(): React.JSX.Element {
   const [keypad, setKeypad] = useState(false);
   const [payee, setPayee] = useState('');
   const [pickedCategory, setPickedCategory] = useState<string | null>(null);
+  const [budgetId, setBudgetId] = useState<string | null>(null);
+  const [catOpen, setCatOpen] = useState(false);
+  const [budgetOpen, setBudgetOpen] = useState(false);
   const [methodSel, setMethodSel] = useState<string | null>(null);
   const [methodOpen, setMethodOpen] = useState(false);
   const [note, setNote] = useState('');
@@ -55,14 +60,15 @@ export default function K5_AddEntry(): React.JSX.Element {
   const [saving, setSaving] = useState(false);
 
   const data = useDbQuery(async (d) => {
-    const [accounts, upis, history, cats, base] = await Promise.all([
+    const [accounts, upis, history, cats, base, budgets] = await Promise.all([
       d.accounts.list(),
       d.upiIds.list(),
       d.merchants.list(),
       d.categories.list(),
       editId ? d.entries.get(editId) : Promise.resolve(null),
+      d.budgets.list(),
     ]);
-    return { accounts, upis, history, cats, base };
+    return { accounts, upis, history, cats, base, budgets };
   }, [editId]);
   const options = useMemo(() => (data.data ? buildMethodOptions(data.data.accounts, data.data.upis) : []), [data.data]);
   const catMap = useMemo(() => new Map((data.data?.cats ?? []).map((c) => [c.id, c] as const)), [data.data]);
@@ -78,6 +84,7 @@ export default function K5_AddEntry(): React.JSX.Element {
     setAmount(String(base.amountPaise / 100));
     setPayee(base.merchant);
     setPickedCategory(base.categoryId);
+    setBudgetId(base.budgetId ?? null);
     setMethodSel(methodKey(base.method, base.accountId, base.upiId));
     setNote(base.note ?? '');
     setDate(new Date(startOfDay(base.at)));
@@ -91,6 +98,18 @@ export default function K5_AddEntry(): React.JSX.Element {
   }, [pickedCategory, payee, data.data]);
   const categoryId = pickedCategory ?? guess;
   const category = categoryId ? catMap.get(categoryId)?.name ?? null : null;
+  // Budgets a spend can be tagged with: named ones by name, category ones by their category's name.
+  const budgetChoices = useMemo(
+    () =>
+      (data.data?.budgets ?? [])
+        .filter((b) => b.monthlyPaise > 0)
+        .map((b) => ({ id: b.id as string | null, name: b.name || catMap.get(b.categoryId)?.name || t('moneyLive.budgetField') })),
+    [data.data, catMap],
+  );
+  const budgetName = budgetId ? budgetChoices.find((b) => b.id === budgetId)?.name ?? null : null;
+  // With no budget picked, a spend still counts toward the budget its category is linked to (k30).
+  const linkedId = categoryId ? catMap.get(categoryId)?.budgetId ?? null : null;
+  const linkedName = !budgetId && linkedId ? budgetChoices.find((b) => b.id === linkedId)?.name ?? null : null;
 
   // Results from k6 arrive as route params (date, time).
   const pDate = nav.params.date;
@@ -119,6 +138,7 @@ export default function K5_AddEntry(): React.JSX.Element {
       amountPaise: paise,
       payee,
       categoryId,
+      budgetId,
       option,
       at: combineDateTime(date, time),
       note,
@@ -135,7 +155,7 @@ export default function K5_AddEntry(): React.JSX.Element {
         icon="close"
         iconLabel={S.close}
         onIcon={() => nav.back()}
-        title={S.newEntry}
+        title={editId ? t('moneyLive.editEntry') : S.newEntry}
         trailing={
           <Pressable testID="save" accessibilityRole="button" accessibilityLabel={S.save} onPress={save} style={{ minHeight: 48, minWidth: 48, justifyContent: 'center', paddingHorizontal: spacing.sm }}>
             <Text style={[typography.labelLarge, { color: colors.primary }]}>{S.save}</Text>
@@ -181,8 +201,38 @@ export default function K5_AddEntry(): React.JSX.Element {
               setPickedCategory((p as { categoryId?: string | null }).categoryId ?? null);
             }}
           />
-          {category ? (
-            <Text testID="payee-category" style={[typography.bodySmall, { color: colors.onSurfaceVariant, marginTop: -8 }]}>{category}</Text>
+          <View>
+            <OutlinedField testID="category-field" label={t('moneyLive.categoryField')} icon="category" value={category ?? ''} onPress={() => setCatOpen((o) => !o)} trailing={<Icon name="arrow_drop_down" size={22} color={colors.onSurfaceVariant} />}>
+              <Text testID="payee-category" numberOfLines={1} style={[typography.bodyLarge, { color: category ? colors.onSurface : colors.onSurfaceVariant }]}>{category ?? t('moneyLive.categoryPick')}</Text>
+            </OutlinedField>
+            {catOpen ? (
+              <View style={{ marginTop: 8 }}>
+                <CategoryChoices
+                  testID="k5-category"
+                  categories={data.data?.cats ?? []}
+                  onPick={(c) => {
+                    setPickedCategory(c.id);
+                    setCatOpen(false);
+                  }}
+                />
+              </View>
+            ) : null}
+          </View>
+          {kind === 'spent' && budgetChoices.length > 0 ? (
+            <View>
+              <OutlinedField testID="budget-field" label={t('moneyLive.budgetField')} icon="account_balance_wallet" value={budgetName ?? ''} onPress={() => setBudgetOpen((o) => !o)} trailing={<Icon name="arrow_drop_down" size={22} color={colors.onSurfaceVariant} />}>
+                <Text numberOfLines={1} style={[typography.bodyLarge, { color: budgetName ? colors.onSurface : colors.onSurfaceVariant }]}>{budgetName ?? (linkedName && category ? t('moneyLive.budgetFromCategory', { budget: linkedName, category }) : t('moneyLive.budgetNone'))}</Text>
+              </OutlinedField>
+              {budgetOpen ? (
+                <View style={{ marginTop: 4, backgroundColor: colors.surfaceContainer, borderRadius: 12, paddingVertical: 6 }}>
+                  {[{ id: null as string | null, name: t('moneyLive.budgetNone') }, ...budgetChoices].map((b) => (
+                    <Pressable key={b.id ?? 'none'} testID={`budget-${b.name}`} accessibilityRole="button" accessibilityState={{ selected: b.id === budgetId }} onPress={() => { setBudgetId(b.id); setBudgetOpen(false); }} style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: 14, backgroundColor: b.id === budgetId ? colors.surfaceContainerHigh : 'transparent' }}>
+                      <Text style={[typography.bodyMedium, { color: colors.onSurface }]}>{b.name}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+            </View>
           ) : null}
           <View>
             <OutlinedField testID="method-field" label={S.paidWith} icon="qr_code_2" value={option?.label ?? ''} onPress={() => setMethodOpen((o) => !o)} trailing={<Icon name="arrow_drop_down" size={22} color={colors.onSurfaceVariant} />}>

@@ -7,6 +7,10 @@ import { createMemorySecureStore } from '../../../services';
 import { AI_SECURE_KEYS } from '../../../services/aiService';
 import { renderWithTheme } from '../../../testUtils';
 import K24_Settings from '../K24_Settings';
+import { useSettingsGroups } from '../parts/SettingsGroup';
+
+// Settings groups start collapsed; these tests reach rows inside them.
+beforeEach(() => useSettingsGroups.getState().openAll());
 
 const MODEL = RECOMMENDED_MODELS[0];
 
@@ -54,8 +58,10 @@ const smallFetch: DownloadFetch = async () => {
 beforeEach(() => useAiPreferences.getState().reset());
 
 describe.each(['light', 'dark'] as const)('k24 AI engine section (%s)', (mode) => {
-  const mount = (ai: Record<string, unknown> = {}, secure = createMemorySecureStore()) =>
-    renderWithTheme(<K24_Settings />, mode, { servicesOptions: { secure, ai: { onDevice: createFakeLlm(), downloadFs: fakeFs(), downloadFetch: smallFetch, ...ai } as never } });
+  const mount = (ai: Record<string, unknown> = {}, secure = createMemorySecureStore(), fetchImpl?: typeof fetch) =>
+    renderWithTheme(<K24_Settings />, mode, {
+      servicesOptions: { secure, ...(fetchImpl ? { fetch: fetchImpl } : {}), ai: { onDevice: createFakeLlm(), downloadFs: fakeFs(), downloadFetch: smallFetch, ...ai } as never },
+    });
 
   it('shows the four modes and what leaves the phone for each', async () => {
     const { getByTestId, getByText, findByText } = mount();
@@ -86,11 +92,11 @@ describe.each(['light', 'dark'] as const)('k24 AI engine section (%s)', (mode) =
     expect(getByTestId('ai-consent-first')).toBeTruthy();
     expect(getByText('Off. Messages are read on this phone by rules only.')).toBeTruthy();
     fireEvent(getByTestId('ai-consent-switch'), 'valueChange', true);
-    expect(useAiPreferences.getState().aiConsent.anthropic).toBeGreaterThan(0);
-    await waitFor(() => expect(getByText('Allowed for Anthropic. You can turn this off any time.')).toBeTruthy());
+    expect(useAiPreferences.getState().aiConsent['openai:api.openai.com']).toBeGreaterThan(0);
+    await waitFor(() => expect(getByText('Allowed for api.openai.com. You can turn this off any time.')).toBeTruthy());
     expect(queryByTestId('ai-consent-first')).toBeNull();
     fireEvent(getByTestId('ai-consent-switch'), 'valueChange', false);
-    expect(useAiPreferences.getState().aiConsent.anthropic).toBeUndefined();
+    expect(useAiPreferences.getState().aiConsent['openai:api.openai.com']).toBeUndefined();
   });
 
   it('tells the user when a message was read by rules only for lack of consent', () => {
@@ -102,18 +108,17 @@ describe.each(['light', 'dark'] as const)('k24 AI engine section (%s)', (mode) =
   it('sets up an OpenAI-compatible provider: presets, address check, masked key in the secure store', async () => {
     const secure = createMemorySecureStore();
     const { getByTestId, findByText, queryByTestId } = mount({}, secure);
-    fireEvent.press(getByTestId('ai-provider-openai'));
+    // Anthropic is gone: OpenAI-compatible is the only route, so there is no provider switch.
+    expect(queryByTestId('ai-provider-anthropic')).toBeNull();
     expect(useAiPreferences.getState().aiCloudProvider).toBe('openai');
-    expect(queryByTestId('ai-anthropic-note')).toBeNull();
+    // A quick pick saves straight away.
     fireEvent.press(getByTestId('ai-preset-groq'));
     expect(getByTestId('ai-base-url').props.value).toBe('https://api.groq.com/openai/v1');
-    expect(getByTestId('ai-openai-model').props.value).toBe('llama-3.1-8b-instant');
+    expect(useAiPreferences.getState()).toMatchObject({ aiOpenAiBaseUrl: 'https://api.groq.com/openai/v1', aiOpenAiModel: 'llama-3.1-8b-instant' });
+    expect(getByTestId('ai-model-field')).toHaveTextContent(/llama-3\.1-8b-instant/);
     fireEvent.changeText(getByTestId('ai-base-url'), 'groq dot com');
     expect(getByTestId('ai-endpoint-save').props.accessibilityState.disabled).toBe(true);
     await findByText('Enter an address that starts with http:// or https://.');
-    fireEvent.press(getByTestId('ai-preset-groq'));
-    fireEvent.press(getByTestId('ai-endpoint-save'));
-    expect(useAiPreferences.getState()).toMatchObject({ aiOpenAiBaseUrl: 'https://api.groq.com/openai/v1', aiOpenAiModel: 'llama-3.1-8b-instant' });
     expect(getByTestId('ai-openai-key').props.secureTextEntry).toBe(true);
     fireEvent.changeText(getByTestId('ai-openai-key'), 'gsk-secret');
     fireEvent.press(getByTestId('ai-openai-key-save'));
@@ -126,14 +131,48 @@ describe.each(['light', 'dark'] as const)('k24 AI engine section (%s)', (mode) =
     expect(useAiPreferences.getState().aiConsent).toEqual({});
   });
 
-  it('per-feature overrides can be set and cleared', () => {
-    const { getByTestId } = mount();
-    fireEvent.press(getByTestId('ai-override-ingestion-device'));
-    expect(useAiPreferences.getState().aiFeatureModes).toEqual({ ingestion: 'device' });
-    fireEvent.press(getByTestId('ai-override-advisor-off'));
-    expect(useAiPreferences.getState().aiFeatureModes).toEqual({ ingestion: 'device', advisor: 'off' });
-    fireEvent.press(getByTestId('ai-override-ingestion-inherit'));
-    expect(useAiPreferences.getState().aiFeatureModes).toEqual({ advisor: 'off' });
+  it('has one global choice: no per-feature overrides', () => {
+    const { queryByTestId } = mount();
+    expect(queryByTestId('ai-override-ingestion')).toBeNull();
+    expect(queryByTestId('ai-override-advisor-off')).toBeNull();
+  });
+
+  it('picks the model from the provider list: cheapest first, screenshot-capable only by default', async () => {
+    const body = {
+      data: [
+        { id: 'big/pricey', name: 'Pricey', pricing: { prompt: '0.000003', completion: '0.000015' }, architecture: { input_modalities: ['text', 'image'] }, supported_parameters: ['tools'] },
+        { id: 'google/gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite', pricing: { prompt: '0.0000001', completion: '0.0000004' }, architecture: { input_modalities: ['text', 'image'] }, supported_parameters: ['tools'] },
+        { id: 'text/only', name: 'Text only', pricing: { prompt: '0.00000005', completion: '0.0000001' }, architecture: { input_modalities: ['text'] }, supported_parameters: ['tools'] },
+      ],
+    };
+    const calls: string[] = [];
+    const fetchImpl = (async (url: string) => {
+      calls.push(String(url));
+      return { ok: true, status: 200, json: async () => body };
+    }) as unknown as typeof fetch;
+    const { getByTestId, findByTestId, queryByTestId, getAllByTestId } = mount({}, createMemorySecureStore(), fetchImpl);
+    fireEvent.press(getByTestId('ai-preset-openrouter'));
+    fireEvent.press(getByTestId('ai-model-field'));
+    await findByTestId('model-google/gemini-2.5-flash-lite');
+    expect(calls).toContain('https://openrouter.ai/api/v1/models');
+    expect(queryByTestId('model-text/only')).toBeNull();
+    const order = getAllByTestId(/^model-(big|google)/).map((n) => n.props.testID);
+    expect(order).toEqual(['model-google/gemini-2.5-flash-lite', 'model-big/pricey']);
+    fireEvent(getByTestId('model-only-fit'), 'valueChange', false);
+    expect(getByTestId('model-text/only')).toBeTruthy();
+    fireEvent.changeText(getByTestId('model-search'), 'gemini');
+    expect(queryByTestId('model-big/pricey')).toBeNull();
+    fireEvent.press(getByTestId('model-google/gemini-2.5-flash-lite'));
+    await waitFor(() => expect(useAiPreferences.getState().aiOpenAiModel).toBe('google/gemini-2.5-flash-lite'));
+  });
+
+  it('falls back to a short built-in list when the provider list cannot be loaded', async () => {
+    const fetchImpl = (async () => ({ ok: false, status: 500, json: async () => ({}) })) as unknown as typeof fetch;
+    const { getByTestId, findByTestId } = mount({}, createMemorySecureStore(), fetchImpl);
+    fireEvent.press(getByTestId('ai-preset-openrouter'));
+    fireEvent.press(getByTestId('ai-model-field'));
+    expect(await findByTestId('model-offline')).toBeTruthy();
+    expect(getByTestId('model-google/gemini-2.5-flash-lite')).toBeTruthy();
   });
 
   it('lists the recommended models and downloads one with progress, then uses and deletes it', async () => {

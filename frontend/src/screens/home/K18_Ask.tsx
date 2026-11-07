@@ -21,6 +21,7 @@ export default function K18_Ask(): React.JSX.Element {
   const loading = ask.busy;
   const noKey = ask.hasKey === false;
   const mode = useAiPreferences((s) => s.aiFeatureModes.advisor ?? s.aiMode);
+  const cloudModel = useAiPreferences((st) => st.aiOpenAiModel.trim());
 
   // Swipe down on the grabber area dismisses the sheet.
   const pan = useMemo(
@@ -73,7 +74,7 @@ export default function K18_Ask(): React.JSX.Element {
             style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, backgroundColor: colors.surfaceContainerHigh }}
           >
             <Glyph name={mode === 'cloud' ? 'key' : 'phone_android'} size={14} color={colors.onSurfaceVariant} />
-            <Text style={[typography.labelSmall, { fontWeight: '600', color: colors.onSurfaceVariant }]}>{mode === 'cloud' ? a('badge') : mode === 'device' ? t('aiUi.modeDeviceLong') : mode === 'auto' ? t('aiUi.modeAutoLong') : t('aiUi.modeOffLong')}</Text>
+            <Text style={[typography.labelSmall, { fontWeight: '600', color: colors.onSurfaceVariant }]}>{mode === 'cloud' ? t('askUi.badge', { model: cloudModel || t('youUi.aiNotSet') }) : mode === 'device' ? t('aiUi.modeDeviceLong') : mode === 'auto' ? t('aiUi.modeAutoLong') : t('aiUi.modeOffLong')}</Text>
           </View>
         </View>
 

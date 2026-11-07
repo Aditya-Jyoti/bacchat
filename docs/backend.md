@@ -6,7 +6,7 @@ The service in `backend/` is implemented and tested (37 tests plus a 45-check de
 
 A small sync service that stores client-side-encrypted blobs for the Bacchat app. It never sees plaintext, keys or passphrases. It is deployable on its own with Docker, so anyone can self-host it. The app can also sync to Google Drive, WebDAV or S3; this service is the default option.
 
-Stack: Node 20, TypeScript, Fastify 5, zod for validation, SQLite (better-sqlite3, WAL mode) for both metadata and blob bytes. Storage sits behind a `Store` interface (`src/store/types.ts`) with SQLite (production) and in-memory (tests) implementations.
+Stack: Node 22 (the Docker image uses node:22-slim; better-sqlite3 13 crashes on Node 20), TypeScript, Fastify 5, zod for validation, SQLite (better-sqlite3, WAL mode) for both metadata and blob bytes. Storage sits behind a `Store` interface (`src/store/types.ts`) with SQLite (production) and in-memory (tests) implementations.
 
 ```
 backend/

@@ -1,5 +1,6 @@
 /** k1 Home on live data: net worth series, allocation, dues insight, budget alerts, empty and loading states. */
-import { act, fireEvent, waitFor } from '@testing-library/react-native';
+import { useBudget } from '../../you/budgetStore';
+import { act, fireEvent, waitFor, within } from '@testing-library/react-native';
 import React from 'react';
 
 import { createMemoryDb, type BacchatDb } from '../../../data/db';
@@ -94,12 +95,26 @@ describe.each(['light', 'dark'] as const)('k1 Home live (%s)', (mode) => {
   });
 
   it('allocation follows the accounts; a brand new database shows calm empty states', async () => {
+    // A new notebook has no overall budget (Start fresh clears the sample one).
+    useBudget.getState().clear();
     const { findByText, queryByText, getByText } = renderWithTheme(<K1_Home />, mode, { servicesOptions: { seed: false } });
     expect(await findByText('Nothing spent this month yet.')).toBeTruthy();
     expect(getByText('No goals yet. Start one in Goals.')).toBeTruthy();
     expect(getByText('No budget yet. Set one when you are ready.')).toBeTruthy();
     expect(getByText('Nothing due in the next few weeks.')).toBeTruthy();
     expect(queryByText(/card bill/)).toBeNull();
+    useBudget.getState().reset();
+  });
+
+  it('shows the overall monthly budget on Home even with no separate budgets', async () => {
+    useBudget.getState().save({ totalPaise: 2000000, nudge: '90', rollover: true });
+    const { findByText, getByTestId } = renderWithTheme(<K1_Home />, mode, { servicesOptions: { seed: false } });
+    expect(await findByText(/left of \u20B920,000/)).toBeTruthy();
+    // Nothing spent yet: the captions under the bar say so.
+    const captions = within(getByTestId('home-budget-captions'));
+    expect(captions.getByText('\u20B90 spent')).toBeTruthy();
+    expect(captions.getByText('\u20B920,000 left')).toBeTruthy();
+    useBudget.getState().reset();
   });
 
   it('uses the real clock greeting outside sample mode', async () => {

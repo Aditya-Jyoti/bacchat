@@ -91,15 +91,15 @@ export default function K15_Budget(): React.JSX.Element {
           <View style={{ marginTop: 16 }}>
             <PaceBar
               fraction={totalPaise > 0 ? d.spentPaise / totalPaise : 0}
-              todayFraction={todayFraction}
+              todayFraction={null}
               accessibilityLabel={t('budgetUi.paceLabel', { pct, month: Math.round(todayFraction * 100) })}
             />
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-            <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>
-              {t('budgetUi.ofTotal', { spent: formatRupees(d.spentPaise), total: formatRupees(totalPaise) })}
+            <Text testID="budget-spent-line" style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>
+              {t('budgetUi.spentOf', { spent: formatRupees(d.spentPaise), total: formatRupees(totalPaise) })}
             </Text>
-            <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{t('budgetUi.today')}</Text>
+            <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{t('budgetUi.daysToGo', { n: d.daysLeft })}</Text>
           </View>
           {alerts.map((a) => {
             const name = cats.get(a.categoryId)?.name ?? a.categoryId;

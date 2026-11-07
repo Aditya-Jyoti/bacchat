@@ -1,4 +1,8 @@
-/** k24: Settings. Grouped M3 list: theme segmented, switches, chevrons, Delete all data behind a dialog. */
+/**
+ * k24: Settings. Collapsible groups (Look and feel open, the rest closed) with a one-line summary on
+ * each header; Delete all data sits below the groups behind a dialog. Rows with nothing behind them yet
+ * (number format, export, import) and the NPS price address (funds are entered by hand) are not shown.
+ */
 import React, { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { Button, Dialog, Portal, SegmentedButtons, Switch } from 'react-native-paper';
@@ -8,30 +12,26 @@ import { t } from '../../lib/i18n';
 import { usePreferences } from '../../lib/preferences';
 import { useTheme } from '../../theme';
 import { AppBar } from './parts/AppBar';
-import { GroupCaption, YouRow } from './parts/YouRow';
+import { SettingsGroup } from './parts/SettingsGroup';
+import { YouRow } from './parts/YouRow';
 import { useKidNav } from './parts/useKidNav';
-import { AdvisorSection } from './settings/AdvisorSection';
 import { AiSection } from './settings/AiSection';
 import { AskHistorySection } from './settings/AskHistorySection';
 import { ModelWifiSection } from './settings/ModelWifiSection';
-import { NpsNavSection } from './settings/NpsNavSection';
 import { NameSection } from './settings/NameSection';
 import { ServerSection } from './settings/ServerSection';
+import { ScreenshotAiSection } from './settings/ScreenshotAiSection';
 import { SmsSection } from './settings/SmsSection';
 import { authenticate, canUseAppLock, useServices } from '../../services';
 
 type ThemeChoice = 'system' | 'light' | 'dark';
-type SwitchId = 'wallpaper' | 'sms' | 'email' | 'upi' | 'nudges' | 'reminders' | 'lock' | 'hide';
+// Only switches that do something are shown. Email, UPI app notifications, nudges, reminders and
+// hide-amounts had no behaviour behind them and are left out until they are built.
+type SwitchId = 'wallpaper' | 'lock';
 
 const SWITCHES: Record<SwitchId, { icon: string; title: string; sub: string }> = {
   wallpaper: { icon: 'palette', title: 'settingsUi.wallpaperTitle', sub: 'settingsUi.wallpaperSub' },
-  sms: { icon: 'sms', title: 'settingsUi.smsTitle', sub: 'settingsUi.smsSub' },
-  email: { icon: 'mail', title: 'settingsUi.emailTitle', sub: 'moreUi.emailSub' },
-  upi: { icon: 'notifications_active', title: 'settingsUi.upiTitle', sub: 'settingsUi.upiSub' },
-  nudges: { icon: 'spa', title: 'settingsUi.nudgesTitle', sub: 'settingsUi.nudgesSub' },
-  reminders: { icon: 'event', title: 'settingsUi.remindersTitle', sub: 'settingsUi.remindersSub' },
   lock: { icon: 'fingerprint', title: 'settingsUi.lockTitle', sub: 'settingsUi.lockSub' },
-  hide: { icon: 'visibility_off', title: 'settingsUi.hideTitle', sub: 'settingsUi.hideSub' },
 };
 
 export default function K24_Settings(): React.JSX.Element {
@@ -44,15 +44,10 @@ export default function K24_Settings(): React.JSX.Element {
   const lockOn = usePreferences((s) => s.appLock);
   const setLockOn = usePreferences((s) => s.setAppLock);
   const [lockNote, setLockNote] = useState<string | null>(null);
-  const [localOn, setOn] = useState<Record<SwitchId, boolean>>({
-    wallpaper: true, sms: true, email: true, upi: false, nudges: true, reminders: true, lock: true, hide: false,
-  });
-  // Wallpaper colours and app lock are real preferences; the other switches are still local.
-  const on: Record<SwitchId, boolean> = { ...localOn, wallpaper: wallpaperOn, lock: lockOn };
+  const on: Record<SwitchId, boolean> = { wallpaper: wallpaperOn, lock: lockOn };
   const change = (id: SwitchId, v: boolean): void => {
     if (id === 'wallpaper') setWallpaperOn(v);
-    else if (id === 'lock') void toggleLock(v);
-    else setOn((s) => ({ ...s, [id]: v }));
+    else void toggleLock(v);
   };
   // Turning the lock on asks the phone once, so a lock that cannot open never gets switched on.
   const toggleLock = async (v: boolean): Promise<void> => {
@@ -119,50 +114,55 @@ export default function K24_Settings(): React.JSX.Element {
   return (
     <ScreenScaffold testID="screen-k24" edges={['top', 'left', 'right']}>
       <AppBar title={t('settingsUi.title')} onBack={back} />
-      <GroupCaption>{t('settingsUi.look')}</GroupCaption>
-      <View style={{ paddingTop: 4, paddingBottom: 10 }}>
-        <SegmentedButtons
-          value={choice}
-          onValueChange={(v) => setChoice(v as ThemeChoice)}
-          buttons={[
-            { value: 'system', label: t('settingsUi.themeSystem'), testID: 'theme-system', showSelectedCheck: true },
-            { value: 'light', label: t('settingsUi.themeLight'), testID: 'theme-light', showSelectedCheck: true },
-            { value: 'dark', label: t('settingsUi.themeDark'), testID: 'theme-dark', showSelectedCheck: true },
-          ]}
+      <SettingsGroup id="look" icon="palette" title={t('settingsUi.groupLook')} summary={t('settingsUi.groupLookSub')}>
+        <View style={{ paddingTop: 8, paddingBottom: 10 }}>
+          <SegmentedButtons
+            value={choice}
+            onValueChange={(v) => setChoice(v as ThemeChoice)}
+            buttons={[
+              { value: 'system', label: t('settingsUi.themeSystem'), testID: 'theme-system', showSelectedCheck: true },
+              { value: 'light', label: t('settingsUi.themeLight'), testID: 'theme-light', showSelectedCheck: true },
+              { value: 'dark', label: t('settingsUi.themeDark'), testID: 'theme-dark', showSelectedCheck: true },
+            ]}
+          />
+        </View>
+        {sw('wallpaper')}
+        <Text testID="settings-colour-source" style={[typography.bodySmall, { color: colors.onSurfaceVariant, paddingVertical: 6 }]}>
+          {colorSource === 'dynamic' && on.wallpaper ? t('settingsUi.coloursDynamic') : t('settingsUi.coloursKhata')}
+        </Text>
+        <NameSection />
+      </SettingsGroup>
+      <SettingsGroup id="adding" icon="playlist_add" title={t('settingsUi.groupAdding')} summary={t('settingsUi.groupAddingSub')}>
+        <SmsSection />
+      </SettingsGroup>
+      <SettingsGroup
+        id="privacy"
+        icon="lock"
+        title={t('settingsUi.groupPrivacy')}
+        summary={on.lock ? t('settingsUi.groupPrivacyLockOn') : t('settingsUi.groupPrivacyLockOff')}
+      >
+        {sw('lock')}
+        <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant, paddingTop: 8 }]}>
+          {`${t('privacy.onDevice')} ${t('settingsUi.smsChoice')}`}
+        </Text>
+      </SettingsGroup>
+      <SettingsGroup id="backup" icon="cloud_sync" title={t('settingsUi.backupSync')} summary={t('settingsUi.groupBackupSub')}>
+        <YouRow
+          testID="settings-row-backup"
+          icon="cloud_sync"
+          title={t('settingsUi.backupSync')}
+          subtitle={syncOn ? t('settingsUi.backupOn') : t('settingsUi.backupOff')}
+          onPress={() => go('k25')}
         />
-      </View>
-      {sw('wallpaper')}
-      <Text testID="settings-colour-source" style={[typography.bodySmall, { color: colors.onSurfaceVariant, paddingVertical: 6 }]}>
-        {colorSource === 'dynamic' && on.wallpaper ? t('settingsUi.coloursDynamic') : t('settingsUi.coloursKhata')}
-      </Text>
-      <YouRow icon="currency_rupee" title={t('settingsUi.numberFormat')} subtitle={t('settingsUi.numberFormatSub')} onPress={() => undefined} />
-      <NameSection />
-      <GroupCaption>{t('settingsUi.autoAdd')}</GroupCaption>
-      <SmsSection />
-      {(['email', 'upi'] as const).map(sw)}
-      <GroupCaption>{t('settingsUi.nudges')}</GroupCaption>
-      {(['nudges', 'reminders'] as const).map(sw)}
-      <GroupCaption>{t('settingsUi.privacySecurity')}</GroupCaption>
-      {(['lock', 'hide'] as const).map(sw)}
-      <YouRow
-        testID="settings-row-backup"
-        icon="cloud_sync"
-        title={t('settingsUi.backupSync')}
-        subtitle={syncOn ? t('settingsUi.backupOn') : t('settingsUi.backupOff')}
-        onPress={() => go('k25')}
-      />
-      <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant, paddingTop: 8 }]}>
-        {`${t('privacy.onDevice')} ${t('settingsUi.smsChoice')}`}
-      </Text>
-      <AiSection />
-      <ModelWifiSection />
-      <AskHistorySection />
-      <AdvisorSection />
-      <ServerSection />
-      <NpsNavSection />
-      <GroupCaption>{t('settingsUi.data')}</GroupCaption>
-      <YouRow icon="ios_share" title={t('settingsUi.export')} subtitle={t('settingsUi.exportSub')} onPress={() => undefined} />
-      <YouRow icon="upload_file" title={t('settingsUi.import_')} subtitle={t('settingsUi.importSub')} onPress={() => undefined} />
+        <ServerSection />
+      </SettingsGroup>
+      <SettingsGroup id="ai" icon="auto_awesome" title={t('settingsUi.groupAi')} summary={t('settingsUi.groupAiSub')}>
+        <AiSection />
+        <ScreenshotAiSection />
+        <ModelWifiSection />
+        <AskHistorySection />
+      </SettingsGroup>
+      <View style={{ height: 12 }} />
       {sampleOn ? (
         <YouRow
           testID="settings-clear-sample"

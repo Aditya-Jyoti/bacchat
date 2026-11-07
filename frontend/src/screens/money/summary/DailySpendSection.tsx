@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Text, View } from 'react-native';
 
 import { DailyBars } from '../../../components/DailyBars';
@@ -29,19 +29,24 @@ export function DailySpendSection({
   win,
   lookups,
   onSeeEntries,
+  picked,
+  onPick,
 }: {
   daily: DailySpend;
   win: MonthWindow;
   lookups: Lookups;
   onSeeEntries: (dayIndex: number) => void;
+  /** The day whose tooltip is open, or null (closed until a bar is tapped). */
+  picked: number | null;
+  /** Tapping the open day again closes it (null). */
+  onPick: (index: number | null) => void;
 }): React.JSX.Element {
   const { colors, typography } = useTheme();
   const serif = useSerif();
   const elapsed = daily.days.filter((d) => !d.future);
   const todayIndex = Math.max(0, elapsed.length - 1);
-  const [picked, setPicked] = useState<number | null>(null);
-  const sel = Math.min(picked ?? todayIndex, Math.max(0, elapsed.length - 1));
-  const day = daily.days[sel];
+  const sel = picked != null && picked < elapsed.length ? picked : null;
+  const day = daily.days[sel ?? todayIndex];
   const onInv = colors.inverseOnSurface;
   const values = elapsed.map((d) => d.totalPaise);
   const futureCount = daily.days.length - elapsed.length;
@@ -52,7 +57,7 @@ export function DailySpendSection({
   const content = (
     <View style={{ width: 184 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <Text style={[typography.labelSmall, { color: onInv, opacity: 0.8 }]}>{dayLabel(win, sel)}</Text>
+        <Text style={[typography.labelSmall, { color: onInv, opacity: 0.8 }]}>{dayLabel(win, sel ?? todayIndex)}</Text>
         <Text style={[typography.labelSmall, { color: onInv, opacity: 0.8 }]}>{fmt(S.entriesCount, { n: day.count })}</Text>
       </View>
       <Text style={[serif(20), { color: onInv, marginTop: 2 }]}>{formatRupees(day.totalPaise)}</Text>
@@ -78,10 +83,10 @@ export function DailySpendSection({
       daysInMonth={daily.days.length}
       todayIndex={win.isCurrent ? todayIndex : -1}
       selectedIndex={sel}
-      onSelect={setPicked}
-      tooltip={content}
-      onTooltipPress={() => onSeeEntries(sel)}
-      tooltipAccessibilityLabel={`${S.seeEntries}: ${dayLabel(win, sel)}`}
+      onSelect={(i) => onPick(i === sel ? null : i)}
+      tooltip={sel != null ? content : undefined}
+      onTooltipPress={() => sel != null && onSeeEntries(sel)}
+      tooltipAccessibilityLabel={`${S.seeEntries}: ${dayLabel(win, sel ?? todayIndex)}`}
       labelFor={labelFor}
       summary={fmt(S.chartSummary, { month: win.name, total: formatRupees(daily.totalPaise), avg: formatRupees(daily.averagePaise) })}
       futureLabel={futureCount > 0 ? fmt(S.daysToGo, { n: futureCount }) : undefined}

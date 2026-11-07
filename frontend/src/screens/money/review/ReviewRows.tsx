@@ -87,6 +87,8 @@ export function NewRow({
   picked,
   categories,
   onPickCategory,
+  altAmountText,
+  onUseAlt,
 }: {
   row: ReviewRow;
   checked: boolean;
@@ -94,6 +96,9 @@ export function NewRow({
   picked?: CategoryPick;
   categories: readonly CategoryPick[];
   onPickCategory: (p: CategoryPick) => void;
+  /** Another reading of the amount (the rupee sign may have been read as a 7). */
+  altAmountText?: string;
+  onUseAlt?: () => void;
 }): React.JSX.Element {
   const { colors, typography, spacing } = useTheme();
   const [open, setOpen] = React.useState(false);
@@ -126,6 +131,18 @@ export function NewRow({
         ) : null}
         <Text style={[typography.labelLarge, { color: colors.onSurface }]}>{row.amountText}</Text>
       </View>
+      {altAmountText && onUseAlt ? (
+        <Pressable
+          testID={`alt-${row.name}`}
+          accessibilityRole="button"
+          onPress={onUseAlt}
+          style={{ minHeight: 44, justifyContent: 'center', paddingLeft: 32 + 20 + spacing.md * 2, paddingBottom: 6 }}
+        >
+          <Text style={[typography.bodySmall, { color: colors.onTertiaryContainer, backgroundColor: colors.tertiaryContainer, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }]}>
+            {t('moneyLive.checkAmount', { amount: altAmountText })}
+          </Text>
+        </Pressable>
+      ) : null}
       {open && unsure ? (
         <CategoryChoices
           categories={categories}

@@ -41,7 +41,11 @@ export type RunResult<T> =
   | { ok: true; value: T; engine: EngineInfo; /** False when no engine reached the bar (the last value is returned anyway). */ accepted: boolean }
   | { ok: false; reason: Blocked | 'failed' | 'cancelled'; error?: unknown };
 
-/** Features that send message or merchant text, so a cloud provider needs consent first. */
+/**
+ * Features that send message or merchant text, so a cloud provider needs consent first. Screenshot
+ * reading has its own switch ("Read screenshots with AI", which says the image is sent), so that
+ * switch is its consent and it does not also need the message-text one.
+ */
 export function featureNeedsConsent(f: AiFeature): boolean {
   return f === 'ingestion' || f === 'categorise' || f === 'ocr';
 }

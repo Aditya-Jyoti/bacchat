@@ -14,7 +14,12 @@ export type GoalView = {
   by: string;
   /** Raw target date (date key or free text). */
   targetDate: string | null;
+  /** The account the goal is kept in, if any. */
+  accountId: string | null;
   allocations: GoalAlloc[];
 };
 
 export const isReached = (g: Pick<GoalView, 'savedPaise' | 'targetPaise'>): boolean => g.targetPaise > 0 && g.savedPaise >= g.targetPaise;
+
+/** A goal with no target: an open-ended pot (round-ups, a rainy-day jar). Never "reached". */
+export const isOpenEnded = (g: Pick<GoalView, 'targetPaise'>): boolean => !(g.targetPaise > 0);

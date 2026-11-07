@@ -35,11 +35,12 @@ Frontend (Node 20+; Android SDK and a device or emulator to run the app):
 - `npm test` - unit and component tests (Jest, React Native Testing Library).
 - `npx expo run:android` (or the project's documented run script) - run on Android. A dev build is required for native modules; Expo Go is not enough.
 
-Backend (Node 20+; Docker for the image):
+Backend (Node 22+; better-sqlite3 13 crashes on 20. Docker for the image):
 - `cd backend && npm install && npm test`
 - `npm run dev` - local server.
 - `docker build -t bacchat-backend .` then `docker run -p 8080:8080 -v bacchat-data:/data bacchat-backend`.
 - `docker compose up --build` - local run with a data volume.
+- `docker compose -f docker-compose.prod.yml up -d --build` - server deploy behind Caddy with HTTPS (set `BACCHAT_DOMAIN` in `backend/.env`, see `backend/.env.example`).
 
 The exact scripts live in each `package.json`; keep this section in sync with them.
 

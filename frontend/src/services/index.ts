@@ -9,6 +9,7 @@ export * from './useDbQuery';
 export * from './hooks';
 export * from './dbKey';
 export * from './ocr';
+export * from './screenshotPicker';
 export * from './ingestService';
 export * from './ingestPending';
 export * from './emailSource';

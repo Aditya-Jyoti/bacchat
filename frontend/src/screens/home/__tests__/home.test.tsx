@@ -1,3 +1,4 @@
+import { useHomeCollapsed } from '../sections/HomeSection';
 import { NavigationContext } from '@react-navigation/native';
 import React from 'react';
 import { act, fireEvent } from '@testing-library/react-native';
@@ -7,6 +8,7 @@ import { MAIN_ROUTE, ROUTES } from '../../../navigation/screenManifest';
 import { renderWithTheme } from '../../../testUtils';
 import K1_Home from '../K1_Home';
 import K2_ArrangeHome from '../K2_ArrangeHome';
+import { useBudget } from '../../you/budgetStore';
 
 function fakeNav() {
   return { navigate: jest.fn(), goBack: jest.fn(), canGoBack: () => true };
@@ -18,21 +20,27 @@ function withNav(ui: React.ReactElement, nav: ReturnType<typeof fakeNav>) {
 beforeEach(() => act(() => useHomeConfig.getState().reset()));
 
 describe.each(['light', 'dark'] as const)('k1 Home (%s)', (mode) => {
-  it('shows the hero, own/owe, allocation, privacy line and default sections', async () => {
-    const { getByText, getAllByText, getByTestId, queryByTestId, findByText } = renderWithTheme(<K1_Home />, mode);
+  it('shows the hero, the account summary, allocation, privacy line and default sections', async () => {
+    const { getByText, getAllByText, getByTestId, queryByTestId, queryByText, findByText } = renderWithTheme(<K1_Home />, mode);
     expect(await findByText(netWorth.net.text)).toBeTruthy();
     expect(getByText('Good evening, Rahul')).toBeTruthy();
     expect(getByText(netWorth.net.text)).toBeTruthy();
     expect(getByText(netWorth.delta.text)).toBeTruthy();
     expect(getByText('since 1 Sep')).toBeTruthy();
-    expect(getByText(netWorth.own.text)).toBeTruthy();
+    // No own/owe split under net worth: the accounts section lists each account instead.
+    // Grouped by kind with totals, not one row per account.
+    expect(await findByText('Bank')).toBeTruthy();
+    expect(getByText('2 accounts')).toBeTruthy();
+    expect(getAllByText('Cash').length).toBeGreaterThan(0);
+    expect(getAllByText('NPS').length).toBeGreaterThan(0);
+    expect(queryByText('HDFC Savings')).toBeNull();
     expect(getAllByText(netWorth.owe.text).length).toBeGreaterThan(0);
     expect(getByText('Mutual funds & SIPs')).toBeTruthy();
     expect(getByText('Kept on this phone \u00B7 fund prices updated 9:30 am')).toBeTruthy();
     expect(getByText(/Two card bills/)).toBeTruthy();
     for (const id of ['accounts', 'spend', 'upcoming', 'goals', 'budget']) expect(getByTestId(`section-${id}`)).toBeTruthy();
     expect(queryByTestId('section-none')).toBeNull();
-    expect(await findByText('Spendable money')).toBeTruthy();
+    expect(queryByText('Spendable money')).toBeNull();
     // The budget line is computed from the seeded budgets and this month's entries.
     expect(await findByText(/^\u20B9[\d,]+ left of \u20B9[\d,]+$/)).toBeTruthy();
     expect(await findByText('Goa with friends')).toBeTruthy();
@@ -51,6 +59,39 @@ describe.each(['light', 'dark'] as const)('k1 Home (%s)', (mode) => {
     act(() => useHomeConfig.getState().setEnabled('budget', false));
     const { queryByTestId } = renderWithTheme(<K1_Home />, mode);
     expect(queryByTestId('section-budget')).toBeNull();
+  });
+
+  it('Coming up shows the next item and two after it, then a link to the rest', async () => {
+    const nav = fakeNav();
+    const { findByText, getByText, queryByText, getByTestId } = renderWithTheme(withNav(<K1_Home />, nav), mode);
+    // The sample's first three upcoming items, in date order; the fourth waits in Coming up.
+    expect(await findByText('Axis Bluechip SIP')).toBeTruthy();
+    expect(getByText('Netflix')).toBeTruthy();
+    expect(getByText('ICICI Amazon Pay bill')).toBeTruthy();
+    expect(queryByText('Rent')).toBeNull();
+    expect(getByText(/more coming up/)).toBeTruthy();
+    fireEvent.press(getByTestId('upcoming-see-all'));
+    expect(nav.navigate).toHaveBeenLastCalledWith(ROUTES.k17);
+  });
+
+  it('over the overall budget, the bar is full: the budget share filled and the overspend in red', async () => {
+    const before = useBudget.getState().totalPaise;
+    useBudget.setState({ totalPaise: 100000 });
+    const { findByTestId, getByTestId, getByText, unmount } = renderWithTheme(<K1_Home />, mode);
+    expect(await findByTestId('home-budget-over')).toBeTruthy();
+    const fill = getByTestId('home-budget-fill').props.style as { width: string };
+    expect(parseFloat(fill.width)).toBeGreaterThan(0);
+    expect(getByText(/past \u20B91,000/)).toBeTruthy();
+    // The bar says what its parts are.
+    expect(getByText('\u20B91,000 budget')).toBeTruthy();
+    expect(getByText(/over$/)).toBeTruthy();
+    unmount();
+    useBudget.setState({ totalPaise: before });
+  });
+
+  it('the net worth hero sits on a tinted panel', async () => {
+    const { findByTestId } = renderWithTheme(<K1_Home />, mode);
+    expect(await findByTestId('hero-panel')).toBeTruthy();
   });
 
   it('navigates: Ask pill, FAB, sections, goals, long-press arrange', async () => {
@@ -83,7 +124,7 @@ describe.each(['light', 'dark'] as const)('k2 Arrange home (%s)', (mode) => {
     expect(getByText('Arrange home')).toBeTruthy();
     expect(getByText('Always first')).toBeTruthy();
     expect(getByText('Bacchat noticed')).toBeTruthy();
-    expect(getByText('Own & owe')).toBeTruthy();
+    expect(getByText('Your accounts')).toBeTruthy();
     expect(getAllByTestId(/^drag-handle-/)).toHaveLength(6);
     expect(getByText('0 hidden')).toBeTruthy();
   });
@@ -105,5 +146,19 @@ describe.each(['light', 'dark'] as const)('k2 Arrange home (%s)', (mode) => {
     expect(useHomeConfig.getState().config.map((s) => s.id).slice(0, 2)).toEqual(['accounts', 'insight']);
     fireEvent.press(getByText('Done'));
     expect(nav.goBack).toHaveBeenCalled();
+  });
+});
+
+describe('k1 Home sections fold away', () => {
+  it('a section header folds and unfolds its rows, and Home remembers it', async () => {
+    useHomeCollapsed.getState().reset();
+    const { findByTestId, getByTestId, queryByTestId } = renderWithTheme(<K1_Home />, 'light');
+    await findByTestId('section-budget-body');
+    fireEvent.press(getByTestId('section-budget-header'));
+    expect(queryByTestId('section-budget-body')).toBeNull();
+    expect(useHomeCollapsed.getState().collapsed['section-budget']).toBe(true);
+    fireEvent.press(getByTestId('section-budget-header'));
+    expect(getByTestId('section-budget-body')).toBeTruthy();
+    useHomeCollapsed.getState().reset();
   });
 });

@@ -11,6 +11,12 @@ export type RawPalette = {
   k2: string; k3: string; k4: string; er: string; scr: string; inv: string; oninv: string;
 };
 
+/** Money in (green) and money out (red) for due dates. Not part of the design's sch(): added at the owner's request. */
+const MONEY: Record<ColorMode, { inn: string; out: string }> = {
+  light: { inn: 'oklch(0.5 0.13 150)', out: 'oklch(0.52 0.16 27)' },
+  dark: { inn: 'oklch(0.8 0.13 150)', out: 'oklch(0.76 0.13 25)' },
+};
+
 /** 1:1 port of the design's sch(h, mode): returns oklch()/rgba() strings. */
 export function rawKhataPalette(h: number, mode: ColorMode): RawPalette {
   const L = mode === 'light';
@@ -71,6 +77,8 @@ export function khataPalette(hue: number = DEFAULT_SEED_HUE, mode: ColorMode = '
     chart2: c(r.k2),
     chart3: c(r.k3),
     chart4: c(r.k4),
+    moneyIn: c(MONEY[mode].inn),
+    moneyOut: c(MONEY[mode].out),
     scrim: parseRgba(r.scr).css,
   };
 }

@@ -24,8 +24,8 @@ const rows: DocRow[] = DOC.split('\n')
   .map((m) => ({ kid: m[1], screen: m[2], route: m[3], tab: m[4], kind: m[5] }));
 
 describe('docs/screens.md coverage', () => {
-  it('finds all 29 k-ids in the docs table', () => {
-    expect(rows).toHaveLength(29);
+  it('finds all 30 k-ids in the docs table', () => {
+    expect(rows).toHaveLength(30);
   });
 
   it.each(rows.map((r) => [r.kid, r] as const))('%s has a route, a registered screen and a file', (_kid, row) => {
@@ -48,7 +48,7 @@ describe('docs/screens.md coverage', () => {
 
   it('has no extra manifest entries and unique routes', () => {
     expect(SCREEN_MANIFEST.map((s) => s.kid).sort()).toEqual(rows.map((r) => r.kid).sort());
-    expect(new Set(Object.values(ROUTES)).size).toBe(29);
+    expect(new Set(Object.values(ROUTES)).size).toBe(30);
   });
 
   it('tab bar kids are exactly the tab roots', () => {

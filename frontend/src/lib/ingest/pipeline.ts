@@ -5,6 +5,7 @@ import { newId } from '../../data/db/ids';
 import { startOfDay, addDays } from '../../data/db/dates';
 import type { Candidate } from './types';
 import { categorise } from './categorise';
+import { matchAccount } from './accountMatch';
 
 export type IngestOutcome =
   | { kind: 'added'; entry: Entry }
@@ -64,6 +65,8 @@ export async function insertCandidate(db: BacchatDb, c: Candidate): Promise<Entr
   const last4 = c.cardLast4 ?? c.accountLast4;
   const account = last4 ? accounts.find((a) => a.last4 === last4) : undefined;
   const upi = c.upiHandle ? upis.find((u) => u.handle.toLowerCase() === c.upiHandle) : undefined;
+  // No card digits stored any more: tell the account from the message's wording and the account's name.
+  const named = account || upi?.accountId ? null : matchAccount(accounts, c.issuerText);
   return db.entries.put({
     id: newId('e'),
     amountPaise: c.amountPaise,
@@ -72,8 +75,8 @@ export async function insertCandidate(db: BacchatDb, c: Candidate): Promise<Entr
     merchant: c.merchant ?? 'Unknown',
     note: null,
     categoryId: guess.categoryId ?? (c.categoryHint && cats.some((k) => k.id === c.categoryHint) ? c.categoryHint : null),
-    accountId: account?.id ?? upi?.accountId ?? null,
-    method: c.method ?? (upi ? 'upi' : 'bank'),
+    accountId: account?.id ?? upi?.accountId ?? named?.accountId ?? null,
+    method: named?.method ?? c.method ?? (upi ? 'upi' : 'bank'),
     upiId: upi?.id ?? null,
     sources: [{ kind: sourceKind(c), rawRef: c.rawRef }],
     status: 'toReview',

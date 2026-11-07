@@ -5,6 +5,10 @@ import React from 'react';
 import { usePreferences } from '../../../lib/preferences';
 import { renderWithTheme } from '../../../testUtils';
 import K24_Settings from '../K24_Settings';
+import { useSettingsGroups } from '../parts/SettingsGroup';
+
+// Settings groups start collapsed; these tests reach rows inside them.
+beforeEach(() => useSettingsGroups.getState().openAll());
 
 const mockAuth = { level: 1, success: true };
 jest.mock('expo-local-authentication', () => ({
