@@ -323,3 +323,7 @@ ModelDownloadManager honours the aiModelsWifiOnly preference (default on) throug
 
 - Two Android builds from one codebase. Full includes on-device AI (llama.rn); Lite (BACCHAT_LITE=1) leaves it out and is about half the size. Both use the same application id and signing key. Cloud AI (OpenAI-compatible key) works in both.
 - Native libraries are compressed in the APK (legacy packaging). The download is about half; the installed size is a little larger because Android extracts them.
+
+## Goals on one list (2026-11-07)
+
+- k12 drops the design's Active / Done segmented tabs at the owner's request: one list, reached goals at the bottom under "Done". "Set aside so far" counts every goal, reached ones included.

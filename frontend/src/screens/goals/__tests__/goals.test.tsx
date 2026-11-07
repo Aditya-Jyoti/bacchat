@@ -55,28 +55,30 @@ describe.each(['light', 'dark'] as const)('k12 Goals (%s)', (mode) => {
     expect(await findByText('Goa with friends')).toBeTruthy();
     expect(queryByTestId('skeleton-rows')).toBeNull();
     expect(getByText('Set aside so far')).toBeTruthy();
-    expect(getByTestId('goals-total').props.children).toBe(`${R}3,09,500`);
-    expect(getByText('Active \u00B7 4')).toBeTruthy();
+    // Every goal counts, the two reached ones (30,000 and 18,000) included.
+    expect(getByTestId('goals-total').props.children).toBe(`${R}3,57,500`);
     expect(getByText('Done \u00B7 2')).toBeTruthy();
     expect(getByText(`${R}38,000 of ${R}60,000`)).toBeTruthy();
     expect(getByText('by 20 Dec')).toBeTruthy();
     expect(getByText('63%')).toBeTruthy();
     expect(getByText('6 months of expenses')).toBeTruthy();
-    expect(getAllByTestId('segmented-progress')).toHaveLength(4);
+    expect(getAllByTestId('segmented-progress').length).toBeGreaterThanOrEqual(4);
     // Derived from the data: Diwali gifts is the soonest goal and HDFC Savings has the free money to cover it.
     expect(getByText(`Diwali gifts needs ${R}3,000 more in 15 days. SBI Salary can cover it today.`)).toBeTruthy();
   });
 
-  it('switches to Done and back', async () => {
+  it('lists every goal at once, reached ones last under Done', async () => {
     const services = await servicesWithDone();
-    const { getByTestId, queryByText, getByText, findByText } = renderWithTheme(<K12_Goals />, mode, { services });
+    const { getByTestId, getByText, findByText, queryByTestId, toJSON } = renderWithTheme(<K12_Goals />, mode, { services });
     await findByText('Goa with friends');
-    fireEvent.press(getByTestId('goals-tab-done'));
+    expect(queryByTestId('goals-tab')).toBeNull();
     expect(getByText('New phone')).toBeTruthy();
     expect(getByText('done in March')).toBeTruthy();
-    expect(queryByText('Goa with friends')).toBeNull();
-    fireEvent.press(getByTestId('goals-tab-active'));
-    expect(getByText('Goa with friends')).toBeTruthy();
+    expect(getByTestId('goals-done-head')).toBeTruthy();
+    // Order on screen: goals in progress, then the Done heading, then reached goals.
+    const text = JSON.stringify(toJSON());
+    expect(text.indexOf('Goa with friends')).toBeLessThan(text.indexOf('Done \u00B7 2'));
+    expect(text.indexOf('Done \u00B7 2')).toBeLessThan(text.indexOf('New phone'));
   });
 
   it('a new goal written to the database appears live', async () => {

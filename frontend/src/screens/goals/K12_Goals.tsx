@@ -1,10 +1,13 @@
-/** k12: Goals (tab root). Set aside so far, Active / Done, goal rows, insight line, New goal FAB. */
-import React, { useState } from 'react';
+/**
+ * k12: Goals (tab root). Set aside so far (every goal, done ones included), one list with goals in
+ * progress first and reached ones under "Done" at the bottom, insight line, New goal FAB. The
+ * design's Active / Done tabs were dropped at the owner's request.
+ */
+import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { Glyph } from '../../components/Glyph';
 import { ScreenScaffold } from '../../components/ScreenScaffold';
-import { SegmentedChoice } from '../../components/SegmentedChoice';
 import { SkeletonRows } from '../../components/SkeletonLoader';
 import { formatRupees } from '../../lib/format';
 import { useTheme } from '../../theme';
@@ -20,11 +23,10 @@ export default function K12_Goals(): React.JSX.Element {
   const { colors, typography, shapes } = useTheme();
   const nav = useScreenNav();
   const { goals, loading, spendAccounts, free, now } = useGoalsData();
-  const [tab, setTab] = useState<'active' | 'done'>('active');
   const active = goals.filter((g) => !isReached(g));
   const done = goals.filter(isReached);
-  const shown = tab === 'active' ? active : done;
-  const total = active.reduce((a, g) => a + g.savedPaise, 0);
+  // Everything set aside, reached goals included: their money is still set aside until taken out.
+  const total = goals.reduce((a, g) => a + g.savedPaise, 0);
   const insight = dueInsight(goals, spendAccounts, free, now);
   const insightText = insight
     ? t(insight.days <= 0 ? 'goalsUi.dueInsightToday' : insight.days === 1 ? 'goalsUi.dueInsightOne' : 'goalsUi.dueInsight', {
@@ -44,25 +46,25 @@ export default function K12_Goals(): React.JSX.Element {
         <Text testID="goals-total" style={[typography.headlineSmall, { fontSize: 30, lineHeight: 35, color: colors.onSurface }]}>
           {formatRupees(total)}
         </Text>
-        <View style={{ marginTop: 14 }}>
-          <SegmentedChoice
-            testID="goals-tab"
-            accessibilityLabel={t('goalsUi.statusLabel')}
-            value={tab}
-            onChange={setTab}
-            options={[
-              { id: 'active', label: t('goalsUi.active', { n: active.length }) },
-              { id: 'done', label: t('goalsUi.done', { n: done.length }) },
-            ]}
-          />
-        </View>
-        <View style={{ marginTop: 6 }}>
+        <View style={{ marginTop: 10 }}>
           {loading ? (
             <SkeletonRows count={4} />
           ) : (
-            shown.map((g) => <GoalRow key={g.id} goal={g} onPress={() => nav.go('k13', { id: g.id })} />)
+            <>
+              {active.map((g) => (
+                <GoalRow key={g.id} goal={g} onPress={() => nav.go('k13', { id: g.id })} />
+              ))}
+              {done.length > 0 ? (
+                <Text testID="goals-done-head" accessibilityRole="header" style={[typography.labelLarge, { color: colors.onSurfaceVariant, marginTop: 22, marginBottom: 2 }]}>
+                  {t('goalsUi.done', { n: done.length })}
+                </Text>
+              ) : null}
+              {done.map((g) => (
+                <GoalRow key={g.id} goal={g} onPress={() => nav.go('k13', { id: g.id })} />
+              ))}
+            </>
           )}
-          {!loading && shown.length === 0 ? (
+          {!loading && goals.length === 0 ? (
             <View style={{ paddingTop: 12 }}>
               <EmptyGoals height={120} />
               <Text testID="goals-empty" style={[typography.bodyMedium, { color: colors.onSurfaceVariant, paddingVertical: 16 }]}>
@@ -71,7 +73,7 @@ export default function K12_Goals(): React.JSX.Element {
             </View>
           ) : null}
         </View>
-        {tab === 'active' && insightText ? (
+        {insightText ? (
           <View
             style={{
               marginTop: 14,
