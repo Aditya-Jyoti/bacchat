@@ -80,7 +80,7 @@ describe.each(['light', 'dark'] as const)('k3 Money Summary (%s)', (mode) => {
     await findByText('Kept so far this month');
     expect(getByTestId('month-next').props.accessibilityState.disabled).toBe(true);
     fireEvent.press(getByTestId('month-prev'));
-    expect(await findByText(/^(Kept in September|Spent more than came in, September)$/)).toBeTruthy();
+    expect(await findByText(/^(Kept in September|More out than in, September)$/)).toBeTruthy();
     expect(getByTestId('month-label').props.children).toBe('September');
     expect(getByTestId('month-prev').props.accessibilityState.disabled).toBe(true);
     expect(queryByTestId('month-empty')).toBeNull();

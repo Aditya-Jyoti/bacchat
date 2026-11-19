@@ -829,8 +829,8 @@ export const en = {
   moneyLive: {
     keptIn: 'Kept in {month}',
     keptSoFar: 'Kept so far this month',
-    overIn: 'Spent more than came in, {month}',
-    overSoFar: 'Spent more than came in so far',
+    overIn: 'More out than in, {month}',
+    overSoFar: 'More out than in so far',
     outLabel: 'Out',
     biggestTitle: 'Biggest spends',
     splitOne: '{everyday} on everyday things, {big} on 1 big one-off.',

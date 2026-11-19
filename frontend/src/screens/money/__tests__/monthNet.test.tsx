@@ -21,7 +21,7 @@ describe.each(['light', 'dark'] as const)('k3 month balance (%s)', (mode) => {
       { ...base, id: 'o2', amountPaise: 569000, direction: 'out', at: new Date(2026, 9, 12, 12).getTime(), merchant: 'Blinkit' },
     ]);
     const { findByText, getByTestId } = renderScreen(<K3 />, mode, undefined, undefined, { db, servicesOptions: { seed: false, now: () => NOW } });
-    expect(await findByText('Spent more than came in so far')).toBeTruthy();
+    expect(await findByText('More out than in so far')).toBeTruthy();
     const net = getByTestId('month-net-amount');
     expect(net.props.children).toBe(`-${R}3,690`);
     expect(flat(net.props.style).color).toBe(khataPalette(45, mode).moneyOut);
