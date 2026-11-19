@@ -8,7 +8,7 @@
  * and each caller gets its own array, so a caller can sort or filter freely but cannot change a
  * shared record by accident.
  */
-import type { BacchatDb } from '../data/db';
+import type { BacchatDb, Entry } from '../data/db';
 
 export type ObservableDb = BacchatDb & {
   /** Subscribe to writes. Returns an unsubscribe function. */
@@ -49,6 +49,19 @@ export function observeDb(db: BacchatDb): ObservableDb {
     lists.clear();
     notify();
   };
+  /** The cached live rows of a table, read (and decoded) once until the next write. */
+  const cached = (name: string, target: object, fn: (...a: unknown[]) => unknown): Promise<readonly unknown[]> => {
+    let p = lists.get(name);
+    if (!p) {
+      p = (fn.call(target) as Promise<unknown[]>).then((rows) => rows.map((r) => (r && typeof r === 'object' ? Object.freeze(r) : r)));
+      lists.set(name, p);
+      // A failed read is not kept.
+      p.catch(() => lists.get(name) === p && lists.delete(name));
+    }
+    return p;
+  };
+  /** Newest first, then id: the order the SQL reads use. */
+  const newestFirst = (a: Entry, b: Entry): number => b.at - a.at || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
   const wrap = <R extends object>(name: string, repo: R): R =>
     new Proxy(repo, {
       get(target, prop) {
@@ -56,15 +69,19 @@ export function observeDb(db: BacchatDb): ObservableDb {
         if (typeof prop === 'string' && typeof v === 'function') {
           const fn = v as (...a: unknown[]) => unknown;
           if (prop === 'list' && fn.length === 0) {
-            return async () => {
-              let p = lists.get(name);
-              if (!p) {
-                p = (fn.call(target) as Promise<unknown[]>).then((rows) => rows.map((r) => (r && typeof r === 'object' ? Object.freeze(r) : r)));
-                lists.set(name, p);
-                // A failed read is not kept.
-                p.catch(() => lists.get(name) === p && lists.delete(name));
-              }
-              return [...(await p)];
+            return async () => [...(await cached(name, target, fn))];
+          }
+          // Entry ranges and the To review list come from the same cached rows: one read and one
+          // JSON decode per write instead of one SQL query per screen section.
+          if (name === 'entries' && (prop === 'between' || prop === 'toReview')) {
+            const listFn = Reflect.get(target, 'list', target) as (...a: unknown[]) => unknown;
+            return async (...args: unknown[]) => {
+              const rows = (await cached(name, target, listFn)) as readonly Entry[];
+              const keep =
+                prop === 'between'
+                  ? (e: Entry): boolean => e.at >= (args[0] as number) && e.at < (args[1] as number)
+                  : (e: Entry): boolean => e.status === 'toReview';
+              return rows.filter(keep).sort(newestFirst);
             };
           }
           if (!WRITE_METHODS.has(prop)) return fn.bind(target);

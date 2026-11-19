@@ -10,6 +10,7 @@ import { HOLD_ROUTES, usePendingEntry } from './pendingEntry';
 import { useMoneySegment } from './moneySegment';
 import { MAIN_ROUTE, ROUTES, type ScreenDef } from './screenManifest';
 import { TabBar } from './TabBar';
+import { useFirstRun } from '../screens/start/firstRun';
 
 const Root = createNativeStackNavigator();
 const Tabs = createBottomTabNavigator();
@@ -53,8 +54,12 @@ function optionsFor(def: ScreenDef): NativeStackNavigationOptions {
 export const STACK_SCREENS = REGISTERED_SCREENS.filter((s) => s.kind !== 'tab');
 
 export function RootNavigator(): React.JSX.Element {
+  // Returning users open straight on Home: the database is already open by the time this mounts
+  // (AppServicesProvider renders nothing until then), so the splash would only add a wait. First
+  // run still goes through splash and Welcome. Stores are hydrated before the app renders.
+  const [initial] = useState(() => (useFirstRun.getState().seen ? MAIN_ROUTE : ROUTES.k21));
   return (
-    <Root.Navigator initialRouteName={ROUTES.k21} screenOptions={{ headerShown: false, animation: 'fade_from_bottom' }}>
+    <Root.Navigator initialRouteName={initial} screenOptions={{ headerShown: false, animation: 'fade_from_bottom' }}>
       {STACK_SCREENS.map((s) => (
         <Root.Screen key={s.kid} name={s.route} component={s.component} options={optionsFor(s)} />
       ))}

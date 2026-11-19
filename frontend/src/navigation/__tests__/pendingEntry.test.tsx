@@ -25,13 +25,23 @@ function boot() {
 
 beforeEach(() => usePendingEntry.getState().set(null));
 
-it('waits for the splash, then opens k7 with the shared image', async () => {
+it('a returning user opens straight on Home (no splash wait); a shared image then opens k7', async () => {
   useFirstRun.setState({ seen: true });
   boot();
-  expect(await screen.findByTestId('screen-k21', {}, WAIT)).toBeTruthy();
+  expect(await screen.findByTestId('screen-k1', {}, WAIT)).toBeTruthy();
+  expect(screen.queryByTestId('screen-k21')).toBeNull();
   act(() => usePendingEntry.getState().set({ route: ROUTES.k7, params: { uri: 'file:///shared/one.img' } }));
   expect(await screen.findByTestId('screen-k7', {}, WAIT)).toBeTruthy();
   expect(usePendingEntry.getState().entry).toBeNull();
+});
+
+it('first run still starts on the splash, and a shared image waits there', async () => {
+  useFirstRun.setState({ seen: false });
+  boot();
+  expect(await screen.findByTestId('screen-k21', {}, WAIT)).toBeTruthy();
+  act(() => usePendingEntry.getState().set({ route: ROUTES.k7, params: { uri: 'file:///shared/first.img' } }));
+  expect(screen.queryByTestId('screen-k7')).toBeNull();
+  expect(usePendingEntry.getState().entry).not.toBeNull();
 });
 
 it('opens straight away when the app is already past the splash', async () => {

@@ -55,33 +55,37 @@ describe.each(['light', 'dark'] as const)('k3 Money Summary (%s)', (mode) => {
   it('shows a skeleton, then the month header, totals and the Summary/Entries control', async () => {
     const { getByText, getByTestId, findByText } = await renderLive(<K3 />, mode);
     expect(getByTestId('summary-loading')).toBeTruthy();
-    expect(await findByText('Spent so far')).toBeTruthy();
+    expect(await findByText('Kept so far this month')).toBeTruthy();
     expect(getByText('Money')).toBeTruthy();
     expect(getByTestId('month-label').props.children).toBe('October');
     expect(getByText(`${R}10,299`)).toBeTruthy();
     expect(getByText(`${R}1,26,899`)).toBeTruthy();
+    // The headline is what came in less what went out, green when money was kept.
+    const net = getByTestId('month-net-amount');
+    expect(net.props.children).toBe(`+${R}1,16,600`);
+    expect(flat(net.props.style).color).toBe(c.moneyIn);
     expect(getByText(`${R}3,299 more than Sept`)).toBeTruthy();
     expect(getByTestId('segment-summary')).toBeTruthy();
   });
 
   it('switches to Entries through the segmented control', async () => {
     const { getByTestId, nav, findByText } = await renderLive(<K3 />, mode);
-    await findByText('Spent so far');
+    await findByText('Kept so far this month');
     fireEvent.press(getByTestId('segment-entries'));
     expect(nav.dispatch).toHaveBeenCalledWith(StackActions.replace('money/entries'));
   });
 
   it('steps back to September (it has data), October is the latest, and an empty month says so', async () => {
     const { getByTestId, findByText, getByText, queryByTestId, findByTestId } = await renderLive(<K3 />, mode);
-    await findByText('Spent so far');
+    await findByText('Kept so far this month');
     expect(getByTestId('month-next').props.accessibilityState.disabled).toBe(true);
     fireEvent.press(getByTestId('month-prev'));
-    expect(await findByText('Spent in September')).toBeTruthy();
+    expect(await findByText(/^(Kept in September|Spent more than came in, September)$/)).toBeTruthy();
     expect(getByTestId('month-label').props.children).toBe('September');
     expect(getByTestId('month-prev').props.accessibilityState.disabled).toBe(true);
     expect(queryByTestId('month-empty')).toBeNull();
     fireEvent.press(getByTestId('month-next'));
-    expect(await findByText('Spent so far')).toBeTruthy();
+    expect(await findByText('Kept so far this month')).toBeTruthy();
     expect(getByText('By category')).toBeTruthy();
     expect(await findByTestId('daily-bars')).toBeTruthy();
   });

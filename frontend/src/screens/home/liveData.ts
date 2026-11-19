@@ -3,7 +3,7 @@
  * Pure functions over the db plus small hooks over useDbQuery.
  */
 import { netWorth as sampleNetWorth, netWorthSeries as sampleSeries } from '../../data';
-import type { BacchatDb } from '../../data/db';
+import type { BacchatDb, Entry } from '../../data/db';
 import { addMonths, dayOfMonth, daysInMonth, startOfDay } from '../../data/db/dates';
 import { netWorth, type BudgetAlert } from '../../data/db/queries';
 import { ledger } from '../../data/db/queries/balances';
@@ -42,6 +42,26 @@ const DAY_MS = 86_400_000;
 const mon = (ms: number): string => monthAbbr(MONTH_NAMES[new Date(ms).getMonth()]).slice(0, 3);
 
 /**
+ * Net worth at each point (oldest first): today's figure less the effect of every entry after the
+ * point. Moves between own accounts change nothing. One pass over the entries sorted by time, so a
+ * 90-day chart costs the same as a 2-point one.
+ */
+export function valuesAt(entries: readonly Entry[], current: number, points: readonly number[]): number[] {
+  const flows = entries.filter((e) => !e.transferToAccountId).sort((a, b) => a.at - b.at);
+  const out = new Array<number>(points.length);
+  let v = current;
+  let j = flows.length - 1;
+  for (let i = points.length - 1; i >= 0; i--) {
+    while (j >= 0 && flows[j].at > points[i]) {
+      v -= flows[j].direction === 'in' ? flows[j].amountPaise : -flows[j].amountPaise;
+      j -= 1;
+    }
+    out[i] = v;
+  }
+  return out;
+}
+
+/**
  * Rebuild month-end net worth from money in and out: what you have now, less everything that came
  * in after that month ended, plus everything that went out. It ignores market moves, so it is an
  * approximation and the chart says nothing it cannot back.
@@ -50,16 +70,13 @@ export async function reconstructSeries(db: BacchatDb, now: number, months = 12)
   const current = (await netWorth(db)).netPaise;
   const oldest = addMonths(now, -(months - 1));
   const entries = await db.entries.between(oldest, now + 1);
-  const values: number[] = [];
+  const points: number[] = [];
   const labels: string[] = [];
   for (let k = months - 1; k >= 0; k--) {
-    const from = addMonths(now, -k);
-    const pointAt = k === 0 ? now : addMonths(now, -k + 1) - 1;
-    let v = current;
-    for (const e of entries) if (e.at > pointAt && !e.transferToAccountId) v -= e.direction === 'in' ? e.amountPaise : -e.amountPaise;
-    values.push(v);
-    labels.push(mon(from));
+    points.push(k === 0 ? now : addMonths(now, -k + 1) - 1);
+    labels.push(mon(addMonths(now, -k)));
   }
+  const values = valuesAt(entries, current, points);
   const daily = await reconstructDaily(db, now, current);
   let inP = 0;
   let outP = 0;
@@ -90,18 +107,15 @@ export async function reconstructDaily(db: BacchatDb, now: number, current?: num
   const today = startOfDay(now);
   const first = startOfDay(today - (days - 1) * DAY_MS + DAY_MS / 2);
   const entries = (await db.entries.between(first, now + 1)).filter((e) => !e.transferToAccountId);
-  const values: number[] = [];
+  const points: number[] = [];
   const labels: string[] = [];
   for (let k = days - 1; k >= 0; k--) {
     // Half-day nudges keep day starts right across a DST shift (none in India, but elsewhere).
     const dayStart = startOfDay(today - k * DAY_MS + DAY_MS / 2);
-    const pointAt = k === 0 ? now : startOfDay(dayStart + DAY_MS + DAY_MS / 2) - 1;
-    let v = net;
-    for (const e of entries) if (e.at > pointAt) v -= e.direction === 'in' ? e.amountPaise : -e.amountPaise;
-    values.push(v);
+    points.push(k === 0 ? now : startOfDay(dayStart + DAY_MS + DAY_MS / 2) - 1);
     labels.push(`${new Date(dayStart).getDate()} ${mon(dayStart)}`);
   }
-  return { values, labels };
+  return { values: valuesAt(entries, net, points), labels };
 }
 
 const LAKH_PAISE = 1e7;

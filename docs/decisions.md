@@ -338,3 +338,4 @@ ModelDownloadManager honours the aiModelsWifiOnly preference (default on) throug
 - 2026-11-20: AI reads every message (owner request), not only the ones the rules are unsure of; the rule parser stays the fallback and its amount still checks the model's.
 - 2026-11-20: Chart scrubbing reads only x and also accepts touches on the date row under the plot (owner request), so the thumb does not cover the point being read.
 - 2026-11-20: Owner data model: SBI only receives salary and family money and forwards it to slice, so money arriving from SBI is recorded as income in Slice Savings rather than a move (no SBI statement is kept). SBI keeps its current balance.
+- 2026-11-20: Money summary headline is the month's balance (in less out), shown in moneyIn green when money was kept and moneyOut red when more went out, at the owner's request (a deviation from "no red for spending"); words say which as well, so colour is not the only signal.

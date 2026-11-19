@@ -55,9 +55,17 @@ export function useDbQuery<T>(
     setState((s) => (s.loading ? s : { ...s, loading: true }));
     void run();
     let stale = false;
+    // Writes often come in bursts (an import, a confirm plus a merchant update): re-run once per
+    // burst, on the next tick, instead of once per write.
+    let queued: ReturnType<typeof setTimeout> | null = null;
     const off = services.db.onChange(() => {
       if (typeof navigation?.isFocused === 'function' && !navigation.isFocused()) stale = true;
-      else void run();
+      else if (!queued) {
+        queued = setTimeout(() => {
+          queued = null;
+          void run();
+        }, 0);
+      }
     });
     const offFocus = navigation?.addListener?.('focus', () => {
       if (!stale) return;
@@ -66,6 +74,7 @@ export function useDbQuery<T>(
     });
     return () => {
       alive.current = false;
+      if (queued) clearTimeout(queued);
       off();
       offFocus?.();
     };

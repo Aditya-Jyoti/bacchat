@@ -84,7 +84,8 @@ type Raw = {
 
 export const EXTRACT_SYSTEM = [
   'You read one Indian bank, card or UPI message, or a payment email, and extract the one transaction in it.',
-  'Reply with JSON only. Set isTransaction to false for OTPs, offers, due reminders, failed or pending payments and anything that is not a completed payment or credit.',
+  'Reply with JSON only. Set isTransaction to false for OTPs, offers, cashback or reward offers you could earn, coupons, loan or credit-limit offers, due reminders, requests to pay, failed or pending payments, and anything that is not a completed payment or credit to this person.',
+  'It may be an app notification: the first words can be the app name. A payment made with the app (UPI, card, wallet) is a transaction; a promotion from the app is not.',
   'amount: copy the transaction amount exactly as printed (for example "1,249.00"). Never use the balance or limit. Never calculate or guess.',
   'direction: "out" when money left the account or card, "in" when money arrived.',
   'merchant: the shop or person as written in the message, or null. cardLast4 and accountLast4: only four digits that appear in the message, else null.',

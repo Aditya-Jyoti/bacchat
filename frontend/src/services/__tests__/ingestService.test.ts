@@ -286,6 +286,16 @@ describe('payment notifications', () => {
     expect(await db.entries.list()).toHaveLength(1);
   });
 
+  it('never reads chat apps, and skips promotions that only look like money', async () => {
+    const { db, svc } = setup();
+    expect((await svc.processSms(notif('Rahul: I paid Rs. 500 for dinner, send your half', 'com.whatsapp', 'WhatsApp'))).kind).toBe('ignored');
+    expect((await svc.processSms(notif('Get Rs. 100 cashback on your next order! Offer ends today', 'com.application.zomato', 'Zomato'))).kind).toBe('ignored');
+    expect((await svc.processSms(notif('Flat Rs. 50 off on groceries above Rs. 499', 'com.grofers.customerapp', 'Blinkit'))).kind).toBe('ignored');
+    expect(await db.entries.list()).toHaveLength(0);
+    // A real payment from a shopping app still counts.
+    expect((await svc.processSms(notif('Payment of Rs. 393 received for your order. Paid to Blinkit via UPI', 'com.grofers.customerapp', 'Blinkit'))).kind).toBe('added');
+  });
+
   it('turning it on without Notification access opens the settings screen and waits', async () => {
     const { native, svc } = setup();
     expect(await svc.enableNotifications()).toBe('access');

@@ -827,6 +827,11 @@ export const en = {
   },
   /** Money tab text that depends on live data (k3 to k9, k19, k27, k28). */
   moneyLive: {
+    keptIn: 'Kept in {month}',
+    keptSoFar: 'Kept so far this month',
+    overIn: 'Spent more than came in, {month}',
+    overSoFar: 'Spent more than came in so far',
+    outLabel: 'Out',
     biggestTitle: 'Biggest spends',
     splitOne: '{everyday} on everyday things, {big} on 1 big one-off.',
     splitMany: '{everyday} on everyday things, {big} on {n} big one-offs (\u20B92,000 or more each).',

@@ -59,6 +59,25 @@ export type NotifEnableResult = 'enabled' | 'unavailable' | 'access';
 /** Email apps: a notification from one of these is an email, shown as "Email". */
 const MAIL_APPS = new Set(['com.google.android.gm', 'com.microsoft.office.outlook', 'com.yahoo.mobile.client.android.mail', 'ch.protonmail.android', 'me.proton.android.mail', 'com.samsung.android.email.provider']);
 
+/**
+ * Chat, social and calling apps: a friend's "I paid Rs 500 for dinner" is not your transaction, so
+ * their notifications are never read.
+ */
+const CHAT_APPS = /^(com\.whatsapp(\.w4b)?|org\.telegram\.|org\.thunderdog\.challegram|com\.instagram\.|com\.facebook\.(orca|katana|mlite)|org\.thoughtcrime\.securesms|com\.discord|com\.slack|com\.snapchat\.|com\.twitter\.|com\.google\.android\.apps\.dynamite|com\.microsoft\.teams|com\.linkedin\.|com\.truecaller|com\.google\.android\.dialer|com\.android\.(dialer|phone)|jp\.naver\.line|com\.viber\.|com\.skype\.|us\.zoom\.|com\.reddit\.)/;
+
+/** Promotions read like money ("Get Rs 100 cashback", "Flat Rs 50 off"): skipped unless the text also says money really moved. */
+const PROMO = /\b(?:get|win|won|earn|grab|flat|up\s*to|upto|save|off|coupon|voucher|offer|deal|sale|discount|claim|hurry|limited|expires?|unlock|eligible|apply|loan of|credit limit|pre-?approved|scratch)\b/i;
+const MOVED = /\b(?:debited|credited|paid\s+(?:to|for|via|using|from)|spent|sent\s+(?:to|from)|received\s+(?:from|rs|inr|\u20B9)|refund(?:ed)?\s+(?:of|to)|transferred|withdrawn|txn|transaction|upi ref|a\/c|account)\b/i;
+
+export function isChatApp(pkg: string): boolean {
+  return CHAT_APPS.test(pkg);
+}
+
+/** A promotion rather than a payment that happened. */
+export function looksLikePromo(text: string): boolean {
+  return PROMO.test(text) && !MOVED.test(text);
+}
+
 /** "app:<package>:<label>" marks an app notification (see PaymentNotificationListener). */
 export function notificationApp(address: string): { pkg: string; label: string } | null {
   if (!address.startsWith('app:')) return null;
@@ -182,8 +201,11 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
 
   async function handleSms(sms: RawSms): Promise<MessageResult> {
     const app = notificationApp(sms.address);
+    // Never a chat app's message, and never an offer dressed up as money.
+    if (app && (isChatApp(app.pkg) || looksLikePromo(sms.body))) return { kind: 'ignored' };
     const source = app ? (MAIL_APPS.has(app.pkg) ? 'mail' : 'notif') : 'sms';
-    const rawRef = app ? `notif:${hashText(`${app.pkg}|${sms.body}`)}:${dateKey(sms.receivedAt)}` : smsRawRef(sms);
+    // The app is part of the reference, so one payment shown by two apps can be told apart from two payments.
+    const rawRef = app ? `notif:${hashText(app.pkg)}:${hashText(`${app.pkg}|${sms.body}`)}:${dateKey(sms.receivedAt)}` : smsRawRef(sms);
     let c = parseSms(sms.body, { receivedAt: sms.receivedAt, rawRef });
     if (opts.extractor) {
       // Every message goes to the AI reader when one is set up (it also picks a category); the rule

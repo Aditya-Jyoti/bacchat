@@ -45,19 +45,28 @@ export async function ingestCandidate(db: BacchatDb, c: Candidate, opts: IngestO
   // One payment often reaches the phone twice, as a bank SMS and as an app notification (or email),
   // with the payee spelt differently. Same amount within minutes, both read by machine: one entry.
   const machine = (e: Entry): boolean => e.sources.length > 0 && e.sources.every((s) => s.kind === 'sms' || s.kind === 'notif' || s.kind === 'mail');
+  // Notification references carry the app ("notif:<app>:<text>:<day>"): two apps (GPay and the
+  // bank's app) showing one payment are one entry; the same app twice is two payments.
+  const appOf = (ref: string | null | undefined): string | null => (ref && ref.startsWith('notif:') ? ref.split(':')[1] ?? null : null);
+  const sameSender = (e: Entry): boolean =>
+    e.sources.some((s) => s.kind === c.source && (c.source !== 'notif' || appOf(s.rawRef) === appOf(c.rawRef) || appOf(s.rawRef) === null));
   const twin =
-    recon.status === 'conflict' && recon.signals.amount && recon.signals.time && c.source !== 'shot'
-      ? pool.find((e) => e.id === recon.against?.id && machine(e) && !e.sources.some((s) => s.kind === c.source))
+    (recon.status === 'conflict' || recon.status === 'match') && recon.signals.amount && recon.signals.time && c.source !== 'shot'
+      ? pool.find((e) => e.id === recon.against?.id && machine(e) && !sameSender(e))
       : undefined;
   if (twin) {
     const updated = await db.entries.addSource(twin.id, { kind: sourceKind(c), rawRef: c.rawRef });
     if (updated) return { kind: 'matched', entry: updated, recon: { ...recon, status: 'match' } };
   }
-  if (recon.status === 'match' && recon.against?.id) {
+  // A different message from the same sender (another SMS from the bank, another notification
+  // from the same app) is another payment, even at the same shop for the same amount: one payment
+  // gives one message per sender, and a repeat of the same message was caught above by its reference.
+  const fromSameSender = recon.against?.id ? pool.find((e) => e.id === recon.against?.id && machine(e) && sameSender(e)) : undefined;
+  if (recon.status === 'match' && recon.against?.id && !fromSameSender) {
     const updated = await db.entries.addSource(recon.against.id, { kind: sourceKind(c), rawRef: c.rawRef });
     if (updated) return { kind: 'matched', entry: updated, recon };
   }
-  if (recon.status === 'conflict' && recon.against?.id) {
+  if (recon.status === 'conflict' && recon.against?.id && !fromSameSender) {
     const against = pool.find((e) => e.id === recon.against!.id)!;
     return { kind: 'conflict', against, recon, candidate: c };
   }

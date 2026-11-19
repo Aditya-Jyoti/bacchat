@@ -85,6 +85,23 @@ export type Ledger = { accounts: Account[]; debts: DebtCard[] };
  * are never lost. Pure: reads only.
  */
 export async function ledger(db: BacchatDb): Promise<Ledger> {
+  // An observable database (services) bumps a version on every write: reuse the result until then,
+  // since several sections of one screen each ask for balances.
+  const version = (db as Partial<{ version: () => number }>).version?.();
+  if (version !== undefined) {
+    const hit = ledgerCache.get(db);
+    if (hit && hit.version === version) return hit.result;
+    const result = computeLedger(db);
+    ledgerCache.set(db, { version, result });
+    result.catch(() => ledgerCache.get(db)?.result === result && ledgerCache.delete(db));
+    return result;
+  }
+  return computeLedger(db);
+}
+
+const ledgerCache = new WeakMap<object, { version: number; result: Promise<Ledger> }>();
+
+async function computeLedger(db: BacchatDb): Promise<Ledger> {
   const [accounts, debts, entries, upis] = await Promise.all([
     db.accounts.list(),
     db.debts.list(),

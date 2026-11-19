@@ -43,6 +43,7 @@ export default function K3_MoneySummary(): React.JSX.Element {
   const lk = lookups.data ?? EMPTY_LOOKUPS;
   const canPrev = earliest != null && monthsBack(now, earliest) > back;
 
+  const net = s ? s.inPaise - s.spentPaise : 0;
   let compare: string | null = null;
   if (s && s.lastMonthPaise > 0) {
     const diff = s.spentPaise - s.lastMonthPaise;
@@ -63,15 +64,25 @@ export default function K3_MoneySummary(): React.JSX.Element {
           </View>
         ) : s.hasData ? (
           <View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: spacing.lg }}>
-              <View>
-                <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{win.isCurrent ? S.spentSoFar : fmt(t('moneyLive.spentIn'), { month: win.name })}</Text>
-                <Text style={[serif(30), { color: colors.onSurface }]}>{formatRupees(s.spentPaise)}</Text>
+            {/* The month's balance first: what came in less what went out. Green when money was
+                kept, red when more went out than came in (owner's choice); the words say which too. */}
+            <View testID="month-net" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: spacing.lg, gap: spacing.md }}>
+              <View style={{ flexShrink: 1 }}>
+                <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>
+                  {fmt(t(net >= 0 ? (win.isCurrent ? 'moneyLive.keptSoFar' : 'moneyLive.keptIn') : win.isCurrent ? 'moneyLive.overSoFar' : 'moneyLive.overIn'), { month: win.name })}
+                </Text>
+                <Text testID="month-net-amount" style={[serif(30), { color: net >= 0 ? colors.moneyIn : colors.moneyOut }]}>
+                  {formatRupees(net, { plus: true })}
+                </Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>
+                <Text testID="month-in" style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>
                   {`${S.inLabel} `}
                   <Text style={{ color: colors.onSurface, fontWeight: '700' }}>{formatRupees(s.inPaise)}</Text>
+                </Text>
+                <Text testID="month-out" style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>
+                  {`${t('moneyLive.outLabel')} `}
+                  <Text style={{ color: colors.onSurface, fontWeight: '700' }}>{formatRupees(s.spentPaise)}</Text>
                 </Text>
                 {compare ? <Text style={[typography.labelMedium, { color: colors.primary }]}>{compare}</Text> : null}
               </View>

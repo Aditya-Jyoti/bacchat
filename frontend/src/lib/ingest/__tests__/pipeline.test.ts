@@ -66,12 +66,20 @@ describe('ingestCandidate', () => {
     expect(await db.entries.list()).toHaveLength(1);
   });
 
-  it('returns a conflict (and inserts nothing) when two of three signals agree', async () => {
+  it('returns a conflict (and inserts nothing) when two sources disagree on two of three signals', async () => {
     await ingestCandidate(db, cand(SWIGGY));
-    const diff = cand('Rs 512.00 spent on ICICI Bank Card XX4005 on 24-Oct-26 at SWIGGY. Avl Limit: Rs 1,85,180.00.', 'sms-2');
+    // An email about the same Swiggy order at the same time, with a different amount: which is right?
+    const diff = { ...cand('Rs 512.00 spent on ICICI Bank Card XX4005 on 24-Oct-26 at SWIGGY. Avl Limit: Rs 1,85,180.00.', 'mail-2'), source: 'mail' as const };
     const out = await ingestCandidate(db, diff);
     expect(out.kind).toBe('conflict');
     expect(await db.entries.list()).toHaveLength(1);
+  });
+
+  it('a second, different SMS from the same bank is a second payment, not a conflict', async () => {
+    await ingestCandidate(db, cand(SWIGGY));
+    const second = cand('Rs 512.00 spent on ICICI Bank Card XX4005 on 24-Oct-26 at SWIGGY. Avl Limit: Rs 1,84,668.00.', 'sms-2');
+    expect((await ingestCandidate(db, second)).kind).toBe('added');
+    expect(await db.entries.list()).toHaveLength(2);
   });
 
   it('keeps money in and out apart', async () => {
@@ -109,5 +117,28 @@ describe('one payment from two machine sources', () => {
     await ingestCandidate(db, parseSms('Rs. 20 sent from a/c xx1207 to RAJESH (UPI Ref: 630000000001)', { receivedAt: RX, rawRef: 's1' })!);
     const out = await ingestCandidate(db, parseSms('Rs. 20 sent from a/c xx1207 to MILTON STORES (UPI Ref: 630000000002)', { receivedAt: RX + 60_000, rawRef: 's2' })!);
     expect(out.kind).not.toBe('matched');
+  });
+});
+
+describe('same sender, two messages', () => {
+  it('two different SMS from the bank for the same amount at the same shop are two payments', async () => {
+    const db = createMemoryDb();
+    const a = parseSms('Rs. 20 spent on your credit card xx1261 at Nescafe on 24-Oct-26 (UPI Ref: 630000000011) - slice', { receivedAt: RX, rawRef: 'sms:a' })!;
+    const b = parseSms('Rs. 20 spent on your credit card xx1261 at Nescafe on 24-Oct-26 (UPI Ref: 630000000012) - slice', { receivedAt: RX + 120_000, rawRef: 'sms:b' })!;
+    expect((await ingestCandidate(db, a)).kind).toBe('added');
+    expect((await ingestCandidate(db, b)).kind).toBe('added');
+    expect(await db.entries.list()).toHaveLength(2);
+  });
+
+  it('the same payment shown by two different apps is one entry; by the same app twice, two', async () => {
+    const db = createMemoryDb();
+    const text = 'Paid Rs. 270 to Mr Satishkumar G';
+    const gpay = { ...parseSms(text, { receivedAt: RX, rawRef: 'notif:gpay:1:2026-10-24' })!, source: 'notif' as const };
+    const bank = { ...parseSms(text + ' from your a/c', { receivedAt: RX + 30_000, rawRef: 'notif:bank:2:2026-10-24' })!, source: 'notif' as const };
+    const gpay2 = { ...parseSms(text + ' again', { receivedAt: RX + 60_000, rawRef: 'notif:gpay:3:2026-10-24' })!, source: 'notif' as const };
+    expect((await ingestCandidate(db, gpay)).kind).toBe('added');
+    expect((await ingestCandidate(db, bank)).kind).toBe('matched');
+    expect((await ingestCandidate(db, gpay2)).kind).toBe('added');
+    expect(await db.entries.list()).toHaveLength(2);
   });
 });
