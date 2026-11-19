@@ -47,11 +47,18 @@ describe('AI extractor seam', () => {
     expect((await svc.processSms(sms(ODD))).kind).toBe('unreadable');
   });
 
-  it('is not asked when the rules are confident', async () => {
+  it('reads every message with AI, even when the rules are confident (owner request)', async () => {
     const ex = jest.fn(async () => fromModel());
     const { svc, db } = setup(ex);
     expect((await svc.processSms(sms(CONFIDENT))).kind).toBe('added');
-    expect(ex).not.toHaveBeenCalled();
+    expect(ex).toHaveBeenCalledWith(CONFIDENT, expect.objectContaining({ ruleConfidence: Number.POSITIVE_INFINITY }));
+    expect(await db.entries.list()).toHaveLength(1);
+  });
+
+  it('falls back to the rules when the AI gives nothing (off, no consent, failed)', async () => {
+    const ex = jest.fn(async () => null);
+    const { svc, db } = setup(ex);
+    expect((await svc.processSms(sms(CONFIDENT))).kind).toBe('added');
     expect(await db.entries.list()).toHaveLength(1);
   });
 

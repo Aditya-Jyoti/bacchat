@@ -22,6 +22,10 @@ describe('matchAccount', () => {
     expect(matchAccount(ACCOUNTS, 'VM-SLICEIT Rs 450 debited from your slice A/c XX12 to Swiggy via UPI')).toEqual({ accountId: 'slice-sb', method: null });
   });
 
+  it('"slice card" (a notification that does not say credit) is the Slice card, not the savings', () => {
+    expect(matchAccount(ACCOUNTS, 'slice Paid Rs. 270 to Mr Satishkumar G from your slice card')).toEqual({ accountId: 'slice-cc', method: 'card' });
+  });
+
   it('a debit card spend is the bank, marked debit', () => {
     expect(matchAccount(ACCOUNTS, 'HDFC Bank: Rs 999 spent on Debit Card xx4021 at Amazon')).toEqual({ accountId: 'hdfc', method: 'debit' });
   });

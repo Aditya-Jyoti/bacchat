@@ -22,12 +22,20 @@ export type NetSeries = {
   deltaPaise: number;
   /** "since 1 Sep". */
   since: string;
-  /** End-of-day net worth for the last DAILY_POINTS days (the 1M view), oldest first, last = today. */
+  /** End-of-day net worth for the last DAILY_POINTS days (1M and 3M views), oldest first, last = today. */
   daily?: { values: number[]; labels: string[] };
+  /**
+   * True when far less money in was recorded than went out over the chart's span (salary going to an
+   * account with no entries). The line is rebuilt backwards from today, so missing income makes the
+   * earlier points read too high; Home says so under the chart.
+   */
+  incomeShort?: boolean;
 };
 
-/** Days shown in the 1M view. */
-export const DAILY_POINTS = 30;
+/** Days kept in the daily series (the 3M view; 1M shows the last 30). */
+export const DAILY_POINTS = 90;
+/** Recorded income below this share of spending marks the series as missing income. */
+const INCOME_SHORT_RATIO = 0.3;
 const DAY_MS = 86_400_000;
 
 /** Short month name ("Oct") for a month start. */
@@ -53,6 +61,14 @@ export async function reconstructSeries(db: BacchatDb, now: number, months = 12)
     labels.push(mon(from));
   }
   const daily = await reconstructDaily(db, now, current);
+  let inP = 0;
+  let outP = 0;
+  for (const e of entries) {
+    if (e.transferToAccountId) continue;
+    if (e.direction === 'in') inP += e.amountPaise;
+    else outP += e.amountPaise;
+  }
+  const incomeShort = outP > 0 && inP < outP * INCOME_SHORT_RATIO;
   const monthStart = addMonths(now, 0);
   return {
     values,
@@ -60,6 +76,7 @@ export async function reconstructSeries(db: BacchatDb, now: number, months = 12)
     deltaPaise: current - (values.length > 1 ? values[values.length - 2] : current),
     since: t('homeLive.since', { date: `1 ${mon(monthStart)}` }),
     daily,
+    incomeShort,
   };
 }
 

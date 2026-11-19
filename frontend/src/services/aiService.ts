@@ -46,7 +46,7 @@ import type { AppSettings } from './settings';
 /** Secure-store key for an OpenAI-compatible provider's API key. */
 export const AI_SECURE_KEYS = { openaiKey: 'bacchat.ai.openai.key' } as const;
 
-export type ExtractInput = { source: 'sms' | 'mail'; receivedAt: number; rawRef?: string | null; email?: EmailInput; signal?: AbortSignal };
+export type ExtractInput = { source: 'sms' | 'mail'; receivedAt: number; rawRef?: string | null; email?: EmailInput; signal?: AbortSignal; ruleConfidence?: number };
 
 /** The seam ingestService consumes: read one message, return a candidate or null. Never throws. */
 export type Extractor = (text: string, input: ExtractInput) => Promise<Candidate | null>;

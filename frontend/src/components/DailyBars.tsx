@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, Text, View, type LayoutChangeEvent } from 'react-native';
+import { Pressable, Text, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
 
 import { formatRupees, formatRupeesCompact } from '../lib/format';
 import { useTheme } from '../theme';
@@ -78,6 +78,18 @@ export function DailyBars({
   const future = Math.max(0, daysInMonth - n);
   const top = niceMax(Math.max(0, ...values));
   const plotW = Math.max(0, width - AXIS_W);
+  // Which bar sits above x (relative to the bars' left edge): bars and the future block share the
+  // width in flex units with GAP between them.
+  const scrub = (e: GestureResponderEvent): void => {
+    if (n === 0 || plotW <= 0) return;
+    // n bars plus one future block (flex: future) laid out in a row with GAP between items.
+    const units = n + future;
+    const gaps = GAP * (future > 0 ? n : n - 1);
+    const unitW = Math.max(1, (plotW - gaps) / units);
+    const i = Math.floor(e.nativeEvent.locationX / (unitW + GAP));
+    const at = Math.max(0, Math.min(n - 1, i));
+    if (at !== selectedIndex) onSelect(at);
+  };
   const unit = Math.max(0, (plotW - GAP * (n + (future ? 0 : -1))) / Math.max(1, n + future));
   const centerOf = (i: number): number => AXIS_W + i * (unit + GAP) + unit / 2;
   const show = selectedIndex != null && selectedIndex < n && tooltip != null && width > 0;
@@ -190,15 +202,25 @@ export function DailyBars({
           </Pressable>
         ) : null}
       </View>
-      {axisLabels ? (
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4, marginLeft: AXIS_W }}>
-          {axisLabels.map((l, i) => (
-            <Text key={i} style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>
-              {l}
-            </Text>
-          ))}
-        </View>
-      ) : null}
+      {/* Scrub strip under the bars (with the date captions): touch or drag along it to pick a day, so
+          the thumb stays below the bars and the tooltip instead of covering them. */}
+      <View
+        testID="daily-scrub"
+        onStartShouldSetResponder={() => n > 0}
+        onMoveShouldSetResponder={() => n > 0}
+        onResponderTerminationRequest={() => false}
+        onResponderGrant={scrub}
+        onResponderMove={scrub}
+        style={{ flexDirection: 'row', justifyContent: 'space-between', marginLeft: AXIS_W, paddingTop: 4, minHeight: 32 }}
+      >
+        {axisLabels
+          ? axisLabels.map((l, i) => (
+              <Text key={i} pointerEvents="none" style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>
+                {l}
+              </Text>
+            ))
+          : null}
+      </View>
     </View>
   );
 }

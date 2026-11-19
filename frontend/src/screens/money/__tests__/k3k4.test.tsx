@@ -161,7 +161,11 @@ describe.each(['light', 'dark'] as const)('k3 Money Summary (%s)', (mode) => {
     expect(flat(getByTestId('method-UPI').props.style).minHeight).toBeGreaterThan(0);
     expect(getByText('Top merchants')).toBeTruthy();
     expect(getByText('3 times')).toBeTruthy();
-    expect(getAllByText('once').length).toBe(3);
+    // Up to 8 payees now (was 4), so more of them were paid once.
+    expect(getAllByText('once').length).toBe(7);
+    // Biggest spends: the everyday and big one-off split, then the largest single spends.
+    expect(getByTestId('biggest-section')).toBeTruthy();
+    expect(String(getByTestId('biggest-split').props.children)).toMatch(/on everyday things/);
     fireEvent.press(getByTestId('category-Groceries'));
     expect(nav.navigate).toHaveBeenCalledWith('main', { screen: 'money', params: { screen: 'money/entries', params: { category: 'Groceries' } } });
   });

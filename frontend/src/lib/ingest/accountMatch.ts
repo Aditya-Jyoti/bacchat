@@ -38,7 +38,15 @@ export function matchAccount(accounts: readonly Account[], text: string | null |
     .filter((x) => x.score > 0)
     .sort((x, y) => y.score - x.score);
   let pick: Account | undefined;
-  if (scored.length === 1 || (scored.length > 1 && scored[0].score > scored[1].score)) pick = scored[0].a;
+  // A tie between a card and a bank of the same name ("slice card" with Slice Credit and Slice Savings):
+  // a plain "card" (not "debit card") means the card account.
+  const tied = scored.filter((x) => x.score === scored[0]?.score);
+  const cardWord = /\bcard\b/i.test(text) && !/\bdebit\s*card\b/i.test(text);
+  if (tied.length > 1 && cardWord) {
+    const cards = tied.filter((x) => x.a.kind === 'card');
+    if (cards.length === 1) pick = cards[0].a;
+  }
+  if (!pick && (scored.length === 1 || (scored.length > 1 && scored[0].score > scored[1].score))) pick = scored[0].a;
   else if (scored.length === 0 && credit && pool.length === 1) pick = pool[0];
   if (!pick) return null;
   const method: PayMethod | null = pick.kind === 'card' ? 'card' : /\bdebit\s*card\b/i.test(text) ? 'debit' : null;

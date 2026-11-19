@@ -39,17 +39,29 @@ export function PairedBarChart({
   const net = selected === null ? 0 : (income[selected] ?? 0) - (spend[selected] ?? 0);
   const pct = selected === null ? 0 : Math.min(85, Math.max(15, ((selected + 0.5) / n) * 100));
   const radius = { borderTopLeftRadius: 6, borderTopRightRadius: 6, borderBottomLeftRadius: 2, borderBottomRightRadius: 2 };
+  const AXIS_W = 40;
+  const axisText = [typography.labelSmall, { color: colors.onSurfaceVariant }];
+  // y axis: the top of the scale, its half and zero, each on a dashed rule.
+  const tick = (fraction: number): React.JSX.Element => (
+    <View key={fraction} pointerEvents="none" style={{ position: 'absolute', left: -AXIS_W, right: 0, bottom: height * fraction - 7, flexDirection: 'row', alignItems: 'center' }}>
+      <Text style={[axisText, { width: AXIS_W - 4 }]} numberOfLines={1}>
+        {formatRupeesCompact(Math.round(max * fraction), { symbol: false })}
+      </Text>
+      {fraction > 0 ? <View style={{ flex: 1, borderTopWidth: 1, borderStyle: 'dashed', borderColor: colors.outlineVariant }} /> : null}
+    </View>
+  );
   return (
     <View testID={testID} accessible accessibilityLabel={summary}>
       <View style={{ height: height + 40, justifyContent: 'flex-end' }}>
         {selected !== null ? (
-          <View style={{ position: 'absolute', top: 0, left: `${pct}%`, width: 0, alignItems: 'center' }}>
+          <View style={{ position: 'absolute', top: 0, left: `${pct}%`, marginLeft: AXIS_W * (1 - pct / 100), width: 0, alignItems: 'center' }}>
             <ChartTooltip testID="paired-tooltip" stemHeight={6} style={{ width: 160 }}>
               {`${months[selected]} \u00B7 net kept ${k(net)}`}
             </ChartTooltip>
           </View>
         ) : null}
-        <View style={{ flexDirection: 'row', height, gap: 10, alignItems: 'flex-end', borderBottomWidth: 1, borderBottomColor: colors.outlineVariant }}>
+        <View testID="paired-y-axis" style={{ marginLeft: AXIS_W, flexDirection: 'row', height, gap: 10, alignItems: 'flex-end', borderBottomWidth: 1, borderBottomColor: colors.outlineVariant }}>
+          {max > 1 ? [1, 0.5, 0].map(tick) : null}
           {months.map((m, i) => (
             <Pressable
               key={m}
@@ -65,7 +77,7 @@ export function PairedBarChart({
           ))}
         </View>
       </View>
-      <View style={{ flexDirection: 'row', gap: 10, marginTop: spacing.xs + 2 }}>
+      <View style={{ flexDirection: 'row', gap: 10, marginTop: spacing.xs + 2, marginLeft: AXIS_W }}>
         {months.map((m) => (
           <Text key={m} style={[typography.labelSmall, { flex: 1, textAlign: 'center', color: colors.onSurfaceVariant }]}>
             {m}

@@ -33,7 +33,7 @@ import { homeCopy } from '../copy';
 import { alertCopy, duesCopy, useDuesInsight } from '../liveData';
 import { signedAmount } from '../../you/parts/signedAmount';
 import { HomeSection } from './HomeSection';
-import { isReached } from '../../goals/goalTypes';
+import { isOpenEnded, isReached } from '../../goals/goalTypes';
 import { Row } from './Rows';
 
 export type SectionsProps = { go: (kid: KId) => void; arrange: () => void };
@@ -281,7 +281,11 @@ function Goals({ go, arrange }: SectionsProps): React.JSX.Element {
           <Pressable
             key={goal.id}
             accessibilityRole="button"
-            accessibilityLabel={`${goal.name}, ${formatRupees(total.savedPaise)} of ${formatRupees(total.targetPaise)}${isReached(total) ? `, ${t('common.done')}` : ''}`}
+            accessibilityLabel={
+              isOpenEnded(total)
+                ? `${goal.name}, ${t('goalsUi.openPot')}, ${formatRupees(total.savedPaise)}`
+                : `${goal.name}, ${formatRupees(total.savedPaise)} of ${formatRupees(total.targetPaise)}${isReached(total) ? `, ${t('common.done')}` : ''}`
+            }
             onPress={() => go('k13')}
             onLongPress={arrange}
             style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.outlineVariant }}
@@ -289,11 +293,20 @@ function Goals({ go, arrange }: SectionsProps): React.JSX.Element {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <Text style={[typography.bodyMedium, { color: colors.onSurface }]}>{goal.name}</Text>
               <Text style={[typography.bodyMedium, { color: colors.onSurfaceVariant }]}>
-                {isReached(total) ? `${formatRupees(total.savedPaise)} \u00B7 ${t('common.done')}` : `${formatRupees(total.savedPaise)} / ${formatRupees(total.targetPaise)}`}
+                {isOpenEnded(total)
+                  ? formatRupees(total.savedPaise)
+                  : isReached(total)
+                    ? `${formatRupees(total.savedPaise)} \u00B7 ${t('common.done')}`
+                    : `${formatRupees(total.savedPaise)} / ${formatRupees(total.targetPaise)}`}
               </Text>
             </View>
-            <View style={{ height: 8 }} />
-            <SegmentedProgress fraction={total.targetPaise > 0 ? total.savedPaise / total.targetPaise : 0} height={6} />
+            {/* An open pot has no target: just the amount, no bar. */}
+            {isOpenEnded(total) ? null : (
+              <>
+                <View style={{ height: 8 }} />
+                <SegmentedProgress fraction={total.savedPaise / total.targetPaise} height={6} />
+              </>
+            )}
           </Pressable>
         ))
       )}

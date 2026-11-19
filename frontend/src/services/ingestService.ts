@@ -185,8 +185,13 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
     const source = app ? (MAIL_APPS.has(app.pkg) ? 'mail' : 'notif') : 'sms';
     const rawRef = app ? `notif:${hashText(`${app.pkg}|${sms.body}`)}:${dateKey(sms.receivedAt)}` : smsRawRef(sms);
     let c = parseSms(sms.body, { receivedAt: sms.receivedAt, rawRef });
-    if (opts.extractor && (!c || c.confidence < RULE_ACCEPT_CONFIDENCE)) {
-      c = (await opts.extractor(sms.body, { source: source === 'mail' ? 'mail' : 'sms', receivedAt: sms.receivedAt, rawRef }).catch(() => null)) ?? c;
+    if (opts.extractor) {
+      // Every message goes to the AI reader when one is set up (it also picks a category); the rule
+      // parser's answer is the fallback when AI is off, has no engine or consent, or fails.
+      const ai = await opts.extractor(sms.body, { source: source === 'mail' ? 'mail' : 'sms', receivedAt: sms.receivedAt, rawRef, ruleConfidence: Number.POSITIVE_INFINITY }).catch(() => null);
+      // When both agree (the AI's amount is checked against the rule reader's), keep the higher
+      // confidence so a clear message is never dropped because the model was modest about it.
+      c = ai ? (c ? { ...ai, confidence: Math.max(ai.confidence, c.confidence) } : ai) : c;
     }
     if (!c) return { kind: 'unreadable' };
     // The sender (VM-SLICEIT, or the app's name) and text tell which account it is; used while adding, not stored.

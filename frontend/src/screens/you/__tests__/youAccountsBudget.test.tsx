@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavigationContext } from '@react-navigation/native';
-import { fireEvent, waitFor } from '@testing-library/react-native';
+import { configure, fireEvent, waitFor } from '@testing-library/react-native';
 
 import { khataPalette } from '../../../theme';
 import { createMemoryDb, SAMPLE_TODAY } from '../../../data/db';
@@ -11,6 +11,9 @@ import K11_AddAccount from '../K11_AddAccount';
 import K15_Budget from '../K15_Budget';
 import K16_EditBudget from '../K16_EditBudget';
 import { useBudget } from '../budgetStore';
+
+// Database-backed screens: give async queries room when the whole suite runs in parallel.
+configure({ asyncUtilTimeout: 8000 });
 
 const R = '\u20B9';
 

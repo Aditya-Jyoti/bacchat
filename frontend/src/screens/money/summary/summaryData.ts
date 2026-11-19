@@ -19,6 +19,12 @@ export type MonthSummary = {
   categories: CategorySpend[];
   methods: MethodShare[];
   merchants: MerchantTotal[];
+  /** The month's largest single spends, biggest first. */
+  biggest: Entry[];
+  /** Spends of BIG_SPEND_PAISE or more (flights, a hospital bill) and the everyday rest. */
+  oneOffPaise: number;
+  oneOffCount: number;
+  everydayPaise: number;
   /** False when nothing was spent or received that month. */
   hasData: boolean;
 };
@@ -31,19 +37,25 @@ export const METHOD_ICON: Record<PayMethod, string> = {
   bank: 'account_balance',
 };
 
+/** A single spend at or above this counts as a big one-off in the summary (Rs 2,000). */
+export const BIG_SPEND_PAISE = 200000;
+
+/** Money that left for someone else: not a move between your own accounts. */
+export const isSpend = (e: Entry): boolean => e.direction === 'out' && !e.transferToAccountId;
+
 export function methodSplit(entries: readonly Entry[]): MethodShare[] {
   const by = new Map<PayMethod, number>();
-  for (const e of entries) if (e.direction === 'out') by.set(e.method, (by.get(e.method) ?? 0) + e.amountPaise);
+  for (const e of entries) if (isSpend(e)) by.set(e.method, (by.get(e.method) ?? 0) + e.amountPaise);
   const total = [...by.values()].reduce((s, v) => s + v, 0);
   return [...by.entries()]
     .map(([method, paise]) => ({ method, paise, percent: total > 0 ? Math.round((paise / total) * 100) : 0 }))
     .sort((a, b) => b.paise - a.paise);
 }
 
-export function topMerchants(entries: readonly Entry[], limit = 4): MerchantTotal[] {
+export function topMerchants(entries: readonly Entry[], limit = 8): MerchantTotal[] {
   const by = new Map<string, MerchantTotal>();
   for (const e of [...entries].sort((a, b) => b.at - a.at)) {
-    if (e.direction !== 'out') continue;
+    if (!isSpend(e)) continue;
     const key = normalizeMerchant(e.merchant) || e.merchant.toLowerCase();
     const cur = by.get(key) ?? { name: e.merchant, paise: 0, count: 0, categoryId: e.categoryId };
     cur.paise += e.amountPaise;
@@ -63,7 +75,11 @@ export async function monthSummary(db: BacchatDb, now: number, back: number): Pr
     spendByCategory(db, ref),
     dailyTotals(db, ref),
   ]);
-  const inPaise = entries.filter((e) => e.direction === 'in').reduce((s, e) => s + e.amountPaise, 0);
+  // Money in from someone else; a move from your own account is not income.
+  const inPaise = entries.filter((e) => e.direction === 'in' && !e.transferToAccountId).reduce((s, e) => s + e.amountPaise, 0);
+  const spends = entries.filter(isSpend);
+  const big = spends.filter((e) => e.amountPaise >= BIG_SPEND_PAISE);
+  const oneOffPaise = big.reduce((s, e) => s + e.amountPaise, 0);
   return {
     win,
     spentPaise: spend.totalPaise,
@@ -73,6 +89,10 @@ export async function monthSummary(db: BacchatDb, now: number, back: number): Pr
     categories: spend.categories,
     methods: methodSplit(entries),
     merchants: topMerchants(entries),
+    biggest: [...spends].sort((a, b) => b.amountPaise - a.amountPaise || b.at - a.at).slice(0, 6),
+    oneOffPaise,
+    oneOffCount: big.length,
+    everydayPaise: Math.max(0, spend.totalPaise - oneOffPaise),
     hasData: spend.totalPaise > 0 || inPaise > 0,
   };
 }

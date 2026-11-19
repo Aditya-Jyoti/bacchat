@@ -40,6 +40,21 @@ describe.each(['light', 'dark'] as const)('DailyBars (%s)', (mode) => {
   const c = khataPalette(45, mode);
   const fill = (utils: ReturnType<typeof setup>, i: number) => flat(utils.getByTestId(`daily-bar-fill-${i}`).props.style).backgroundColor;
 
+  it('picks a day by touching or dragging along the strip under the bars', () => {
+    const u = setup(mode);
+    const strip = u.getByTestId('daily-scrub');
+    expect(strip.props.onResponderTerminationRequest()).toBe(false);
+    // Bars area is 300 - 34 = 266 wide: 9 units (6 days + a 3-day future block) and 6 gaps of 3,
+    // so a day is 27.6 wide and starts every 30.6.
+    fireEvent(strip, 'responderGrant', { nativeEvent: { locationX: 2 } });
+    expect(u.onSelect).toHaveBeenLastCalledWith(0);
+    fireEvent(strip, 'responderMove', { nativeEvent: { locationX: 30.6 * 4 + 5 } });
+    expect(u.onSelect).toHaveBeenLastCalledWith(4);
+    // Past the last day (into the future block) it stays on the last day.
+    fireEvent(strip, 'responderMove', { nativeEvent: { locationX: 260 } });
+    expect(u.onSelect).toHaveBeenLastCalledWith(5);
+  });
+
   it('colours bars: selected primary, today chart2, over 2000 chart3, others surfaceContainerHigh', () => {
     const u = setup(mode);
     expect(fill(u, 1)).toBe(c.primary);

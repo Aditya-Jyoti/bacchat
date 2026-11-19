@@ -12,7 +12,7 @@ import { amountToPaise, stripBalances } from '../ingest/money';
 import { messageTime } from '../ingest/datetime';
 import { categorise } from '../ingest/categorise';
 import { parseEmail, type EmailInput } from '../ingest/email';
-import { NOT_TXN, parseSms } from '../ingest/sms';
+import { NOT_TXN, OWN_MOVE, parseSms } from '../ingest/sms';
 import type { Candidate } from '../ingest/types';
 import { normalizeMerchant } from '../reconciliation';
 import { redactMessage, isSafeForCloud } from './redact';
@@ -200,7 +200,7 @@ export async function extractTransaction(text: string, ctx: ExtractContext): Pro
   const rule = ruleParse(text, ctx);
   if (rule && rule.confidence >= (ctx.ruleConfidence ?? RULE_ACCEPT_CONFIDENCE)) return { candidate: rule, via: 'rules' };
   // Text the rules call not-a-payment (an OTP, an offer, a reminder) never goes to any model.
-  if (!rule && NOT_TXN.test(text)) return { candidate: null, via: 'none', reason: 'not_transaction' };
+  if (!rule && (NOT_TXN.test(text) || OWN_MOVE.test(text))) return { candidate: null, via: 'none', reason: 'not_transaction' };
 
   const minLlm = ctx.llmConfidence ?? LLM_ACCEPT_CONFIDENCE;
   const categoriesLine = ctx.categories.length ? `Categories: ${ctx.categories.map((c) => c.name).join(', ')}` : 'Categories: none';

@@ -827,6 +827,10 @@ export const en = {
   },
   /** Money tab text that depends on live data (k3 to k9, k19, k27, k28). */
   moneyLive: {
+    biggestTitle: 'Biggest spends',
+    splitOne: '{everyday} on everyday things, {big} on 1 big one-off.',
+    splitMany: '{everyday} on everyday things, {big} on {n} big one-offs (\u20B92,000 or more each).',
+    splitNone: '{everyday}, all on everyday things. No single spend over \u20B92,000.',
     editEntry: 'Edit entry',
     upi: 'UPI',
     categoryField: 'Category (optional)',
@@ -873,6 +877,12 @@ export const en = {
   },
   /** Home text that depends on live data (k1). */
   homeLive: {
+    incomeShort: 'Most of your income is not added here yet (salary into another account, money from family), so earlier points read higher than they were. Add it for a true line.',
+    changeDayOut: '{amount} out that day',
+    changeDayIn: '+{amount} in that day',
+    changeMonthOut: '{amount} down that month',
+    changeMonthIn: '+{amount} up that month',
+    changeNone: 'No change',
     groupBank: 'Bank',
     groupCash: 'Cash',
     groupMf: 'Mutual funds',

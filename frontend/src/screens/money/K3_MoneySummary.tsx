@@ -16,6 +16,7 @@ import { useMoneyNav } from './parts/nav';
 import { MoneyHeader } from './parts/MoneyHeader';
 import { S, fmt } from './parts/strings';
 import { useSerif } from './parts/ui';
+import { BiggestSection } from './summary/BiggestSection';
 import { CategorySection } from './summary/CategorySection';
 import { DailySpendSection } from './summary/DailySpendSection';
 import { MerchantSection, MethodSection } from './summary/MethodAndMerchants';
@@ -83,6 +84,7 @@ export default function K3_MoneySummary(): React.JSX.Element {
               versus={prev.shortName}
               onPick={(category) => nav.openEntries({ category })}
             />
+            <BiggestSection biggest={s.biggest} oneOffPaise={s.oneOffPaise} oneOffCount={s.oneOffCount} everydayPaise={s.everydayPaise} lookups={lk} />
             <MethodSection methods={s.methods} />
             <MerchantSection merchants={s.merchants} lookups={lk} />
           </View>

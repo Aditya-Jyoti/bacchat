@@ -21,7 +21,9 @@ import { useNetWorthSeries } from './liveData';
 import { renderSection } from './sections/Sections';
 
 type Range = (typeof c.ranges)[number];
-const RANGE_POINTS: Record<Range, number> = { '1M': 2, '6M': 7, '1Y': 12, All: 12 };
+const RANGE_POINTS: Record<Range, number> = { '1M': 2, '3M': 4, '6M': 7, '1Y': 12, All: 12 };
+/** Days shown per point in the daily views. */
+const RANGE_DAYS: Partial<Record<Range, number>> = { '1M': 30, '3M': 90 };
 
 export default function K1_Home(): React.JSX.Element {
   const { colors, typography, spacing, shapes } = useTheme();
@@ -44,9 +46,10 @@ export default function K1_Home(): React.JSX.Element {
   const counts = useDbQuery(async (db) => ({ accounts: (await db.accounts.list()).length, entries: (await db.entries.list()).length })).data;
   const isNew = !!counts && counts.accounts === 0 && counts.entries === 0;
   // 1M shows each day of the last 30 (when the daily series exists); the others show month ends.
-  const daily = range === '1M' ? series?.daily : undefined;
-  const values = useMemo(() => (daily ? daily.values : series ? series.values.slice(-count) : []), [daily, series, count]);
-  const labels = useMemo(() => (daily ? daily.labels : series ? series.labels.slice(-count) : []), [daily, series, count]);
+  const days = RANGE_DAYS[range];
+  const daily = days ? series?.daily : undefined;
+  const values = useMemo(() => (daily && days ? daily.values.slice(-days) : series ? series.values.slice(-count) : []), [daily, days, series, count]);
+  const labels = useMemo(() => (daily && days ? daily.labels.slice(-days) : series ? series.labels.slice(-count) : []), [daily, days, series, count]);
   const segments = useMemo(() => {
     if (!net) return [];
     const parts = [
@@ -141,10 +144,26 @@ export default function K1_Home(): React.JSX.Element {
 
           <View style={{ marginTop: 14 }}>
             {series ? (
-              <NetWorthChart values={values} labels={labels} formatValue={(v) => formatRupeesCompact(Math.round(v), { symbol: true })} />
+              <NetWorthChart
+                values={values}
+                labels={labels}
+                formatValue={(v) => formatRupeesCompact(Math.round(v), { symbol: true })}
+                formatTooltip={(v) => formatRupees(Math.round(v))}
+                describeChange={(d) => {
+                  const amount = formatRupees(Math.abs(Math.round(d)));
+                  if (Math.round(d) === 0) return t('homeLive.changeNone');
+                  if (daily) return t(d < 0 ? 'homeLive.changeDayOut' : 'homeLive.changeDayIn', { amount });
+                  return t(d < 0 ? 'homeLive.changeMonthOut' : 'homeLive.changeMonthIn', { amount });
+                }}
+              />
             ) : (
               <SkeletonLoader height={76} />
             )}
+            {series?.incomeShort ? (
+              <Text testID="networth-income-note" style={[typography.bodySmall, { color: colors.onSurfaceVariant, marginTop: 6 }]}>
+                {t('homeLive.incomeShort')}
+              </Text>
+            ) : null}
           </View>
           <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }} accessibilityRole="radiogroup">
             {c.ranges.map((r) => {

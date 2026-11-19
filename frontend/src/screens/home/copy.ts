@@ -16,7 +16,7 @@ export const homeCopy = {
   get since() { return h('since'); },
   get own() { return h('own'); },
   get owe() { return h('owe'); },
-  ranges: ['1M', '6M', '1Y', 'All'] as const,
+  ranges: ['1M', '3M', '6M', '1Y', 'All'] as const,
   get privacy() { return h('privacy'); },
   get insight() { return h('insight'); },
   spendable: {

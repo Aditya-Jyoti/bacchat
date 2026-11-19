@@ -60,12 +60,12 @@ describe('net worth series', () => {
 describe('daily net worth (1M)', () => {
   it('has one point per day for the last 30 days, stepping on the days money moved', async () => {
     const db = await smallDb();
-    const d = await reconstructDaily(db, NOW);
-    expect(d.values).toHaveLength(DAILY_POINTS);
-    expect(d.labels[DAILY_POINTS - 1]).toBe('24 Oct');
+    const d = await reconstructDaily(db, NOW, undefined, 30);
+    expect(d.values).toHaveLength(30);
+    expect(d.labels[29]).toBe('24 Oct');
     expect(d.labels[0]).toBe('25 Sep');
     // Today is the live figure. Before the 8,000 spend on 10 Oct net worth was 8,000 higher.
-    expect(d.values[DAILY_POINTS - 1]).toBe(4_90_000_00);
+    expect(d.values[29]).toBe(4_90_000_00);
     const tenth = d.labels.indexOf('10 Oct');
     expect(d.values[tenth]).toBe(4_90_000_00);
     expect(d.values[tenth - 1]).toBe(4_98_000_00);
@@ -82,9 +82,17 @@ describe('daily net worth (1M)', () => {
     expect(d.values[i]).toBe(d.values[i - 1]);
   });
 
-  it('the monthly series carries the daily one for the 1M chip', async () => {
+  it('the monthly series carries 90 daily points for the 1M and 3M chips', async () => {
     const s = await reconstructSeries(await smallDb(), NOW, 3);
     expect(s.daily?.values).toHaveLength(DAILY_POINTS);
+    expect(DAILY_POINTS).toBe(90);
+  });
+
+  it('says so when most income is missing (salary not added), and not when it is there', async () => {
+    const db = await smallDb();
+    expect((await reconstructSeries(db, NOW, 3)).incomeShort).toBe(false);
+    await db.entries.put({ id: 'big', amountPaise: 2_00_000_00, direction: 'out', at: at(9, 12), merchant: 'Trip', categoryId: null, accountId: 'a1', method: 'upi', sources: [{ kind: 'hand' }], status: 'confirmed', aiAdded: false });
+    expect((await reconstructSeries(db, NOW, 3)).incomeShort).toBe(true);
   });
 });
 
@@ -154,20 +162,25 @@ describe.each(['light', 'dark'] as const)('k1 Home live (%s)', (mode) => {
       { id: 'g-fun', name: 'Fun', icon: 'star', targetPaise: 20_000_00, accountId: 'a1' },
       { id: 'g-laptop', name: 'Laptop', icon: 'laptop_mac', targetPaise: 1_50_000_00, accountId: 'a1' },
       { id: 'g-trip', name: 'Trip', icon: 'flight', targetPaise: 40_000_00, accountId: 'a1' },
+      { id: 'g-round', name: 'Round Ups', icon: 'savings', targetPaise: 0, accountId: 'a1' },
     ]);
     await db.allocations.putMany([
       { id: 'x1', goalId: 'g-fun', accountId: 'a1', amountPaise: 20_185_00 },
       { id: 'x2', goalId: 'g-laptop', accountId: 'a1', amountPaise: 60_460_00 },
       { id: 'x3', goalId: 'g-trip', accountId: 'a1', amountPaise: 10_000_00 },
+      { id: 'x4', goalId: 'g-round', accountId: 'a1', amountPaise: 731_00 },
     ]);
-    const { findByText, getByTestId } = renderWithTheme(<K1_Home />, mode, { db, servicesOptions: { seed: false, now: () => NOW } });
+    const { findByText, getByTestId, getByText, queryByText } = renderWithTheme(<K1_Home />, mode, { db, servicesOptions: { seed: false, now: () => NOW } });
     expect(await findByText('\u20B920,185 \u00B7 Done')).toBeTruthy();
     const names = within(getByTestId('section-goals'))
       .getAllByRole('button')
       .map((b) => String(b.props.accessibilityLabel ?? ''))
-      .filter((l) => /^(Fun|Laptop|Trip),/.test(l))
+      .filter((l) => /^(Fun|Laptop|Trip|Round Ups),/.test(l))
       .map((l) => l.split(',')[0]);
-    expect(names).toEqual(['Laptop', 'Trip', 'Fun']);
+    expect(names).toEqual(['Laptop', 'Trip', 'Round Ups', 'Fun']);
+    // An open pot has no target: just its amount, never "/ Rs 0".
+    expect(getByText('\u20B9731')).toBeTruthy();
+    expect(queryByText(/\/ \u20B90/)).toBeNull();
   });
 
   it('uses the real clock greeting outside sample mode', async () => {

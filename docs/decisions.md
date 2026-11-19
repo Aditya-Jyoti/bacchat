@@ -335,3 +335,6 @@ ModelDownloadManager honours the aiModelsWifiOnly preference (default on) throug
 - Categories are optional (owner request). A screenshot row with no category is saved confirmed; only a guessed category stays To review.
 - Home 1M shows daily points (owner request) instead of two month-end points. Transfers between own accounts no longer move the net worth series.
 - k10 nests Savings and In goals (and each goal) under an account that holds goal money (owner request), so the split needs no maths.
+- 2026-11-20: AI reads every message (owner request), not only the ones the rules are unsure of; the rule parser stays the fallback and its amount still checks the model's.
+- 2026-11-20: Chart scrubbing reads only x and also accepts touches on the date row under the plot (owner request), so the thumb does not cover the point being read.
+- 2026-11-20: Owner data model: SBI only receives salary and family money and forwards it to slice, so money arriving from SBI is recorded as income in Slice Savings rather than a move (no SBI statement is kept). SBI keeps its current balance.

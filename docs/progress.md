@@ -1,6 +1,6 @@
 # Progress
 
-Last updated: 2026-11-20 (0.4.7: payment notifications read alongside SMS, per-row Paid with in k8, optional categories, daily 1M chart, goal money nested under its account in k10, self-closing delete snackbar, all goals on Home). Update with every meaningful change, together with worklog.md.
+Last updated: 2026-11-20 (0.4.8: chart scrub and axes, AI reads every message, open-pot goals on Home, Aug-Oct history imported; 0.4.7: payment notifications read alongside SMS, per-row Paid with in k8, optional categories, daily 1M chart, goal money nested under its account in k10, self-closing delete snackbar, all goals on Home). Update with every meaningful change, together with worklog.md.
 
 ## Milestones
 
