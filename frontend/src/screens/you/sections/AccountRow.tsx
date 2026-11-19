@@ -15,10 +15,12 @@ export type AccountRowProps = {
   owe?: { used: string; limitText: string };
   /** Tapping opens the account to edit. */
   onPress?: () => void;
+  /** False when nested rows follow and draw the rule themselves. */
+  divider?: boolean;
 };
 
 /** 36dp icon circle, name over kind, amount; debt rows add an OweBar underneath. */
-export function AccountRow({ name, kind, icon, amount, owe, onPress }: AccountRowProps): React.JSX.Element {
+export function AccountRow({ name, kind, icon, amount, owe, onPress, divider = true }: AccountRowProps): React.JSX.Element {
   const { colors, typography } = useTheme();
   return (
     <Pressable
@@ -27,7 +29,7 @@ export function AccountRow({ name, kind, icon, amount, owe, onPress }: AccountRo
       accessibilityLabel={onPress ? `${name}, ${kind}, ${amount}` : undefined}
       onPress={onPress}
       disabled={!onPress}
-      style={{ paddingVertical: owe ? 9 : 7, borderBottomWidth: 1, borderBottomColor: colors.outlineVariant }}
+      style={{ paddingVertical: owe ? 9 : 7, borderBottomWidth: divider ? 1 : 0, borderBottomColor: colors.outlineVariant }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         {owe ? (

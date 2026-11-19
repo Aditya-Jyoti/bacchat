@@ -260,3 +260,20 @@ describe('helpers', () => {
     expect(merchantFromVpa('paytmqr281005050101abc@paytm').name.length).toBeGreaterThan(0);
   });
 });
+
+describe('slice style messages', () => {
+  it('reads an amount with a zero-width character inside it', () => {
+    const c = parseSms('Rs. 2,‌460 sent from a/c xx1207 on 01-Nov-26 to JOEL FERNANDES (UPI Ref: 630560614813). - slice', { receivedAt: RX });
+    expect(c?.amountPaise).toBe(246000);
+  });
+
+  it('skips money moved between your own pots', () => {
+    expect(parseSms('You added Rs. 20,‌000 to Fun atom successfully. For queries, call 080-4832-9999 - slice', { receivedAt: RX })).toBeNull();
+    expect(parseSms('You transferred Rs. 20,‌000 from Fun to slice xx1207 savings successfully. - slice', { receivedAt: RX })).toBeNull();
+  });
+
+  it('still reads a plain transfer to a person', () => {
+    const c = parseSms('You transferred Rs. 500 to RAHUL via UPI Ref 631234567890 from a/c xx1207', { receivedAt: RX });
+    expect(c).toMatchObject({ amountPaise: 50000, direction: 'out' });
+  });
+});

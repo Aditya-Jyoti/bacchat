@@ -9,6 +9,9 @@ const CREDIT = /\b(credited|credit of|received|deposited|refund(?:ed)?|reversed|
 /** Messages that look like money but are not transactions. */
 export const NOT_TXN = /\b(otp|one[- ]time password|verification code|will be (?:debited|credited)|requested money|requesting|collect request|is due|due on|due by|due date|minimum (?:amount )?due|total (?:amount )?due|statement|reminder|pre[- ]?approved|offer|apply now|click|e-?mandate|autopay (?:of|scheduled)|failed|declined|unsuccessful|not processed|insufficient)\b/i;
 
+/** Money moved between the user's own pots (slice atoms, savings jars, FDs): not spend or income. */
+export const OWN_MOVE = /\byou (?:added|moved|transferred|withdrew)\b.{0,60}?\b(?:atom|pot|jar|vault|fixed deposit)\b|\byou transferred\b.{0,60}?\bto\b.{0,30}?\bsavings successfully\b/i;
+
 function direction(text: string): 'out' | 'in' | null {
   const d = DEBIT.exec(text);
   const c = CREDIT.exec(text);
@@ -104,8 +107,9 @@ function methodOf(text: string, cardLast: string | null, hasUpi: boolean): PayMe
  * Returns null when the text is not a completed transaction (OTPs, due reminders, offers, failures).
  */
 export function parseSms(text: string, ctx: ParseContext): Candidate | null {
-  const body = text.replace(/\s+/g, ' ').trim();
-  if (!body || NOT_TXN.test(body)) return null;
+  // Zero-width characters (some banks put one inside "20,000") would split the amount.
+  const body = text.replace(/[\u200B-\u200D\u2060\uFEFF]/g, '').replace(/\s+/g, ' ').trim();
+  if (!body || NOT_TXN.test(body) || OWN_MOVE.test(body)) return null;
   const dir = direction(body);
   if (!dir) return null;
   const bal = stripBalances(body);

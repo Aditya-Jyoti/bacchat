@@ -108,7 +108,7 @@ Deep links (`navigation/linking.ts`, scheme `bacchat://`):
 |---|---|---|
 | `bacchat://add` | k5 Add entry | Launcher shortcut "Add entry" (`plugins/withShortcuts`) |
 | `bacchat://import?uri=<encoded>` | k7 Reading screenshot | `shareService`, after an image arrives through the share sheet |
-| `bacchat://entries?filter=review` | k4 Entries, To review filter | "From SMS" notification |
+| `bacchat://entries?filter=review` | k4 Entries, To review filter | "From your messages" notification (SMS or payment notification) |
 | `bacchat://home`, `money`, `goals`, `you` | Tab roots | Convenience |
 
 Non-k-id surfaces: the lock screen (`LockScreen`, shown by `AppLockGate` over the whole app), the pending conflicts sheet and banner on k4 (`screens/money/pending`), and dialogs inside k25 (pairing code, recovery key). They are listed in [screens.md](screens.md).

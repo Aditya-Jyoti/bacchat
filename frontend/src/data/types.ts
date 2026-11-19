@@ -4,7 +4,7 @@ export type Money = { paise: number; text: string };
 /** Design colour keys used by sample data, mapped to theme roles by colorKeyToRole. */
 export type ColorKey = 'p' | 'k2' | 'k3' | 'k4' | 'onv' | 'ol2';
 
-export type EntrySourceKey = 'sms' | 'mail' | 'shot' | 'hand';
+export type EntrySourceKey = 'sms' | 'notif' | 'mail' | 'shot' | 'hand';
 
 export type NetWorthSample = {
   net: Money;

@@ -88,3 +88,26 @@ describe('ingestCandidate', () => {
     expect(await ingestCandidate(db, weak, { minConfidence: 0.2 })).toMatchObject({ kind: 'added' });
   });
 });
+
+describe('one payment from two machine sources', () => {
+  it('an app notification for an SMS entry with the payee spelt differently joins it instead of asking', async () => {
+    const db = createMemoryDb();
+    await db.accounts.put({ id: 'card', name: 'Slice Credit', kind: 'card', balancePaise: 0, icon: 'credit_card', last4: '1261' });
+    const sms = parseSms('Rs. 7,722 spent on your credit card xx1261 at Airindia Gurgoan dlIN on 24-Oct-26. - slice', { receivedAt: RX, rawRef: 'sms-a' })!;
+    const first = await ingestCandidate(db, sms);
+    expect(first.kind).toBe('added');
+    const notif = parseSms('Payment successful. Rs. 7,722 paid to Air India using your slice card', { receivedAt: RX + 60_000, rawRef: 'notif-a' })!;
+    const second = await ingestCandidate(db, { ...notif, source: 'notif' });
+    expect(second.kind).toBe('matched');
+    const all = await db.entries.list();
+    expect(all).toHaveLength(1);
+    expect(all[0].sources.map((s) => s.kind)).toEqual(['sms', 'notif']);
+  });
+
+  it('two SMS of the same amount stay separate when the payees differ (two real payments)', async () => {
+    const db = createMemoryDb();
+    await ingestCandidate(db, parseSms('Rs. 20 sent from a/c xx1207 to RAJESH (UPI Ref: 630000000001)', { receivedAt: RX, rawRef: 's1' })!);
+    const out = await ingestCandidate(db, parseSms('Rs. 20 sent from a/c xx1207 to MILTON STORES (UPI Ref: 630000000002)', { receivedAt: RX + 60_000, rawRef: 's2' })!);
+    expect(out.kind).not.toBe('matched');
+  });
+});

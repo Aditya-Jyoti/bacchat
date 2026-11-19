@@ -3,7 +3,7 @@
  * and the share-sheet listener. Mount once inside AppServicesProvider.
  */
 import { useEffect, useMemo } from 'react';
-import { Linking } from 'react-native';
+import { AppState, Linking } from 'react-native';
 
 import { getShareNative } from '../../modules/bacchat-share/src';
 import { getSmsNative } from '../../modules/bacchat-sms/src';
@@ -32,7 +32,7 @@ export function useIngestService(): IngestService {
 
 export function useNativeEntryPoints(): void {
   const ingest = useIngestService();
-  const enabled = usePreferences((s) => s.smsIngestEnabled);
+  const enabled = usePreferences((s) => s.smsIngestEnabled || s.notifIngestEnabled);
 
   useEffect(() => {
     // Shared images open k7 through the pending entry, which waits for splash and welcome to finish.
@@ -54,6 +54,13 @@ export function useNativeEntryPoints(): void {
       return;
     }
     void ingest.start();
-    return () => ingest.stop();
+    // Notification access is granted in system settings; pick it up when the person comes back.
+    const back = AppState.addEventListener('change', (s) => {
+      if (s === 'active') void ingest.start();
+    });
+    return () => {
+      back.remove();
+      ingest.stop();
+    };
   }, [ingest, enabled]);
 }

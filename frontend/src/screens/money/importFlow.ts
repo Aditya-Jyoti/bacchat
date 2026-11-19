@@ -88,6 +88,8 @@ export type Decisions = {
   choices: Readonly<Record<number, Choice>>;
   /** Row index of a conflict to "trust screenshots for this merchant next time". */
   trust: Readonly<Record<number, boolean>>;
+  /** Row index to where that one payment was made, when it differs from the import's "Paid with". */
+  paidWith?: Readonly<Record<number, ImportDefaults>>;
 };
 
 export const EMPTY_DECISIONS: Decisions = { skipped: new Set(), categories: {}, choices: {}, trust: {} };
@@ -231,9 +233,10 @@ export async function commitImport(db: BacchatDb, loaded: LoadedPlan, d: Decisio
       if (status === 'new' && d.skipped.has(i)) continue;
       const picked = d.categories[i];
       const categoryId = picked !== undefined ? picked : (item.category?.categoryId ?? null);
-      // A category the user did not pick and history does not back is only a guess: leave it to review.
-      const review = picked === undefined && (item.category == null || item.category.reason !== 'history');
-      const e = await db.entries.put(newEntry(item, categoryId, review, defaults));
+      // A guessed category (not picked, not backed by history) is left to review. No category at all is
+      // fine: categories are optional, so the row is saved as a plain entry.
+      const review = picked === undefined && categoryId != null && item.category?.reason !== 'history';
+      const e = await db.entries.put(newEntry(item, categoryId, review, d.paidWith?.[i] ?? defaults));
       await learn(e);
       result.added += 1;
     } else if (status === 'match' && item.againstId) {

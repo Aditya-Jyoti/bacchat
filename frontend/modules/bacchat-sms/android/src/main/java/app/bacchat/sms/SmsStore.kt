@@ -11,12 +11,20 @@ import org.json.JSONObject
 object SmsStore {
   private const val FILE = "bacchat_sms"
   private const val KEY_ENABLED = "enabled"
+  private const val KEY_NOTIF = "notifications"
   private const val KEY_QUEUE = "queue"
   private const val MAX_QUEUE = 200
 
   private fun prefs(context: Context) = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
   fun isEnabled(context: Context): Boolean = prefs(context).getBoolean(KEY_ENABLED, false)
+
+  /** Whether payment notifications are read (see PaymentNotificationListener). */
+  fun isNotificationsEnabled(context: Context): Boolean = prefs(context).getBoolean(KEY_NOTIF, false)
+
+  fun setNotificationsEnabled(context: Context, on: Boolean) {
+    prefs(context).edit().putBoolean(KEY_NOTIF, on).apply()
+  }
 
   fun setEnabled(context: Context, on: Boolean) {
     val editor = prefs(context).edit().putBoolean(KEY_ENABLED, on)

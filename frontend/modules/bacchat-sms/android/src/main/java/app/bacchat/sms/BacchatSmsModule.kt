@@ -2,6 +2,9 @@ package app.bacchat.sms
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
+import android.provider.Settings
+import androidx.core.app.NotificationManagerCompat
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -49,6 +52,19 @@ class BacchatSmsModule : Module() {
     }
 
     Function("setEnabled") { on: Boolean -> SmsStore.setEnabled(context, on) }
+
+    Function("setNotificationsEnabled") { on: Boolean -> SmsStore.setNotificationsEnabled(context, on) }
+
+    /** True when the user has granted Bacchat Notification access in system settings. */
+    Function("hasNotificationAccess") {
+      NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+    }
+
+    /** Opens the system screen where Notification access is granted. */
+    Function("openNotificationAccessSettings") {
+      val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      context.startActivity(intent)
+    }
 
     AsyncFunction("readInbox") { sinceMs: Double, limit: Int ->
       if (!granted(Manifest.permission.READ_SMS)) {

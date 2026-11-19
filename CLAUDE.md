@@ -108,7 +108,7 @@ Screens are identified by the design's k-ids. Each screen component carries its 
 | Goals | k12 Goals | k13 Detail, k14 New goal |
 | You | k23 Profile | k10 Accounts, k11 Add account, k15/k16 Budget, k17 Coming up, k24 Settings, k25/k26 Sync |
 
-External entry points: sharing an image into Bacchat opens k7; tapping a "From SMS" notification opens k4 filtered to To review; the launcher shortcut "Add entry" opens k5.
+External entry points: sharing an image into Bacchat opens k7; tapping a "From your messages" notification (from SMS or a payment app notification) opens k4 filtered to To review; the launcher shortcut "Add entry" opens k5.
 
 ## Colour (Material You, derived from the wallpaper)
 
@@ -134,7 +134,7 @@ Net worth over time (2dp line, pale area, dashed rules, end dot, scrub tooltip, 
 
 ## Key behaviours
 
-- Every entry carries its source: SMS, Email, Screenshot or By hand.
+- Every entry carries its source: SMS, Notification, Email, Screenshot or By hand.
 - Reconciliation of a screenshot import against same-day entries: amount (exact) + time (within 10 minutes) + merchant (fuzzy). All three agree = Matched (skipped, existing row gains a second source). Two of three = Conflict (blocks import until resolved in k9: keep A, keep B, or both; optional local rule "trust screenshots for X"). Otherwise New (category inferred from merchant history; unknown payees marked "Pick a category").
 - AI advisor: opened from the "Ask" pill, an Ask row in You, and insight cards. Runs on the user's own API key as an MCP-style client with read-only tools (goals, cash flow, card dues, affordability). Tool calls show as chips. Only aggregates are sent and the sheet says so. Presented as a bottom sheet, never a full takeover. AI-added entries carry a "To review" tag until confirmed by tap or swipe right, and use a dashed outline while pending.
 - Customisable Home: Net worth is pinned first; the other six sections reorder by drag handle and hide by switch (k2), reached by long-pressing any section or from You. Order is persisted locally.

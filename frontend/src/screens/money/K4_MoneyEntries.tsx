@@ -87,6 +87,7 @@ export default function K4_MoneyEntries(): React.JSX.Element {
     { id: 'all', label: S.all },
     { id: 'review', label: `${S.toReview} \u00B7 ${review.data?.length ?? 0}`, icon: 'auto_awesome' },
     { id: 'sms', label: S.sms, icon: 'sms' },
+    { id: 'notif', label: t('moneyUi.notif'), icon: 'notifications' },
     { id: 'mail', label: S.email, icon: 'mail' },
     { id: 'shot', label: S.screenshot, icon: 'screenshot_region' },
   ];
@@ -169,7 +170,7 @@ export default function K4_MoneyEntries(): React.JSX.Element {
           );
         })}
       </ScrollView>
-      {undo.item ? <Snackbar label={undo.item.label} onUndo={restore} /> : null}
+      {undo.item ? <Snackbar label={undo.item.label} onUndo={restore} onDismiss={() => useUndo.getState().set(null)} /> : null}
       <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: spacing.lg, paddingVertical: 10, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.outlineVariant }}>
         <PillButton testID="action-hand" label={S.byHand} icon="edit" kind="tonal" onPress={() => nav.go('k5')} style={{ flex: 1, paddingHorizontal: spacing.xl }} />
         <PillButton testID="action-shot" label={S.fromScreenshot} icon="add_photo_alternate" onPress={() => void fromScreenshot()} style={{ flex: 1.3, paddingHorizontal: spacing.xl }} />

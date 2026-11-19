@@ -48,7 +48,7 @@ export type DebtCard = BaseRecord & {
   limitPaise: number;
 };
 
-export type EntrySourceKind = 'sms' | 'mail' | 'shot' | 'hand';
+export type EntrySourceKind = 'sms' | 'notif' | 'mail' | 'shot' | 'hand';
 export type EntryDirection = 'out' | 'in';
 export type EntryStatus = 'confirmed' | 'toReview';
 export type PayMethod = 'card' | 'debit' | 'upi' | 'cash' | 'bank';

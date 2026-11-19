@@ -10,6 +10,7 @@ import { requireOptionalNativeModule } from 'expo-modules-core';
 export type RawSms = {
   /** Stable id from the native side; used only to acknowledge queued messages. */
   id: string;
+  /** SMS sender ("AX-SLCBNK-S"), or "app:<package>:<app name>" for an app notification. */
   address: string;
   body: string;
   /** Epoch ms. */
@@ -31,6 +32,12 @@ export interface SmsNative {
   requestPermissionsAsync(): Promise<unknown>;
   /** Switch the manifest receiver on or off. Off also forgets queued messages. */
   setEnabled(on: boolean): void;
+  /** Switch payment notification reading on or off (the listener ignores everything while off). */
+  setNotificationsEnabled(on: boolean): void;
+  /** Whether the user granted Bacchat Notification access in system settings. */
+  hasNotificationAccess(): boolean;
+  /** Open the system screen where Notification access is granted. */
+  openNotificationAccessSettings(): void;
   readInbox(sinceMs: number, limit: number): Promise<RawSms[]>;
   /** Messages that arrived while the app was closed and are not yet acknowledged. */
   drainQueued(): RawSms[];

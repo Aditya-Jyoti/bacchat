@@ -108,7 +108,7 @@ flowchart LR
 
 - Tab bar shows only on k1, k3, k4, k12, k23 (it lives inside the `main` tab route; every other screen is on the root stack above it). Re-tapping the current tab scrolls to top. Money remembers Summary vs Entries.
 - Sheets and dialogs (k6, k9, k18, k27) are transparent modal routes over their parent; swipe down, tap the scrim or press back to return exactly where you were.
-- External entry points (deep links, see `navigation/linking.ts`): sharing an image opens `bacchat://import?uri=...` (k7); a "From SMS" notification opens `bacchat://entries?filter=review` (k4 filtered to To review); the launcher shortcut "Add entry" opens `bacchat://add` (k5).
+- External entry points (deep links, see `navigation/linking.ts`): sharing an image opens `bacchat://import?uri=...` (k7); a "From your messages" notification opens `bacchat://entries?filter=review` (k4 filtered to To review); the launcher shortcut "Add entry" opens `bacchat://add` (k5).
 - k4 also accepts route params `filter` (`review`, `sms`, `mail`, `shot`) and `category`.
 - k20 and k29 are developer component galleries registered as routes (`debug/components`, `debug/components2`); nothing in the UI links to them.
 

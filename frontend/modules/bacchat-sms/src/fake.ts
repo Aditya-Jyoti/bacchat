@@ -8,6 +8,11 @@ export type FakeSmsNative = SmsNative & {
   /** What requestPermissionsAsync will grant. */
   grantOnRequest: boolean;
   enabled: boolean;
+  /** Notification reading switch and whether system Notification access is granted. */
+  notifEnabled: boolean;
+  notifAccess: boolean;
+  /** Times the Notification access settings screen was opened. */
+  accessOpened: number;
   notifications: { channelName: string; title: string; text: string; deepLink: string }[];
   /** Deliver a message as if it arrived while the app is running. */
   emit(sms: RawSms): void;
@@ -23,6 +28,9 @@ export function createFakeSmsNative(): FakeSmsNative {
     permissions: { readSms: false, receiveSms: false, postNotifications: true },
     grantOnRequest: true,
     enabled: false,
+    notifEnabled: false,
+    notifAccess: false,
+    accessOpened: 0,
     notifications: [],
     getPermissions: () => ({ ...fake.permissions }),
     async requestPermissionsAsync() {
@@ -32,6 +40,13 @@ export function createFakeSmsNative(): FakeSmsNative {
     setEnabled(on) {
       fake.enabled = on;
       if (!on) fake.queued = [];
+    },
+    setNotificationsEnabled(on) {
+      fake.notifEnabled = on;
+    },
+    hasNotificationAccess: () => fake.notifAccess,
+    openNotificationAccessSettings() {
+      fake.accessOpened += 1;
     },
     async readInbox(sinceMs, limit) {
       return fake.inbox

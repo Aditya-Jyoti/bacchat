@@ -22,7 +22,7 @@ function setup(opts: { foreground?: boolean } = {}) {
 
 beforeEach(() => {
   setStorage(createMemoryStorage());
-  usePreferences.setState({ smsIngestEnabled: false, smsBackfilledAt: null });
+  usePreferences.setState({ smsIngestEnabled: false, notifIngestEnabled: false, smsBackfilledAt: null });
 });
 
 describe('processing one message', () => {
@@ -117,13 +117,13 @@ describe('conflicts', () => {
 });
 
 describe('notifications', () => {
-  it('posts a calm From SMS notification for a new To review entry, opening k4 To review', async () => {
+  it('posts a calm From your messages notification for a new To review entry, opening k4 To review', async () => {
     const { native, svc } = setup();
     await svc.processSms(sms(BODY), { notify: true });
     expect(native.notifications).toHaveLength(1);
     expect(native.notifications[0]).toMatchObject({
       channelName: t('ingestUi.channelName'),
-      title: 'From SMS',
+      title: 'From your messages',
       deepLink: REVIEW_LINK,
     });
     expect(native.notifications[0].text).toContain('Ramesh');
@@ -257,5 +257,55 @@ describe('paste a message', () => {
   it('splits pasted email headers', () => {
     expect(splitPastedEmail('Subject: Hi\nFrom: A <a@b.in>\n\nBody here')).toEqual({ subject: 'Hi', from: 'A <a@b.in>', body: 'Body here' });
     expect(splitPastedEmail('First line\nsecond')).toEqual({ subject: 'First line', body: 'second', from: undefined });
+  });
+});
+
+describe('payment notifications', () => {
+  const NOTE = 'slice. Rs. 270 paid to Mr Satishkumar G using UPI on your slice card';
+  const notif = (body = NOTE, pkg = 'indwealth', label = 'slice') => ({ id: 'n-1', address: `app:${pkg}:${label}`, body, receivedAt: NOW - 60_000 });
+
+  it('adds an app notification as a Notification entry', async () => {
+    const { db, svc } = setup();
+    const r = await svc.processSms(notif());
+    expect(r.kind).toBe('added');
+    const [e] = await db.entries.list();
+    expect(e).toMatchObject({ amountPaise: 27000, status: 'toReview' });
+    expect(e.sources[0].kind).toBe('notif');
+  });
+
+  it('files a notification from an email app as Email', async () => {
+    const { db, svc } = setup();
+    await svc.processSms(notif('slice. Rs. 1,000 spent on your credit card xx1261 at Amazon', 'com.google.android.gm', 'Gmail'));
+    expect((await db.entries.list())[0].sources[0].kind).toBe('mail');
+  });
+
+  it('the same notification twice adds one entry', async () => {
+    const { db, svc } = setup();
+    await svc.processSms(notif());
+    expect((await svc.processSms({ ...notif(), id: 'n-2' })).kind).toBe('duplicate');
+    expect(await db.entries.list()).toHaveLength(1);
+  });
+
+  it('turning it on without Notification access opens the settings screen and waits', async () => {
+    const { native, svc } = setup();
+    expect(await svc.enableNotifications()).toBe('access');
+    expect(native.accessOpened).toBe(1);
+    expect(usePreferences.getState().notifIngestEnabled).toBe(true);
+    expect(svc.isRunning()).toBe(false);
+    native.notifAccess = true;
+    expect(await svc.start()).toBe('started');
+    expect(native.notifEnabled).toBe(true);
+    expect(svc.isRunning()).toBe(true);
+  });
+
+  it('listens with only notifications on (no SMS permission needed)', async () => {
+    const { native, svc } = setup();
+    native.permissions = { readSms: false, receiveSms: false, postNotifications: true };
+    native.notifAccess = true;
+    expect(await svc.enableNotifications()).toBe('enabled');
+    expect(native.enabled).toBe(false);
+    await svc.disableNotifications();
+    expect(svc.isRunning()).toBe(false);
+    expect(native.notifEnabled).toBe(false);
   });
 });

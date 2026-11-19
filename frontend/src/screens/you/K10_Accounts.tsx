@@ -10,6 +10,7 @@ import { formatRupees } from '../../lib/format';
 import { useTheme } from '../../theme';
 import { useScreenNav } from '../shared/useScreenNav';
 import { AccountRow } from './sections/AccountRow';
+import { AccountSplitRows } from './sections/AccountSplitRows';
 import { GroupHeader } from './sections/GroupHeader';
 import { useAccountsData } from './useAccountsData';
 import { t } from '../../lib/i18n';
@@ -49,7 +50,10 @@ export default function K10_Accounts(): React.JSX.Element {
             </View>
           ) : null}
           {banks.map((a) => (
-            <AccountRow key={a.id} name={a.name} kind={a.kindText} icon={a.icon} amount={formatRupees(a.paise)} onPress={() => nav.go('k11', { id: a.id })} />
+            <React.Fragment key={a.id}>
+              <AccountRow name={a.name} kind={a.kindText} icon={a.icon} amount={formatRupees(a.paise)} divider={!a.split} onPress={() => nav.go('k11', { id: a.id })} />
+              {a.split ? <AccountSplitRows name={a.name} split={a.split} /> : null}
+            </React.Fragment>
           ))}
           {investments.length > 0 ? (
             <>

@@ -17,6 +17,8 @@ type PrefsState = {
   lastNavRefreshDay: string | null;
   /** Read bank SMS on this phone (k24). Off by default. */
   smsIngestEnabled: boolean;
+  /** Read payment notifications (bank, card, UPI and email apps) on this phone (k24). Off by default. */
+  notifIngestEnabled: boolean;
   /** Epoch ms of the first-enable backfill scan; null until it has run. */
   smsBackfilledAt: number | null;
   /** Take colours from the Android wallpaper (Material You) when available. */
@@ -39,6 +41,7 @@ type PrefsState = {
   setSyncOptions: (options: Partial<SyncOptions>) => void;
   setLastNavRefreshDay: (day: string | null) => void;
   setSmsIngestEnabled: (on: boolean) => void;
+  setNotifIngestEnabled: (on: boolean) => void;
   setSmsBackfilledAt: (at: number | null) => void;
 };
 
@@ -57,6 +60,7 @@ export const usePreferences = registerPersisted(
         askHistoryLocal: false,
         npsNavUrl: '',
         smsIngestEnabled: false,
+        notifIngestEnabled: false,
         smsBackfilledAt: null,
         setAskHistoryLocal: (askHistoryLocal) => {
           set({ askHistoryLocal });
@@ -88,6 +92,9 @@ export const usePreferences = registerPersisted(
         setSmsIngestEnabled: (smsIngestEnabled) => {
           set({ smsIngestEnabled });
         },
+        setNotifIngestEnabled: (notifIngestEnabled) => {
+          set({ notifIngestEnabled });
+        },
         setSmsBackfilledAt: (smsBackfilledAt) => {
           set({ smsBackfilledAt });
         },
@@ -104,7 +111,7 @@ export const usePreferences = registerPersisted(
           }
           return persisted as never;
         },
-        storage: persistStorage<Pick<PrefsState, 'theme' | 'syncEnabled' | 'syncOptions' | 'lastNavRefreshDay' | 'wallpaperColors' | 'appLock' | 'profileName' | 'askHistoryLocal' | 'npsNavUrl' | 'smsIngestEnabled' | 'smsBackfilledAt'>>(),
+        storage: persistStorage<Pick<PrefsState, 'theme' | 'syncEnabled' | 'syncOptions' | 'lastNavRefreshDay' | 'wallpaperColors' | 'appLock' | 'profileName' | 'askHistoryLocal' | 'npsNavUrl' | 'smsIngestEnabled' | 'notifIngestEnabled' | 'smsBackfilledAt'>>(),
         partialize: (s) => ({
           theme: s.theme,
           syncEnabled: s.syncEnabled,
@@ -116,6 +123,7 @@ export const usePreferences = registerPersisted(
           askHistoryLocal: s.askHistoryLocal,
           npsNavUrl: s.npsNavUrl,
           smsIngestEnabled: s.smsIngestEnabled,
+          notifIngestEnabled: s.notifIngestEnabled,
           smsBackfilledAt: s.smsBackfilledAt,
         }),
       },

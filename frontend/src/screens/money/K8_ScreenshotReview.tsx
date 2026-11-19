@@ -68,6 +68,9 @@ export default function K8_ScreenshotReview(): React.JSX.Element {
   const [pickingPaid, setPickingPaid] = useState(false);
   const [skipped, setSkipped] = useState<Set<number>>(new Set());
   const [picked, setPicked] = useState<Record<number, CategoryPick>>({});
+  // Per-row "Paid with" (option key), for screenshots that mix cards and accounts.
+  const [rowPaid, setRowPaid] = useState<Record<number, string>>({});
+  const [pickingRow, setPickingRow] = useState<number | null>(null);
 
   useEffect(() => {
     if (rows) return;
@@ -110,10 +113,15 @@ export default function K8_ScreenshotReview(): React.JSX.Element {
     for (const [i, r] of Object.entries(session.resolutions)) out[Number(i)] = r.trust;
     return out;
   }, [paramChoice, incomingTrust, conflicts, session.resolutions]);
-  const decisions: Decisions = useMemo(
-    () => ({ skipped, categories: Object.fromEntries(Object.entries(picked).map(([i, c]) => [i, c.id])), choices, trust }),
-    [skipped, picked, choices, trust],
-  );
+  const optionByKey = useMemo(() => new Map((ctx?.paidWith.options ?? []).map((o) => [o.key, o] as const)), [ctx]);
+  const decisions: Decisions = useMemo(() => {
+    const paidWith: Record<number, ReturnType<typeof defaultsOf>> = {};
+    for (const [i, key] of Object.entries(rowPaid)) {
+      const o = optionByKey.get(key);
+      if (o) paidWith[Number(i)] = defaultsOf(o);
+    }
+    return { skipped, categories: Object.fromEntries(Object.entries(picked).map(([i, c]) => [i, c.id])), choices, trust, paidWith };
+  }, [skipped, picked, choices, trust, rowPaid, optionByKey]);
 
   const view: { item: NonNullable<typeof plan>['items'][number]; vm: ReviewRow }[] = useMemo(() => {
     if (!plan || !ctx) return [];
@@ -229,6 +237,8 @@ export default function K8_ScreenshotReview(): React.JSX.Element {
               picked={picked[i]}
               categories={ctx?.cats ?? []}
               onPickCategory={(p) => setPicked((s) => ({ ...s, [i]: p }))}
+              paidLabel={(optionByKey.get(rowPaid[i] ?? '') ?? paidOption)?.label}
+              onPickPaid={() => setPickingRow(i)}
               altAmountText={item.row.amountAlt != null ? formatRupees(item.row.amountAlt) : undefined}
               onUseAlt={() =>
                 setRows((rs) =>
@@ -251,6 +261,19 @@ export default function K8_ScreenshotReview(): React.JSX.Element {
           setPickingPaid(false);
         }}
         onClose={() => setPickingPaid(false)}
+      />
+      <OptionPicker
+        visible={pickingRow != null}
+        title={t('moneyLive.importPaidWith')}
+        options={(ctx?.paidWith.options ?? []).map((o) => o.label)}
+        value={pickingRow != null ? ((optionByKey.get(rowPaid[pickingRow] ?? '') ?? paidOption)?.label ?? '') : ''}
+        onSelect={(label) => {
+          const o = ctx?.paidWith.options.find((x) => x.label === label);
+          const row = pickingRow;
+          if (o && row != null) setRowPaid((s) => ({ ...s, [row]: o.key }));
+          setPickingRow(null);
+        }}
+        onClose={() => setPickingRow(null)}
       />
       <View style={{ paddingHorizontal: spacing.screenMargin, paddingTop: 10, paddingBottom: spacing.xl }}>
         {!ctx || open.length > 0 ? (

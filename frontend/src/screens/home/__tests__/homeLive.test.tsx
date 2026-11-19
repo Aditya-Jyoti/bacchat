@@ -7,7 +7,7 @@ import { createMemoryDb, type BacchatDb } from '../../../data/db';
 import { renderWithTheme } from '../../../testUtils';
 import K1_Home from '../K1_Home';
 import { useBudgetAlerts } from '../alertsStore';
-import { duesCopy, duesInsight, reconstructSeries, sampleSeriesFor } from '../liveData';
+import { DAILY_POINTS, duesCopy, duesInsight, reconstructDaily, reconstructSeries, sampleSeriesFor } from '../liveData';
 import { useHomeConfig } from '../../../data';
 
 const NOW = new Date(2026, 9, 24, 21, 30).getTime();
@@ -54,6 +54,37 @@ describe('net worth series', () => {
     expect(s.labels).toEqual(['Aug', 'Sep', 'Oct']);
     expect(s.deltaPaise).toBe(42_000_00);
     expect(s.since).toBe('since 1 Oct');
+  });
+});
+
+describe('daily net worth (1M)', () => {
+  it('has one point per day for the last 30 days, stepping on the days money moved', async () => {
+    const db = await smallDb();
+    const d = await reconstructDaily(db, NOW);
+    expect(d.values).toHaveLength(DAILY_POINTS);
+    expect(d.labels[DAILY_POINTS - 1]).toBe('24 Oct');
+    expect(d.labels[0]).toBe('25 Sep');
+    // Today is the live figure. Before the 8,000 spend on 10 Oct net worth was 8,000 higher.
+    expect(d.values[DAILY_POINTS - 1]).toBe(4_90_000_00);
+    const tenth = d.labels.indexOf('10 Oct');
+    expect(d.values[tenth]).toBe(4_90_000_00);
+    expect(d.values[tenth - 1]).toBe(4_98_000_00);
+    // And before the 50,000 salary on 1 Oct it was 50,000 lower.
+    const first = d.labels.indexOf('1 Oct');
+    expect(d.values[first - 1]).toBe(4_98_000_00 - 50_000_00);
+  });
+
+  it('moves between your own accounts do not change it', async () => {
+    const db = await smallDb();
+    await db.entries.put({ id: 'm1', amountPaise: 20_000_00, direction: 'out', at: at(9, 15), merchant: 'To card', categoryId: null, accountId: 'a1', transferToAccountId: 'c1', method: 'bank', sources: [{ kind: 'hand' }], status: 'confirmed', aiAdded: false });
+    const d = await reconstructDaily(db, NOW);
+    const i = d.labels.indexOf('15 Oct');
+    expect(d.values[i]).toBe(d.values[i - 1]);
+  });
+
+  it('the monthly series carries the daily one for the 1M chip', async () => {
+    const s = await reconstructSeries(await smallDb(), NOW, 3);
+    expect(s.daily?.values).toHaveLength(DAILY_POINTS);
   });
 });
 
@@ -115,6 +146,28 @@ describe.each(['light', 'dark'] as const)('k1 Home live (%s)', (mode) => {
     expect(captions.getByText('\u20B90 spent')).toBeTruthy();
     expect(captions.getByText('\u20B920,000 left')).toBeTruthy();
     useBudget.getState().reset();
+  });
+
+  it('lists every goal on Home, with reached ones tagged Done at the bottom', async () => {
+    const db = await smallDb();
+    await db.goals.putMany([
+      { id: 'g-fun', name: 'Fun', icon: 'star', targetPaise: 20_000_00, accountId: 'a1' },
+      { id: 'g-laptop', name: 'Laptop', icon: 'laptop_mac', targetPaise: 1_50_000_00, accountId: 'a1' },
+      { id: 'g-trip', name: 'Trip', icon: 'flight', targetPaise: 40_000_00, accountId: 'a1' },
+    ]);
+    await db.allocations.putMany([
+      { id: 'x1', goalId: 'g-fun', accountId: 'a1', amountPaise: 20_185_00 },
+      { id: 'x2', goalId: 'g-laptop', accountId: 'a1', amountPaise: 60_460_00 },
+      { id: 'x3', goalId: 'g-trip', accountId: 'a1', amountPaise: 10_000_00 },
+    ]);
+    const { findByText, getByTestId } = renderWithTheme(<K1_Home />, mode, { db, servicesOptions: { seed: false, now: () => NOW } });
+    expect(await findByText('\u20B920,185 \u00B7 Done')).toBeTruthy();
+    const names = within(getByTestId('section-goals'))
+      .getAllByRole('button')
+      .map((b) => String(b.props.accessibilityLabel ?? ''))
+      .filter((l) => /^(Fun|Laptop|Trip),/.test(l))
+      .map((l) => l.split(',')[0]);
+    expect(names).toEqual(['Laptop', 'Trip', 'Fun']);
   });
 
   it('uses the real clock greeting outside sample mode', async () => {

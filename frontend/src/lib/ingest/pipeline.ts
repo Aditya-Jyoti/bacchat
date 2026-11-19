@@ -42,6 +42,17 @@ export async function ingestCandidate(db: BacchatDb, c: Candidate, opts: IngestO
     { merchant: c.merchant ?? '', amountPaise: c.amountPaise, time: c.at },
     pool.map((e) => ({ id: e.id, merchant: e.merchant, amountPaise: e.amountPaise, time: e.at })),
   );
+  // One payment often reaches the phone twice, as a bank SMS and as an app notification (or email),
+  // with the payee spelt differently. Same amount within minutes, both read by machine: one entry.
+  const machine = (e: Entry): boolean => e.sources.length > 0 && e.sources.every((s) => s.kind === 'sms' || s.kind === 'notif' || s.kind === 'mail');
+  const twin =
+    recon.status === 'conflict' && recon.signals.amount && recon.signals.time && c.source !== 'shot'
+      ? pool.find((e) => e.id === recon.against?.id && machine(e) && !e.sources.some((s) => s.kind === c.source))
+      : undefined;
+  if (twin) {
+    const updated = await db.entries.addSource(twin.id, { kind: sourceKind(c), rawRef: c.rawRef });
+    if (updated) return { kind: 'matched', entry: updated, recon: { ...recon, status: 'match' } };
+  }
   if (recon.status === 'match' && recon.against?.id) {
     const updated = await db.entries.addSource(recon.against.id, { kind: sourceKind(c), rawRef: c.rawRef });
     if (updated) return { kind: 'matched', entry: updated, recon };

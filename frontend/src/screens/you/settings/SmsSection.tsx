@@ -4,7 +4,7 @@
  * access is not allowed, pasting a message still works.
  */
 import React, { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { AppState, Text, View } from 'react-native';
 import { Switch } from 'react-native-paper';
 
 import { t } from '../../../lib/i18n';
@@ -19,6 +19,8 @@ export function SmsSection(): React.JSX.Element {
   const { colors, typography } = useTheme();
   const ingest = useIngestService();
   const on = usePreferences((s) => s.smsIngestEnabled);
+  const notifOn = usePreferences((s) => s.notifIngestEnabled);
+  const [access, setAccess] = useState(() => ingest.hasNotificationAccess());
   const [note, setNote] = useState<string | null>(null);
   const [pending, setPending] = useState(0);
   const [sheet, setSheet] = useState(false);
@@ -30,6 +32,24 @@ export function SmsSection(): React.JSX.Element {
       alive = false;
     };
   }, [ingest, on]);
+
+  // Notification access is granted in system settings; check again when the person comes back.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') setAccess(ingest.hasNotificationAccess());
+    });
+    return () => sub.remove();
+  }, [ingest]);
+
+  const toggleNotif = async (next: boolean): Promise<void> => {
+    if (!next) {
+      await ingest.disableNotifications();
+      return;
+    }
+    const r = await ingest.enableNotifications();
+    setAccess(r === 'enabled');
+    if (r === 'unavailable') setNote(t('ingestUi.unavailable'));
+  };
 
   const toggle = async (next: boolean): Promise<void> => {
     if (!next) {
@@ -54,6 +74,19 @@ export function SmsSection(): React.JSX.Element {
       />
       {note ? (
         <Text testID="settings-sms-note" style={[typography.bodySmall, { color: colors.onSurfaceVariant, paddingTop: 6 }]}>{note}</Text>
+      ) : null}
+      <YouRow
+        testID="settings-row-notif"
+        icon="notifications"
+        title={t('ingestUi.notifTitle')}
+        subtitle={t('ingestUi.notifSub')}
+        trailing={<Switch testID="settings-switch-notif" value={notifOn} onValueChange={(v) => void toggleNotif(v)} accessibilityLabel={t('ingestUi.notifTitle')} />}
+      />
+      {notifOn && !access ? (
+        <>
+          <Text testID="settings-notif-note" style={[typography.bodySmall, { color: colors.onSurfaceVariant, paddingTop: 6 }]}>{t('ingestUi.notifAccess')}</Text>
+          <YouRow testID="settings-notif-open" icon="open_in_new" title={t('ingestUi.notifAccessRow')} onPress={() => void ingest.enableNotifications()} />
+        </>
       ) : null}
       {pending > 0 ? (
         <YouRow

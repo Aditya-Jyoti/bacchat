@@ -327,3 +327,11 @@ ModelDownloadManager honours the aiModelsWifiOnly preference (default on) throug
 ## Goals on one list (2026-11-07)
 
 - k12 drops the design's Active / Done segmented tabs at the owner's request: one list, reached goals at the bottom under "Done". "Set aside so far" counts every goal, reached ones included.
+
+## Notifications, optional categories, 1M daily (2026-11-20)
+
+- Payment notifications are read as well as SMS (owner request): most UPI-on-credit spends get an app notification but no SMS. Off by default, needs Android's Notification access, read on the phone only; a notification is only looked at when it names a rupee amount. Entries carry the new source kind "notif".
+- The local notification is now "From your messages" (was "From SMS"), since entries also come from notifications.
+- Categories are optional (owner request). A screenshot row with no category is saved confirmed; only a guessed category stays To review.
+- Home 1M shows daily points (owner request) instead of two month-end points. Transfers between own accounts no longer move the net worth series.
+- k10 nests Savings and In goals (and each goal) under an account that holds goal money (owner request), so the split needs no maths.

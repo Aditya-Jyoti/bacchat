@@ -89,6 +89,8 @@ export function NewRow({
   onPickCategory,
   altAmountText,
   onUseAlt,
+  paidLabel,
+  onPickPaid,
 }: {
   row: ReviewRow;
   checked: boolean;
@@ -99,6 +101,9 @@ export function NewRow({
   /** Another reading of the amount (the rupee sign may have been read as a 7). */
   altAmountText?: string;
   onUseAlt?: () => void;
+  /** Where this payment was made (card, bank, UPI, cash); tapping changes it for this row only. */
+  paidLabel?: string;
+  onPickPaid?: () => void;
 }): React.JSX.Element {
   const { colors, typography, spacing } = useTheme();
   const [open, setOpen] = React.useState(false);
@@ -123,6 +128,21 @@ export function NewRow({
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={[typography.bodyMedium, { color: colors.onSurface }]}>{row.name}</Text>
           <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{detail}</Text>
+          {paidLabel && onPickPaid ? (
+            <Pressable
+              testID={`paid-${row.name}`}
+              accessibilityRole="button"
+              accessibilityLabel={t('moneyLive.rowPaidWithA11y', { name: row.name, paid: paidLabel })}
+              onPress={onPickPaid}
+              hitSlop={{ top: 8, bottom: 8 }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 2, minHeight: 28 }}
+            >
+              <Text style={[typography.labelMedium, { color: colors.primary }]} numberOfLines={1}>
+                {paidLabel}
+              </Text>
+              <Icon name="arrow_drop_down" size={18} color={colors.primary} />
+            </Pressable>
+          ) : null}
         </View>
         {unsure ? (
           <Pressable testID={`pick-${row.name}`} accessibilityRole="button" onPress={() => setOpen((o) => !o)} hitSlop={8} style={{ minHeight: 32, justifyContent: 'center' }}>

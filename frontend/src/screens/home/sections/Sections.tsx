@@ -33,6 +33,7 @@ import { homeCopy } from '../copy';
 import { alertCopy, duesCopy, useDuesInsight } from '../liveData';
 import { signedAmount } from '../../you/parts/signedAmount';
 import { HomeSection } from './HomeSection';
+import { isReached } from '../../goals/goalTypes';
 import { Row } from './Rows';
 
 export type SectionsProps = { go: (kid: KId) => void; arrange: () => void };
@@ -273,11 +274,14 @@ function Goals({ go, arrange }: SectionsProps): React.JSX.Element {
       ) : goals.data.length === 0 ? (
         <Text style={{ color: colors.onSurfaceVariant }}>{t('homeLive.noGoals')}</Text>
       ) : (
-        goals.data.slice(0, 2).map(({ goal, total }) => (
+        // Every goal: in progress first, then reached ones (tagged Done) at the bottom, like the Goals tab.
+        [...goals.data]
+          .sort((x, y) => Number(isReached(x.total)) - Number(isReached(y.total)))
+          .map(({ goal, total }) => (
           <Pressable
             key={goal.id}
             accessibilityRole="button"
-            accessibilityLabel={`${goal.name}, ${formatRupees(total.savedPaise)} of ${formatRupees(total.targetPaise)}`}
+            accessibilityLabel={`${goal.name}, ${formatRupees(total.savedPaise)} of ${formatRupees(total.targetPaise)}${isReached(total) ? `, ${t('common.done')}` : ''}`}
             onPress={() => go('k13')}
             onLongPress={arrange}
             style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.outlineVariant }}
@@ -285,7 +289,7 @@ function Goals({ go, arrange }: SectionsProps): React.JSX.Element {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <Text style={[typography.bodyMedium, { color: colors.onSurface }]}>{goal.name}</Text>
               <Text style={[typography.bodyMedium, { color: colors.onSurfaceVariant }]}>
-                {formatRupees(total.savedPaise)} / {formatRupees(total.targetPaise)}
+                {isReached(total) ? `${formatRupees(total.savedPaise)} \u00B7 ${t('common.done')}` : `${formatRupees(total.savedPaise)} / ${formatRupees(total.targetPaise)}`}
               </Text>
             </View>
             <View style={{ height: 8 }} />

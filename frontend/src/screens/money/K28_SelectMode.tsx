@@ -164,7 +164,7 @@ export default function K28_SelectMode(): React.JSX.Element {
           </View>
         ) : null}
       </ScrollView>
-      {snack ? <Snackbar label={snack.label} onUndo={undo} /> : null}
+      {snack ? <Snackbar label={snack.label} onUndo={undo} onDismiss={() => setSnack(null)} /> : null}
     </ScreenFrame>
   );
 }

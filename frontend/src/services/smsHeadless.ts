@@ -51,7 +51,8 @@ export async function runSmsHeadlessTask(data: unknown, deps: SmsHeadlessDeps = 
   try {
     await deps.hydrate();
     // The receiver is already off when the switch is off; this is a second guard.
-    if (!usePreferences.getState().smsIngestEnabled) return;
+    const p = usePreferences.getState();
+    if (!p.smsIngestEnabled && !p.notifIngestEnabled) return;
     const ingest = await deps.getIngest();
     await ingest.processSms(data, { notify: true });
     deps.native.acknowledge([data.id]);

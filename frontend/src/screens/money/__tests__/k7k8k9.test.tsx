@@ -226,7 +226,7 @@ describe.each(['light', 'dark'] as const)('k8 Screenshot review (%s)', (mode) =>
     // History knows Blinkit; "chai" is a keyword guess; the rest ask for a category.
     expect(getByText('8:40 pm \u00B7 Groceries')).toBeTruthy();
     expect(getByText('9:05 am \u00B7 Tea & coffee (guessed)')).toBeTruthy();
-    expect(getAllByText('Pick a category')).toHaveLength(5);
+    expect(getAllByText('Add category')).toHaveLength(5);
   });
 
   it('conflict row uses the caution colours and blocks Add until resolved', async () => {
@@ -307,11 +307,24 @@ describe.each(['light', 'dark'] as const)('k8 Screenshot review (%s)', (mode) =>
     fireEvent.press(getByTestId('choice-Gifts'));
     expect(getByText('9:15 pm \u00B7 Gifts')).toBeTruthy();
     expect(queryByTestId('category-choices')).toBeNull();
-    expect(queryAllByText('Pick a category')).toHaveLength(4);
+    expect(queryAllByText('Add category')).toHaveLength(4);
     fireEvent.press(getByTestId('add-entries'));
     await waitFor(() => expect(nav.navigate).toHaveBeenCalled());
     const mohan = (await services.db.entries.list()).find((e) => e.merchant === 'Mohan S');
     expect(mohan).toMatchObject({ categoryId: 'gifts', status: 'confirmed', method: 'upi', upiId: 'upi-1' });
+  });
+
+  it('files one row under a different account with its own Paid with', async () => {
+    const { getByTestId, getAllByText, findByTestId, nav, services } = await renderStory(<K8 />, mode, { conflict: 'shot' });
+    fireEvent.press(await findByTestId('paid-Mohan S'));
+    const cash = getAllByText('Cash');
+    fireEvent.press(cash[cash.length - 1]);
+    fireEvent.press(getByTestId('add-entries'));
+    await waitFor(() => expect(nav.navigate).toHaveBeenCalled());
+    const all = await services.db.entries.list();
+    expect(all.find((e) => e.merchant === 'Mohan S')).toMatchObject({ method: 'cash' });
+    // The other rows keep the import's Paid with.
+    expect(all.find((e) => e.merchant === 'Chai Point')).toMatchObject({ method: 'upi', upiId: 'upi-1' });
   });
 
   it('shows a skeleton while the plan loads', async () => {

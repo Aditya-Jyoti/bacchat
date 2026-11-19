@@ -123,8 +123,9 @@ describe('commitImport', () => {
     expect(amazon?.sources).toEqual([{ kind: 'mail' }, { kind: 'shot', rawRef: 'resolved' }]);
     const blinkit = all.find((e) => e.merchant === 'Blinkit');
     expect(blinkit).toMatchObject({ sources: [{ kind: 'shot' }], status: 'confirmed', categoryId: 'groceries', method: 'upi', upiId: 'upi-1', accountId: 'acc-hdfc', aiAdded: true });
-    // Category came from history: no review needed. An unknown payee is left for review, without a category.
-    expect(all.find((e) => e.merchant === 'Namma Metro')).toMatchObject({ status: 'toReview', categoryId: null });
+    // Category came from history: no review needed. Categories are optional: an unknown payee is
+    // saved as a plain entry with no category, not left to review.
+    expect(all.find((e) => e.merchant === 'Namma Metro')).toMatchObject({ status: 'confirmed', categoryId: null });
     // A category picked by hand is trusted.
     expect(all.find((e) => e.merchant === 'Mohan S')).toMatchObject({ status: 'confirmed', categoryId: 'shopping' });
     expect((await db.merchants.byName('Mohan S'))?.categoryId).toBe('shopping');

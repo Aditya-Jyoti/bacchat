@@ -163,12 +163,14 @@ export const merchants: Merchant[] = [
 
 export const sourceName: Record<EntrySourceKey, string> = {
   sms: 'SMS',
+  notif: 'Notification',
   mail: 'Email',
   shot: 'Screenshot',
   hand: 'Added by you',
 };
 export const sourceIcon: Record<EntrySourceKey, string> = {
   sms: 'sms',
+  notif: 'notifications',
   mail: 'mail',
   shot: 'screenshot_region',
   hand: 'edit',

@@ -231,13 +231,13 @@ describe.each(['light', 'dark'] as const)('k28 Select mode (%s)', (mode) => {
   });
 
   it('bulk delete removes the selection from the database, with an Undo that restores it', async () => {
-    const { getByTestId, queryByTestId, getByText, findByTestId, services } = await renderLive(<K28 />, mode, three);
+    const { getByTestId, getByText, findByTestId, services } = await renderLive(<K28 />, mode, three);
     await findByTestId('row-Blinkit');
     fireEvent.press(getByTestId('bulk-delete'));
-    await waitFor(() => expect(queryByTestId('row-Blinkit')).toBeNull());
+    // The snackbar closes itself after a few seconds, so look for it and use Undo before the slower UI checks.
     expect(getByText('3 deleted')).toBeTruthy();
     expect(getByTestId('selected-count').props.children).toBe('0 selected');
-    expect(await services.db.entries.get('e-blinkit')).toBeNull();
+    await waitFor(async () => expect(await services.db.entries.get('e-blinkit')).toBeNull());
     fireEvent.press(getByTestId('undo'));
     expect(await findByTestId('row-Blinkit')).toBeTruthy();
     expect((await services.db.entries.get('e-blinkit'))?.amountPaise).toBe(51800);

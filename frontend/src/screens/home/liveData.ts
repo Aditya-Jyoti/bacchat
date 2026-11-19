@@ -22,7 +22,13 @@ export type NetSeries = {
   deltaPaise: number;
   /** "since 1 Sep". */
   since: string;
+  /** End-of-day net worth for the last DAILY_POINTS days (the 1M view), oldest first, last = today. */
+  daily?: { values: number[]; labels: string[] };
 };
+
+/** Days shown in the 1M view. */
+export const DAILY_POINTS = 30;
+const DAY_MS = 86_400_000;
 
 /** Short month name ("Oct") for a month start. */
 const mon = (ms: number): string => monthAbbr(MONTH_NAMES[new Date(ms).getMonth()]).slice(0, 3);
@@ -42,17 +48,43 @@ export async function reconstructSeries(db: BacchatDb, now: number, months = 12)
     const from = addMonths(now, -k);
     const pointAt = k === 0 ? now : addMonths(now, -k + 1) - 1;
     let v = current;
-    for (const e of entries) if (e.at > pointAt) v -= e.direction === 'in' ? e.amountPaise : -e.amountPaise;
+    for (const e of entries) if (e.at > pointAt && !e.transferToAccountId) v -= e.direction === 'in' ? e.amountPaise : -e.amountPaise;
     values.push(v);
     labels.push(mon(from));
   }
+  const daily = await reconstructDaily(db, now, current);
   const monthStart = addMonths(now, 0);
   return {
     values,
     labels,
     deltaPaise: current - (values.length > 1 ? values[values.length - 2] : current),
     since: t('homeLive.since', { date: `1 ${mon(monthStart)}` }),
+    daily,
   };
+}
+
+/**
+ * End-of-day net worth for each of the last `days` days, rebuilt from entries the same way as the
+ * monthly series, so the 1M chart steps down on the days money went out. Moves between your own
+ * accounts change nothing.
+ */
+export async function reconstructDaily(db: BacchatDb, now: number, current?: number, days = DAILY_POINTS): Promise<{ values: number[]; labels: string[] }> {
+  const net = current ?? (await netWorth(db)).netPaise;
+  const today = startOfDay(now);
+  const first = startOfDay(today - (days - 1) * DAY_MS + DAY_MS / 2);
+  const entries = (await db.entries.between(first, now + 1)).filter((e) => !e.transferToAccountId);
+  const values: number[] = [];
+  const labels: string[] = [];
+  for (let k = days - 1; k >= 0; k--) {
+    // Half-day nudges keep day starts right across a DST shift (none in India, but elsewhere).
+    const dayStart = startOfDay(today - k * DAY_MS + DAY_MS / 2);
+    const pointAt = k === 0 ? now : startOfDay(dayStart + DAY_MS + DAY_MS / 2) - 1;
+    let v = net;
+    for (const e of entries) if (e.at > pointAt) v -= e.direction === 'in' ? e.amountPaise : -e.amountPaise;
+    values.push(v);
+    labels.push(`${new Date(dayStart).getDate()} ${mon(dayStart)}`);
+  }
+  return { values, labels };
 }
 
 const LAKH_PAISE = 1e7;

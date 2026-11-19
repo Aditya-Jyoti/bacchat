@@ -74,6 +74,27 @@ async function designBudgetServices(): Promise<Services> {
 describe.each(['light', 'dark'] as const)('k10 Accounts (%s)', (mode) => {
   const c = khataPalette(45, mode);
 
+  it('splits a savings account that holds goal money into savings and each goal', async () => {
+    const db = createMemoryDb();
+    await db.accounts.put({ id: 'slice', name: 'Slice Savings', kind: 'bank', balancePaise: 1_27_099_88, openingBalancePaise: 1_27_099_88, icon: 'account_balance' });
+    await db.goals.putMany([
+      { id: 'g1', name: 'Laptop', icon: 'laptop_mac', targetPaise: 1_50_000_00, accountId: 'slice' },
+      { id: 'g2', name: 'Fun', icon: 'star', targetPaise: 20_000_00, accountId: 'slice' },
+    ]);
+    await db.allocations.putMany([
+      { id: 'a1', goalId: 'g1', accountId: 'slice', amountPaise: 60_460_00 },
+      { id: 'a2', goalId: 'g2', accountId: 'slice', amountPaise: 20_185_00 },
+    ]);
+    const { findByTestId, getByText } = renderWithTheme(<K10_Accounts />, mode, { db, servicesOptions: { seed: false } });
+    const split = await findByTestId('account-split-Slice Savings');
+    expect(split.props.accessibilityLabel).toBe(`Slice Savings: ${R}46,454.88 savings, ${R}80,645 in goals`);
+    expect(getByText('Savings')).toBeTruthy();
+    expect(getByText('In goals')).toBeTruthy();
+    expect(getByText(`${R}46,454.88`)).toBeTruthy();
+    expect(getByText(`${R}60,460`)).toBeTruthy();
+    expect(getByText(`${R}20,185`)).toBeTruthy();
+  });
+
   it('shows a skeleton, then net worth and a plain summary of accounts (no own/owe maths, no yours-to-spend)', async () => {
     const { getByText, getByTestId, findByText, queryByTestId, queryByText } = renderWithTheme(<K10_Accounts />, mode);
     expect(getByTestId('screen-k10')).toBeTruthy();

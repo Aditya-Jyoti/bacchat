@@ -43,8 +43,10 @@ export default function K1_Home(): React.JSX.Element {
   // A brand new notebook: no accounts and no entries yet. Offer the first step instead of a page of zeros.
   const counts = useDbQuery(async (db) => ({ accounts: (await db.accounts.list()).length, entries: (await db.entries.list()).length })).data;
   const isNew = !!counts && counts.accounts === 0 && counts.entries === 0;
-  const values = useMemo(() => (series ? series.values.slice(-count) : []), [series, count]);
-  const labels = useMemo(() => (series ? series.labels.slice(-count) : []), [series, count]);
+  // 1M shows each day of the last 30 (when the daily series exists); the others show month ends.
+  const daily = range === '1M' ? series?.daily : undefined;
+  const values = useMemo(() => (daily ? daily.values : series ? series.values.slice(-count) : []), [daily, series, count]);
+  const labels = useMemo(() => (daily ? daily.labels : series ? series.labels.slice(-count) : []), [daily, series, count]);
   const segments = useMemo(() => {
     if (!net) return [];
     const parts = [

@@ -16,5 +16,17 @@
 
     <!-- Runs the JS task for a message received while the app is closed. Started only by SmsReceiver. -->
     <service android:name="app.bacchat.sms.SmsHeadlessService" android:exported="false" />
+
+    <!-- Payment notifications. Android binds it only after the user grants Notification access, and it
+         ignores everything unless notification reading is on (SmsStore.isNotificationsEnabled). -->
+    <service
+      android:name="app.bacchat.sms.PaymentNotificationListener"
+      android:exported="true"
+      android:label="Bacchat"
+      android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+      <intent-filter>
+        <action android:name="android.service.notification.NotificationListenerService" />
+      </intent-filter>
+    </service>
   </application>
 </manifest>

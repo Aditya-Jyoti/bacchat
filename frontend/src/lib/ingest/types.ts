@@ -1,6 +1,6 @@
 import type { EntryDirection, PayMethod } from '../../data/db/models';
 
-export type CandidateSource = 'sms' | 'mail' | 'shot';
+export type CandidateSource = 'sms' | 'notif' | 'mail' | 'shot';
 
 /** A transaction read from a message or screenshot, before it becomes an Entry. */
 export type Candidate = {

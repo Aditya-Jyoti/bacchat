@@ -53,6 +53,19 @@ export type BatchSummary = {
 
 export type StartResult = 'started' | 'off' | 'unavailable' | 'permission';
 export type EnableResult = 'enabled' | 'unavailable' | 'permission';
+/** 'access': switched on, but Android's Notification access still has to be granted (settings were opened). */
+export type NotifEnableResult = 'enabled' | 'unavailable' | 'access';
+
+/** Email apps: a notification from one of these is an email, shown as "Email". */
+const MAIL_APPS = new Set(['com.google.android.gm', 'com.microsoft.office.outlook', 'com.yahoo.mobile.client.android.mail', 'ch.protonmail.android', 'me.proton.android.mail', 'com.samsung.android.email.provider']);
+
+/** "app:<package>:<label>" marks an app notification (see PaymentNotificationListener). */
+export function notificationApp(address: string): { pkg: string; label: string } | null {
+  if (!address.startsWith('app:')) return null;
+  const rest = address.slice(4);
+  const i = rest.indexOf(':');
+  return i < 0 ? { pkg: rest, label: rest } : { pkg: rest.slice(0, i), label: rest.slice(i + 1) };
+}
 
 export type IngestServiceOptions = {
   db: BacchatDb;
@@ -76,6 +89,11 @@ export interface IngestService {
   enable(): Promise<EnableResult>;
   /** Switch reading off, stop listening and forget anything queued. */
   disable(): Promise<void>;
+  /** Switch payment notification reading on; opens Android's Notification access screen when needed. */
+  enableNotifications(): Promise<NotifEnableResult>;
+  disableNotifications(): Promise<void>;
+  /** Whether Android's Notification access is granted (false off Android). */
+  hasNotificationAccess(): boolean;
   /** Start listening if the user has it on and permission is there. Safe to call repeatedly. */
   start(): Promise<StartResult>;
   stop(): void;
@@ -163,14 +181,16 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
   }
 
   async function handleSms(sms: RawSms): Promise<MessageResult> {
-    const rawRef = smsRawRef(sms);
+    const app = notificationApp(sms.address);
+    const source = app ? (MAIL_APPS.has(app.pkg) ? 'mail' : 'notif') : 'sms';
+    const rawRef = app ? `notif:${hashText(`${app.pkg}|${sms.body}`)}:${dateKey(sms.receivedAt)}` : smsRawRef(sms);
     let c = parseSms(sms.body, { receivedAt: sms.receivedAt, rawRef });
     if (opts.extractor && (!c || c.confidence < RULE_ACCEPT_CONFIDENCE)) {
-      c = (await opts.extractor(sms.body, { source: 'sms', receivedAt: sms.receivedAt, rawRef }).catch(() => null)) ?? c;
+      c = (await opts.extractor(sms.body, { source: source === 'mail' ? 'mail' : 'sms', receivedAt: sms.receivedAt, rawRef }).catch(() => null)) ?? c;
     }
     if (!c) return { kind: 'unreadable' };
-    // The sender (VM-SLICEIT) and text tell which account it is; used while adding, not stored.
-    return ingest({ ...c, issuerText: `${sms.address} ${sms.body}` });
+    // The sender (VM-SLICEIT, or the app's name) and text tell which account it is; used while adding, not stored.
+    return ingest({ ...c, source, issuerText: `${app ? app.label : sms.address} ${sms.body}` });
   }
 
   function notify(sum: BatchSummary): void {
@@ -206,6 +226,13 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
     const p = native.getPermissions();
     return p.readSms && p.receiveSms;
   };
+  const hasAccess = (): boolean => {
+    try {
+      return !!native && native.hasNotificationAccess();
+    } catch {
+      return false;
+    }
+  };
 
   async function scanRecent(days = opts.backfillDays ?? DEFAULT_BACKFILL_DAYS): Promise<BatchSummary> {
     if (!native || !hasPermission()) return emptySummary();
@@ -229,10 +256,15 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
   const service: IngestService = {
     async start() {
       if (!native) return 'unavailable';
-      if (!prefs().smsIngestEnabled) return 'off';
-      if (!hasPermission()) return 'permission';
+      const smsOn = prefs().smsIngestEnabled;
+      const notifOn = prefs().notifIngestEnabled;
+      if (!smsOn && !notifOn) return 'off';
+      const sms = smsOn && hasPermission();
+      const notif = notifOn && hasAccess();
+      if (!sms && !notif) return 'permission';
+      if (sms) native.setEnabled(true);
+      if (notif) native.setNotificationsEnabled(true);
       if (sub) return 'started';
-      native.setEnabled(true);
       sub = native.addListener('onSmsReceived', (sms) => {
         void enqueue(async () => {
           const r = await handleSms(sms);
@@ -274,10 +306,34 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
     },
 
     async disable() {
-      service.stop();
       prefs().setSmsIngestEnabled(false);
       native?.setEnabled(false);
+      if (!prefs().notifIngestEnabled) service.stop();
     },
+
+    async enableNotifications() {
+      if (!native) return 'unavailable';
+      prefs().setNotifIngestEnabled(true);
+      native.setNotificationsEnabled(true);
+      if (!hasAccess()) {
+        try {
+          native.openNotificationAccessSettings();
+        } catch {
+          /* the row explains what to allow */
+        }
+        return 'access';
+      }
+      await service.start();
+      return 'enabled';
+    },
+
+    async disableNotifications() {
+      prefs().setNotifIngestEnabled(false);
+      native?.setNotificationsEnabled(false);
+      if (!prefs().smsIngestEnabled) service.stop();
+    },
+
+    hasNotificationAccess: hasAccess,
 
     processSms(sms, o = {}) {
       return enqueue(async () => {

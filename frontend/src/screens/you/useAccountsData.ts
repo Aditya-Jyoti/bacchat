@@ -6,7 +6,9 @@ import { t } from '../../lib/i18n';
 import { useDbQuery, useNetWorth, useSpendable, useUpiFlows, type QueryResult } from '../../services';
 import { dayMonth } from './parts/monthName';
 
-export type OwnRow = { id: string; name: string; kindText: string; icon: string; paise: number; kind: Account['kind'] };
+/** A bank or cash account that holds goal money: what is plain savings and what sits in each goal. */
+export type AccountSplit = { freePaise: number; goalsPaise: number; goals: { id: string; name: string; icon: string; paise: number }[] };
+export type OwnRow = { id: string; name: string; kindText: string; icon: string; paise: number; kind: Account['kind']; split?: AccountSplit };
 export type OweRow = { id: string; accountId: string; name: string; kindText: string; icon: string; paise: number; limitPaise: number; usedPct: number };
 export type UpiRowData = { id: string; handle: string; bank: string; inPaise: number; outPaise: number; inPct: number; outPct: number };
 
@@ -37,7 +39,8 @@ export function useAccountsData(): AccountsData {
   const sp = useSpendable();
   const upi = useUpiFlows();
   const rows: QueryResult<{ own: OwnRow[]; owe: OweRow[] }> = useDbQuery(async (db, at) => {
-    const [{ accounts, debts }, holdings] = await Promise.all([ledger(db), db.holdings.list()]);
+    const [{ accounts, debts }, holdings, goals, allocations] = await Promise.all([ledger(db), db.holdings.list(), db.goals.list(), db.allocations.list()]);
+    const goalById = new Map(goals.map((g) => [g.id, g] as const));
     const own: OwnRow[] = [];
     for (const a of accounts) {
       if (a.kind !== 'bank' && a.kind !== 'cash' && a.kind !== 'mf' && a.kind !== 'nps') continue;
@@ -57,7 +60,25 @@ export function useAccountsData(): AccountsData {
         next = undefined;
       }
       const kindText = next != null ? `${ownKind(a, fundCount)} \u00B7 ${t('accountsUi.nextPayment', { date: dayMonth(next) })}` : ownKind(a, fundCount);
-      own.push({ id: a.id, name: a.name, kindText, icon: a.icon, paise, kind: a.kind });
+      // Money set aside for goals is part of this balance; split it out so no maths is needed.
+      let split: AccountSplit | undefined;
+      if (a.kind === 'bank' || a.kind === 'cash') {
+        const byGoal = new Map<string, number>();
+        for (const al of allocations) {
+          if (al.accountId !== a.id || !goalById.has(al.goalId) || al.amountPaise <= 0) continue;
+          byGoal.set(al.goalId, (byGoal.get(al.goalId) ?? 0) + al.amountPaise);
+        }
+        const list = [...byGoal].flatMap(([id, p]) => {
+          const g = goalById.get(id);
+          return g ? [{ id, name: g.name, icon: g.icon, paise: p }] : [];
+        });
+        if (list.length > 0) {
+          list.sort((x, y) => y.paise - x.paise);
+          const goalsPaise = list.reduce((s2, g) => s2 + g.paise, 0);
+          split = { freePaise: paise - goalsPaise, goalsPaise, goals: list };
+        }
+      }
+      own.push({ id: a.id, name: a.name, kindText, icon: a.icon, paise, kind: a.kind, split });
     }
     const owe: OweRow[] = [];
     for (const d of debts) {

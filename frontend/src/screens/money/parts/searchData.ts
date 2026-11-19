@@ -13,6 +13,7 @@ export const AMOUNT_RANGES: readonly AmountRange[] = [
 export const SOURCE_FILTERS: readonly { id: EntrySourceKind | 'all'; label: string }[] = [
   { id: 'all', label: 'Source' },
   { id: 'sms', label: 'SMS' },
+  { id: 'notif', label: 'Notification' },
   { id: 'mail', label: 'Email' },
   { id: 'shot', label: 'Screenshot' },
   { id: 'hand', label: 'Added by you' },

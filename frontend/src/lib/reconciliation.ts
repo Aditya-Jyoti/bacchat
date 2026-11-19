@@ -6,7 +6,7 @@
  *   otherwise       -> 'new'
  */
 
-export type EntrySource = 'sms' | 'mail' | 'shot' | 'hand';
+export type EntrySource = 'sms' | 'notif' | 'mail' | 'shot' | 'hand';
 
 export type ReconEntry = {
   id?: string;
