@@ -71,7 +71,14 @@ export default function K3_MoneySummary(): React.JSX.Element {
                 <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>
                   {fmt(t(net >= 0 ? (win.isCurrent ? 'moneyLive.keptSoFar' : 'moneyLive.keptIn') : win.isCurrent ? 'moneyLive.overSoFar' : 'moneyLive.overIn'), { month: win.name })}
                 </Text>
-                <Text testID="month-net-amount" style={[serif(30), { color: net >= 0 ? colors.moneyIn : colors.moneyOut }]}>
+                {/* One line always: a long amount shrinks to fit instead of wrapping. */}
+                <Text
+                  testID="month-net-amount"
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.5}
+                  style={[serif(26), { color: net >= 0 ? colors.moneyIn : colors.moneyOut }]}
+                >
                   {formatRupees(net, { plus: true })}
                 </Text>
               </View>
