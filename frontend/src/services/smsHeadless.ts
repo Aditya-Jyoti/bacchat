@@ -61,9 +61,27 @@ export async function runSmsHeadlessTask(data: unknown, deps: SmsHeadlessDeps = 
   }
 }
 
-/** Register the task. Call once from index.ts, before the root component is registered. */
+export const CATEGORY_PICK_TASK = 'BacchatCategoryPick';
+
+/**
+ * A category button on a notification was tapped while the app was closed. The native receiver
+ * already queued the pick; this applies every queued pick (this one included) and acknowledges them.
+ */
+export async function runCategoryPickTask(deps: SmsHeadlessDeps = defaults()): Promise<void> {
+  if (!deps.native) return;
+  try {
+    await deps.hydrate();
+    const ingest = await deps.getIngest();
+    await ingest.applyPicks();
+  } catch {
+    /* stays queued; the next launch applies it */
+  }
+}
+
+/** Register the tasks. Call once from index.ts, before the root component is registered. */
 export function registerSmsHeadlessTask(): void {
   AppRegistry.registerHeadlessTask(SMS_HEADLESS_TASK, () => (data: unknown) => runSmsHeadlessTask(data));
+  AppRegistry.registerHeadlessTask(CATEGORY_PICK_TASK, () => () => runCategoryPickTask());
 }
 
 /** For tests. */

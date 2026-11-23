@@ -84,9 +84,7 @@ describe('first run on a brand new install', () => {
     await screen.findByTestId('screen-k5', {}, WAIT);
     await waitFor(() => expect(screen.getByTestId('method-field')).toBeTruthy());
     fireEvent.changeText(screen.getByTestId('payee-input'), 'Chai Point');
-    fireEvent.press(screen.getByTestId('amount'));
-    for (const k of ['4', '0']) fireEvent.press(screen.getByTestId(`key-${k}`));
-    fireEvent.press(screen.getByTestId('keypad-done'));
+    fireEvent.changeText(screen.getByTestId('amount'), '40');
     fireEvent.press(screen.getByTestId('save'));
     await screen.findByTestId('screen-k4', {}, WAIT);
     expect(await screen.findByText('Chai Point')).toBeTruthy();

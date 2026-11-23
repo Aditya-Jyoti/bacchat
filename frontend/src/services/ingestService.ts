@@ -23,6 +23,7 @@ import { RULE_ACCEPT_CONFIDENCE } from '../lib/ai/extract';
 import type { Extractor } from './aiService';
 import type { ObservableDb } from './observable';
 import { pasteEmailSource, splitPastedEmail } from './emailSource';
+import { drainCategoryPicks, applyCategoryPick, pickCategoryLink, quickCategories } from './categoryPick';
 import { addPending, listPending, resolvePending, type PendingChoice, type PendingItem } from './ingestPending';
 
 /** Deep link the notification opens: Entries (k4) filtered to To review. */
@@ -94,7 +95,7 @@ export type IngestServiceOptions = {
   minConfidence?: number;
   backfillDays?: number;
   backfillLimit?: number;
-  /** Whether to post a notification for live messages. Default: only while the app is in the background. */
+  /** Whether to post a notification for live messages. Default: only while no Bacchat screen is on show. */
   shouldNotify?: () => boolean;
   /**
    * Optional AI reader (aiService.extractor). Used only when the rule parsers are unsure or find nothing;
@@ -125,6 +126,8 @@ export interface IngestService {
   pasteMessage(text: string): Promise<MessageResult>;
   pending(): Promise<PendingItem[]>;
   resolve(id: string, choice: PendingChoice): Promise<Entry | null>;
+  /** Apply categories picked on notifications (queued natively). Returns how many were filed. */
+  applyPicks(): Promise<number>;
   /** Waits for queued work. For tests. */
   idle(): Promise<void>;
 }
@@ -160,7 +163,18 @@ function tally(sum: BatchSummary, r: MessageResult): void {
 export function createIngestService(opts: IngestServiceOptions): IngestService {
   const { db, now, native } = opts;
   const minConfidence = opts.minConfidence ?? DEFAULT_MIN_CONFIDENCE;
-  const shouldNotify = opts.shouldNotify ?? ((): boolean => AppState.currentState !== 'active');
+  // Notify unless a Bacchat screen is on show. Android is asked first: AppState can say "active"
+  // while the reading service keeps the app running with no screen.
+  const shouldNotify =
+    opts.shouldNotify ??
+    ((): boolean => {
+      try {
+        if (native) return !native.isAppVisible();
+      } catch {
+        /* older native module: fall back to AppState */
+      }
+      return AppState.currentState !== 'active';
+    });
   const prefs = (): ReturnType<typeof usePreferences.getState> => usePreferences.getState();
 
   let chain: Promise<unknown> = Promise.resolve();
@@ -171,6 +185,7 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
   };
 
   let sub: SmsSubscription | null = null;
+  let pickSub: SmsSubscription | null = null;
   /** The pending list lives in the meta table, which does not announce writes: tell watchers by hand. */
   const poke = (): void => (db as Partial<ObservableDb>).notify?.();
 
@@ -220,9 +235,35 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
     return ingest({ ...c, source, issuerText: `${app ? app.label : sms.address} ${sms.body}` });
   }
 
-  function notify(sum: BatchSummary): void {
+  async function notify(sum: BatchSummary): Promise<void> {
     if (!native || (sum.added.length === 0 && sum.pending === 0)) return;
     const title = t('ingestUi.notifyTitle');
+    if (sum.added.length === 1 && sum.pending === 0) {
+      // One new entry: "Slice Credit: Rs 128". With no category yet it asks: two likely categories
+      // and More (k31, every category). Already filed (the payee is known): says where, with Change.
+      const e = sum.added[0];
+      try {
+        const [choices, account, category] = await Promise.all([
+          e.categoryId ? Promise.resolve([]) : quickCategories(db, e),
+          e.accountId ? db.accounts.get(e.accountId) : Promise.resolve(null),
+          e.categoryId ? db.categories.get(e.categoryId) : Promise.resolve(null),
+        ]);
+        const amount = (e.direction === 'in' ? '+' : '') + formatRupees(e.amountPaise);
+        const heading = account ? t('ingestUi.notifyAccount', { account: account.name, amount }) : amount;
+        const posted = native.postEntryNotification(
+          t('ingestUi.channelName'),
+          heading,
+          category ? category.name : '',
+          e.id,
+          choices.map((c) => ({ id: c.id, label: c.name, saved: t('ingestUi.pickSaved', { category: c.name }) })),
+          category ? t('ingestUi.pickChange') : t('ingestUi.pickMore'),
+          pickCategoryLink(e.id),
+        );
+        if (posted) return;
+      } catch {
+        /* fall back to the plain notification below */
+      }
+    }
     let text: string;
     if (sum.added.length === 1 && sum.pending === 0) {
       const e = sum.added[0];
@@ -244,7 +285,7 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
     const ordered = [...messages].sort((a, b) => a.receivedAt - b.receivedAt);
     const sum = emptySummary();
     for (const m of ordered) tally(sum, await handleSms(m));
-    if (doNotify) notify(sum);
+    if (doNotify) await notify(sum);
     return sum;
   }
 
@@ -308,12 +349,19 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
           if (shouldNotify()) {
             const sum = emptySummary();
             tally(sum, r);
-            notify(sum);
+            await notify(sum);
           }
+        });
+      });
+      // Category buttons tapped on a notification while the app is running.
+      pickSub = native.addListener('onCategoryPicked', (pick) => {
+        void enqueue(async () => {
+          if (await applyCategoryPick(db, pick).catch(() => false)) native.acknowledgePicks([pick.entryId]);
         });
       });
       // Only messages that arrive from now on (and ones queued while the app was closed) are read.
       // Older inbox messages are never scanned automatically; a screenshot import covers the past.
+      await enqueue(() => drainCategoryPicks(db, native));
       await drainQueue();
       return 'started';
     },
@@ -321,6 +369,8 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
     stop() {
       sub?.remove();
       sub = null;
+      pickSub?.remove();
+      pickSub = null;
     },
 
     isRunning: () => sub != null,
@@ -373,13 +423,15 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
 
     hasNotificationAccess: hasAccess,
 
+    applyPicks: () => enqueue(() => drainCategoryPicks(db, native)),
+
     processSms(sms, o = {}) {
       return enqueue(async () => {
         const r = await handleSms(sms);
         if (o.notify) {
           const sum = emptySummary();
           tally(sum, r);
-          notify(sum);
+          await notify(sum);
         }
         return r;
       });

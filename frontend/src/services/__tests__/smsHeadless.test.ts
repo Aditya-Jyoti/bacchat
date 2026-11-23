@@ -6,7 +6,7 @@ import { createMemoryDb } from '../../data/db';
 import { usePreferences } from '../../lib/preferences';
 import { createMemoryStorage, setStorage } from '../../lib/storage';
 import { createIngestService } from '../ingestService';
-import { SMS_HEADLESS_TASK, registerSmsHeadlessTask, runSmsHeadlessTask } from '../smsHeadless';
+import { CATEGORY_PICK_TASK, SMS_HEADLESS_TASK, registerSmsHeadlessTask, runCategoryPickTask, runSmsHeadlessTask } from '../smsHeadless';
 
 const NOW = new Date(2026, 9, 24, 20, 30).getTime();
 const BODY = 'Dear UPI user A/C X1234 debited by 150.0 on date 24Oct26 trf to RAMESH FRUITS Refno 429812345678 If not u? call 1800111109. -SBI';
@@ -27,13 +27,27 @@ beforeEach(() => {
   usePreferences.setState({ smsIngestEnabled: true });
 });
 
+describe('runCategoryPickTask', () => {
+  it('applies picks queued by a notification button while the app was closed', async () => {
+    const { db, native, deps } = setup();
+    await db.categories.putMany([{ id: 'food', name: 'Food', icon: 'restaurant' }]);
+    await runSmsHeadlessTask(sms, deps);
+    const [e] = await db.entries.list();
+    native.picks = [{ entryId: e.id, categoryId: 'food' }];
+    await runCategoryPickTask(deps);
+    expect(await db.entries.get(e.id)).toMatchObject({ categoryId: 'food', status: 'confirmed' });
+    expect(native.picks).toHaveLength(0);
+  });
+});
+
 describe('runSmsHeadlessTask', () => {
   it('adds a To review entry, notifies and acknowledges', async () => {
     const { db, native, deps } = setup();
     native.queued = [sms];
     await runSmsHeadlessTask(sms, deps);
     expect(await db.entries.list()).toHaveLength(1);
-    expect(native.notifications).toHaveLength(1);
+    // One new entry: its own notification with category buttons.
+    expect(native.entryNotifications).toHaveLength(1);
     expect(native.queued).toHaveLength(0);
   });
 
@@ -74,6 +88,8 @@ describe('registerSmsHeadlessTask', () => {
     registerSmsHeadlessTask();
     expect(spy).toHaveBeenCalledWith(SMS_HEADLESS_TASK, expect.any(Function));
     expect(SMS_HEADLESS_TASK).toBe('BacchatSmsHeadless');
+    expect(spy).toHaveBeenCalledWith(CATEGORY_PICK_TASK, expect.any(Function));
+    expect(CATEGORY_PICK_TASK).toBe('BacchatCategoryPick');
     spy.mockRestore();
   });
 });

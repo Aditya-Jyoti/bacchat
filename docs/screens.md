@@ -28,6 +28,7 @@ flowchart LR
     k19["k19 Search"]
     k27["k27 Long-press menu"]
     k28["k28 Select mode"]
+    k31["k31 Pick a category"]
   end
   subgraph Goals
     k12["k12 Goals"]
@@ -108,7 +109,7 @@ flowchart LR
 
 - Tab bar shows only on k1, k3, k4, k12, k23 (it lives inside the `main` tab route; every other screen is on the root stack above it). Re-tapping the current tab scrolls to top. Money remembers Summary vs Entries.
 - Sheets and dialogs (k6, k9, k18, k27) are transparent modal routes over their parent; swipe down, tap the scrim or press back to return exactly where you were.
-- External entry points (deep links, see `navigation/linking.ts`): sharing an image opens `bacchat://import?uri=...` (k7); a "From your messages" notification opens `bacchat://entries?filter=review` (k4 filtered to To review); the launcher shortcut "Add entry" opens `bacchat://add` (k5).
+- External entry points (deep links, see `navigation/linking.ts`): sharing an image opens `bacchat://import?uri=...` (k7); a "From your messages" notification opens `bacchat://entries?filter=review` (k4 filtered to To review), or for a single new entry `bacchat://category?entry=<id>` (k31), with up to three category buttons that file the entry without opening the app; the launcher shortcut "Add entry" opens `bacchat://add` (k5).
 - k4 also accepts route params `filter` (`review`, `sms`, `mail`, `shot`) and `category`.
 - k20 and k29 are developer component galleries registered as routes (`debug/components`, `debug/components2`); nothing in the UI links to them.
 
@@ -131,6 +132,7 @@ flowchart LR
 | k19 | Search | `money/search` | Money | screen | done | |
 | k27 | Long-press menu | `money/entry_menu` | Money | menu | done | |
 | k28 | Select mode | `money/select` | Money | mode | done | |
+| k31 | Pick a category | `money/pick_category` | Money | screen | done | Not in the Khata design; added 2026-11-24. Opened from a "From your messages" notification (bacchat://category?entry=id) |
 | k12 | Goals | `goals` | Goals | tab | done | |
 | k13 | Goal detail | `goals/detail` | Goals | screen | done | |
 | k14 | New goal | `goals/new` | Goals | screen | done | |

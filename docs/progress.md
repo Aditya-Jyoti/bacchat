@@ -1,6 +1,6 @@
 # Progress
 
-Last updated: 2026-11-24 (0.4.9: reading keeps running while the app is closed, through a foreground service with a quiet "Reading your payments" notification; 0.4.8: chart scrub and axes, AI reads every message, open-pot goals on Home, Aug-Oct history imported; 0.4.7: payment notifications read alongside SMS, per-row Paid with in k8, optional categories, daily 1M chart, goal money nested under its account in k10, self-closing delete snackbar, all goals on Home). Update with every meaningful change, together with worklog.md.
+Last updated: 2026-11-24 (0.4.10: payments read while the app is closed (missing WAKE_LOCK fixed), one notification per new spend titled with the account and amount, two category buttons and More (k31, new screen), phone keyboard for amounts in k5; 0.4.9: reading keeps running while the app is closed, through a foreground service with a quiet "Reading your payments" notification; 0.4.8: chart scrub and axes, AI reads every message, open-pot goals on Home, Aug-Oct history imported; 0.4.7: payment notifications read alongside SMS, per-row Paid with in k8, optional categories, daily 1M chart, goal money nested under its account in k10, self-closing delete snackbar, all goals on Home). Update with every meaningful change, together with worklog.md.
 
 ## Milestones
 

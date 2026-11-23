@@ -1,6 +1,7 @@
 package app.bacchat.sms
 
 import android.Manifest
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
@@ -37,7 +38,7 @@ class BacchatSmsModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("BacchatSms")
 
-    Events("onSmsReceived")
+    Events("onSmsReceived", "onCategoryPicked")
 
     OnCreate { live = this@BacchatSmsModule }
     OnDestroy { if (live === this@BacchatSmsModule) live = null }
@@ -127,6 +128,33 @@ class BacchatSmsModule : Module() {
 
     Function("acknowledge") { ids: List<String> -> SmsStore.acknowledge(context, ids) }
 
+    // choices: [{ id, label, saved }], at most 8 arguments per native function.
+    Function("postEntryNotification") { channelName: String, title: String, text: String, entryId: String, choices: List<Map<String, String>>, moreLabel: String, deepLink: String ->
+      SmsNotifier.postEntry(
+        context, channelName, title, text, entryId,
+        choices.map { it["id"].orEmpty() },
+        choices.map { it["label"].orEmpty() },
+        choices.map { it["saved"].orEmpty() },
+        moreLabel, deepLink,
+      )
+    }
+
+    Function("cancelEntryNotification") { entryId: String -> SmsNotifier.cancelEntry(context, entryId) }
+
+    /**
+     * True only while a Bacchat screen is on show. React Native's AppState can read "active" while
+     * the reading service keeps the process alive with no screen at all, so this asks Android.
+     */
+    Function("isAppVisible") {
+      val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+      val me = am.runningAppProcesses?.firstOrNull { it.pid == android.os.Process.myPid() }
+      me != null && me.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+    }
+
+    Function("drainPicks") { SmsStore.picks(context) }
+
+    Function("acknowledgePicks") { entryIds: List<String> -> SmsStore.acknowledgePicks(context, entryIds) }
+
     Function("postNotification") { channelName: String, title: String, text: String, deepLink: String ->
       SmsNotifier.post(context, channelName, title, text, deepLink)
     }
@@ -144,6 +172,11 @@ class BacchatSmsModule : Module() {
         "onSmsReceived",
         mapOf("id" to id, "address" to address, "body" to body, "receivedAt" to receivedAt.toDouble()),
       )
+    }
+
+    /** Called by CategoryPickReceiver when the app is alive. */
+    fun deliverPick(entryId: String, categoryId: String) {
+      live?.sendEvent("onCategoryPicked", mapOf("entryId" to entryId, "categoryId" to categoryId))
     }
   }
 }

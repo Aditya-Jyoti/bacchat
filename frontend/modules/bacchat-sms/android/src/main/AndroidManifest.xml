@@ -7,6 +7,8 @@
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
   <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+  <!-- Held briefly while the background JS task reads a message that arrived with the app closed. -->
+  <uses-permission android:name="android.permission.WAKE_LOCK" />
 
   <application>
     <!-- Does nothing unless the user switched SMS reading on (see SmsStore.isEnabled). -->
@@ -44,6 +46,10 @@
         android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
         android:value="Reads incoming bank SMS and payment notifications on the device to record the user's own spending." />
     </service>
+
+    <!-- Category buttons on a "From your messages" notification, and the JS task that files the pick. -->
+    <receiver android:name="app.bacchat.sms.CategoryPickReceiver" android:exported="false" />
+    <service android:name="app.bacchat.sms.CategoryPickHeadlessService" android:exported="false" />
 
     <receiver android:name="app.bacchat.sms.WatchBootReceiver" android:exported="false">
       <intent-filter>

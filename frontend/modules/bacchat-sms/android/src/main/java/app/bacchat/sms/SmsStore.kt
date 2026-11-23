@@ -13,6 +13,7 @@ object SmsStore {
   private const val KEY_ENABLED = "enabled"
   private const val KEY_NOTIF = "notifications"
   private const val KEY_QUEUE = "queue"
+  private const val KEY_PICKS = "picks"
   private const val MAX_QUEUE = 200
 
   private fun prefs(context: Context) = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
@@ -79,5 +80,42 @@ object SmsStore {
       if (!ids.contains(o.optString("id"))) keep.put(o)
     }
     p.edit().putString(KEY_QUEUE, keep.toString()).apply()
+  }
+
+  /** A category picked from a notification button, waiting for JS to write it. Latest pick per entry wins. */
+  @Synchronized
+  fun enqueuePick(context: Context, entryId: String, categoryId: String) {
+    val p = prefs(context)
+    val arr = try { JSONArray(p.getString(KEY_PICKS, "[]")) } catch (e: Exception) { JSONArray() }
+    val keep = JSONArray()
+    for (i in 0 until arr.length()) {
+      val o = arr.getJSONObject(i)
+      if (o.optString("entryId") != entryId) keep.put(o)
+    }
+    keep.put(JSONObject().put("entryId", entryId).put("categoryId", categoryId))
+    p.edit().putString(KEY_PICKS, keep.toString()).apply()
+  }
+
+  @Synchronized
+  fun picks(context: Context): List<Map<String, Any>> {
+    val arr = try { JSONArray(prefs(context).getString(KEY_PICKS, "[]")) } catch (e: Exception) { JSONArray() }
+    val out = ArrayList<Map<String, Any>>()
+    for (i in 0 until arr.length()) {
+      val o = arr.getJSONObject(i)
+      out.add(mapOf("entryId" to o.getString("entryId"), "categoryId" to o.getString("categoryId")))
+    }
+    return out
+  }
+
+  @Synchronized
+  fun acknowledgePicks(context: Context, entryIds: List<String>) {
+    val p = prefs(context)
+    val arr = try { JSONArray(p.getString(KEY_PICKS, "[]")) } catch (e: Exception) { JSONArray() }
+    val keep = JSONArray()
+    for (i in 0 until arr.length()) {
+      val o = arr.getJSONObject(i)
+      if (!entryIds.contains(o.optString("entryId"))) keep.put(o)
+    }
+    p.edit().putString(KEY_PICKS, keep.toString()).apply()
   }
 }

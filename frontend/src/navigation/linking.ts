@@ -4,12 +4,13 @@ import { MAIN_ROUTE, ROUTES } from './screenManifest';
 
 /**
  * Deep links under bacchat://. External entry points: a shared image opens k7, a "From SMS"
- * notification opens k4, and the launcher shortcut "Add entry" opens k5.
+ * notification opens k4 (or k31 for one entry: bacchat://category?entry=<id>), and the launcher shortcut "Add entry" opens k5.
  */
 const config = {
   screens: {
     [ROUTES.k5]: 'add',
     [ROUTES.k7]: 'import',
+    [ROUTES.k31]: 'category',
     [MAIN_ROUTE]: {
       screens: {
         home: 'home',

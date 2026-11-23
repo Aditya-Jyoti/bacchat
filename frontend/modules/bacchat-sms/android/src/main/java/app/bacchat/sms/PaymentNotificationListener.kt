@@ -5,7 +5,6 @@ import android.content.Intent
 import android.provider.Telephony
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
-import com.facebook.react.HeadlessJsTaskService
 
 /**
  * Reads payment notifications (bank, card and UPI apps, and email apps showing a bank mail), so a
@@ -61,7 +60,7 @@ class PaymentNotificationListener : NotificationListenerService() {
       BacchatSmsModule.deliver(id, address, text, receivedAt)
     } else {
       try {
-        HeadlessJsTaskService.acquireWakeLockNow(context)
+        BackgroundTask.wakeLock(context)
         context.startService(
           Intent(context, SmsHeadlessService::class.java)
             .putExtra(SmsHeadlessService.EXTRA_ID, id)

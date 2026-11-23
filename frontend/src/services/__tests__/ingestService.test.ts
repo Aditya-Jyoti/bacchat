@@ -3,9 +3,9 @@ import { createMemoryDb } from '../../data/db';
 import { createFakeSmsNative } from '../../../modules/bacchat-sms/src/fake';
 import { usePreferences } from '../../lib/preferences';
 import { createMemoryStorage, setStorage } from '../../lib/storage';
-import { t } from '../../lib/i18n';
 import { REVIEW_LINK, createIngestService, hashText, smsRawRef } from '../ingestService';
 import { splitPastedEmail } from '../emailSource';
+import { pickCategoryLink } from '../categoryPick';
 
 const NOW = new Date(2026, 9, 24, 20, 30).getTime();
 const DAY = 86_400_000;
@@ -117,24 +117,121 @@ describe('conflicts', () => {
 });
 
 describe('notifications', () => {
-  it('posts a calm From your messages notification for a new To review entry, opening k4 To review', async () => {
-    const { native, svc } = setup();
+  it('posts one notification per new entry: the account and amount, two categories and More (k31)', async () => {
+    const { db, native, svc } = setup();
+    await db.categories.putMany([
+      { id: 'food', name: 'Food', icon: 'restaurant' },
+      { id: 'travel', name: 'Travel', icon: 'flight' },
+      { id: 'shop', name: 'Online shopping', icon: 'shopping_bag' },
+      { id: 'fun', name: 'Fun', icon: 'movie' },
+      { id: 'old', name: 'Old', icon: 'category', hidden: true },
+    ]);
     await svc.processSms(sms(BODY), { notify: true });
-    expect(native.notifications).toHaveLength(1);
-    expect(native.notifications[0]).toMatchObject({
-      channelName: t('ingestUi.channelName'),
-      title: 'From your messages',
-      deepLink: REVIEW_LINK,
-    });
-    expect(native.notifications[0].text).toContain('Ramesh');
-    expect(native.notifications[0].text).toContain('\u20B9150');
+    expect(native.notifications).toHaveLength(0);
+    expect(native.entryNotifications).toHaveLength(1);
+    const n = native.entryNotifications[0];
+    const [e] = await db.entries.list();
+    expect(n).toMatchObject({ text: '', moreLabel: 'More', entryId: e.id, deepLink: pickCategoryLink(e.id) });
+    expect(pickCategoryLink(e.id)).toBe(`bacchat://category?entry=${e.id}`);
+    // No account matched in this bare database: the amount alone.
+    expect(n.title).toBe('\u20B9150');
+    expect(n.choiceIds).toHaveLength(2);
+    expect(n.choiceIds).not.toContain('old');
+    expect(n.choiceLabels).toHaveLength(2);
+    expect(n.savedTexts[0]).toBe(`Filed under ${n.choiceLabels[0]}.`);
+  });
+
+  it('asks only for a spend with no category: a known payee says where it went, with Change', async () => {
+    const { db, native, svc } = setup();
+    await db.categories.putMany([{ id: 'food', name: 'Food', icon: 'restaurant' }, { id: 'fun', name: 'Fun', icon: 'movie' }]);
+    await db.merchants.record('Ramesh Fruits', 'food', 15000, NOW - 2 * DAY);
+    await svc.processSms(sms(BODY), { notify: true });
+    const [e] = await db.entries.list();
+    expect(e.categoryId).toBe('food');
+    expect(native.entryNotifications[0]).toMatchObject({ text: 'Food', choiceIds: [], moreLabel: 'Change', deepLink: pickCategoryLink(e.id) });
+  });
+
+  it('names the account first: "Slice Credit: Rs 270", and "+" for money in', async () => {
+    const { db, native, svc } = setup();
+    await db.accounts.putMany([
+      { id: 'cc', name: 'Slice Credit', kind: 'card', balancePaise: 0, icon: 'credit_card' },
+      { id: 'sb', name: 'Slice Savings', kind: 'bank', balancePaise: 0, icon: 'account_balance' },
+    ]);
+    const note = (body: string, id: string) => ({ id, address: 'app:indwealth:slice', body, receivedAt: NOW - 60_000 });
+    await svc.processSms(note('slice. Rs. 270 paid to Mr Satishkumar G using UPI on your slice credit card', 'a'), { notify: true });
+    expect(native.entryNotifications[0].title).toBe('Slice Credit: \u20B9270');
+    await svc.processSms(note('slice. Rs. 1,000 received in your slice savings account from Asha', 'b'), { notify: true });
+    expect(native.entryNotifications[1].title).toBe('Slice Savings: +\u20B91,000');
+  });
+
+  it('by default notifies only while no Bacchat screen is on show (asked of the native side)', async () => {
+    const db = createMemoryDb();
+    const native = createFakeSmsNative();
+    native.permissions = { readSms: true, receiveSms: true, postNotifications: true };
+    const svc = createIngestService({ db, now: () => NOW, native });
+    usePreferences.setState({ smsIngestEnabled: true });
+    await svc.start();
+    native.visible = true;
+    native.emit(sms(BODY, NOW - 60_000, 'v1'));
+    await svc.idle();
+    expect(native.entryNotifications).toHaveLength(0);
+    native.visible = false;
+    native.emit(sms('Rs 80.00 debited from A/c XX1234 on 24-10-26 to VPA tea@okaxis (UPI Ref No 429812345003)', NOW - 30_000, 'v2'));
+    await svc.idle();
+    expect(native.entryNotifications).toHaveLength(1);
+    svc.stop();
+  });
+
+  it('a batch of several new entries still gets one calm summary opening k4 To review', async () => {
+    const { native, svc } = setup();
+    usePreferences.setState({ smsIngestEnabled: true });
+    native.queued = [sms(BODY, NOW - 3600_000, 'q1'), sms('Rs 99.00 debited from A/c XX1234 on 24-10-26 to VPA chai@okaxis (UPI Ref No 429812345001)', NOW - 1800_000, 'q2')];
+    await svc.start();
+    await svc.idle();
+    svc.stop();
+    // Queued messages are read on start without per-message notifications.
+    expect(native.entryNotifications).toHaveLength(0);
     expect(REVIEW_LINK).toBe('bacchat://entries?filter=review');
+  });
+
+  it('a category button files the entry, confirms it and learns the payee', async () => {
+    const { db, native, svc } = setup();
+    await db.categories.putMany([{ id: 'food', name: 'Food', icon: 'restaurant' }]);
+    usePreferences.setState({ smsIngestEnabled: true });
+    await svc.start();
+    await svc.processSms(sms(BODY), { notify: true });
+    const [e] = await db.entries.list();
+    expect(e.status).toBe('toReview');
+    native.pick({ entryId: e.id, categoryId: 'food' });
+    await svc.idle();
+    expect(await db.entries.get(e.id)).toMatchObject({ categoryId: 'food', status: 'confirmed' });
+    expect((await db.merchants.list()).find((m) => m.name === e.merchant)?.categoryId).toBe('food');
+    expect(native.picks).toHaveLength(0);
+    svc.stop();
+  });
+
+  it('picks made while the app was closed are applied on start and by applyPicks', async () => {
+    const { db, native, svc } = setup();
+    await db.categories.putMany([{ id: 'food', name: 'Food', icon: 'restaurant' }, { id: 'fun', name: 'Fun', icon: 'movie' }]);
+    await svc.processSms(sms(BODY));
+    const [e] = await db.entries.list();
+    native.picks = [{ entryId: e.id, categoryId: 'fun' }, { entryId: 'gone', categoryId: 'fun' }];
+    expect(await svc.applyPicks()).toBe(1);
+    expect((await db.entries.get(e.id))?.categoryId).toBe('fun');
+    expect(native.picks).toHaveLength(0);
+    native.picks = [{ entryId: e.id, categoryId: 'food' }];
+    usePreferences.setState({ smsIngestEnabled: true });
+    await svc.start();
+    await svc.idle();
+    expect((await db.entries.get(e.id))?.categoryId).toBe('food');
+    svc.stop();
   });
 
   it('stays quiet for duplicates and unreadable messages', async () => {
     const { native, svc } = setup();
     await svc.processSms(sms('hello there'), { notify: true });
     expect(native.notifications).toHaveLength(0);
+    expect(native.entryNotifications).toHaveLength(0);
   });
 });
 
@@ -163,6 +260,7 @@ describe('listening and backfill', () => {
     await svc.start();
     expect(await db.entries.list()).toHaveLength(0);
     expect(native.notifications).toHaveLength(0);
+    expect(native.entryNotifications).toHaveLength(0);
     // A message that arrives after reading is on is added.
     native.emit(sms('Rs 10.00 debited from A/c XX1234 on 24-10-26 to VPA tea@okaxis (UPI Ref No 429812345002)', NOW - 60_000, 'new1'));
     await svc.idle();
@@ -197,7 +295,7 @@ describe('listening and backfill', () => {
     native.emit(sms('Rs 80.00 debited from A/c XX1234 on 24-10-26 to VPA tea@okaxis (UPI Ref No 429812345003)', NOW - 60_000, 'live1'));
     await svc.idle();
     expect(await db.entries.list()).toHaveLength(2);
-    expect(native.notifications.length).toBeGreaterThan(0);
+    expect(native.entryNotifications.length).toBeGreaterThan(0);
     svc.stop();
     expect(native.listenerCount()).toBe(0);
   });
@@ -209,6 +307,7 @@ describe('listening and backfill', () => {
     native.emit(sms(BODY, NOW - 60_000, 'live2'));
     await svc.idle();
     expect(native.notifications).toHaveLength(0);
+    expect(native.entryNotifications).toHaveLength(0);
   });
 
   it('disable stops listening, turns the setting off and forgets the queue', async () => {

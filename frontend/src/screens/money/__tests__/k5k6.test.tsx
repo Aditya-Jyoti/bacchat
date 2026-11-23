@@ -33,9 +33,7 @@ describe.each(['light', 'dark'] as const)('k5 Add entry (%s)', (mode) => {
   /** Type the payee and the amount like a person would. */
   async function fill(r: Awaited<ReturnType<typeof renderLive>>, payee: string, keys: string[]): Promise<void> {
     fireEvent.changeText(r.getByTestId('payee-input'), payee);
-    fireEvent.press(r.getByTestId('amount'));
-    for (const k of keys) fireEvent.press(r.getByTestId(`key-${k}`));
-    fireEvent.press(r.getByTestId('keypad-done'));
+    fireEvent.changeText(r.getByTestId('amount'), keys.join(''));
   }
 
   it('starts empty: Spent, amount 0, Paid to, today and the current time', async () => {
@@ -44,8 +42,11 @@ describe.each(['light', 'dark'] as const)('k5 Add entry (%s)', (mode) => {
     expect(getByText('New entry')).toBeTruthy();
     expect(getByText('Save')).toBeTruthy();
     for (const l of ['Spent', 'Got', 'Moved']) expect(getByText(l)).toBeTruthy();
-    expect(getByTestId('amount-text').props.children).toBe('0');
-    expect(getByText('Tap amount to edit')).toBeTruthy();
+    expect(getByTestId('amount').props.value).toBe('');
+    expect(getByTestId('amount').props.placeholder).toBe('0');
+    // The phone's own number keyboard opens straight away for a new entry.
+    expect(getByTestId('amount').props.keyboardType).toBe('decimal-pad');
+    expect(getByTestId('amount').props.autoFocus).toBe(true);
     expect(getByTestId('payee-input').props.value).toBe('');
     expect(getByText('Paid to')).toBeTruthy();
     expect(getByText('Paid with')).toBeTruthy();
@@ -89,20 +90,17 @@ describe.each(['light', 'dark'] as const)('k5 Add entry (%s)', (mode) => {
     expect(getByTestId('payee-input').props.value).toBe('');
   });
 
-  it('opens the keypad from the amount and edits it', async () => {
-    const { getByTestId, queryByTestId, getByText } = await renderLive(<K5 />, mode);
-    expect(queryByTestId('keypad-panel')).toBeNull();
-    fireEvent.press(getByTestId('amount'));
-    expect(getByTestId('keypad-panel')).toBeTruthy();
-    for (const k of ['2', '8', '9', '0']) fireEvent.press(getByTestId(`key-${k}`));
-    fireEvent.press(getByTestId('key-backspace'));
-    fireEvent.press(getByTestId('key-0'));
-    expect(getByText('2,890')).toBeTruthy();
-    fireEvent.press(getByTestId('quick-add-1000'));
-    expect(getByText('3,890')).toBeTruthy();
-    fireEvent.press(getByTestId('keypad-done'));
-    expect(queryByTestId('keypad-panel')).toBeNull();
-    expect(getByTestId('amount').props.accessibilityLabel).toContain('3,890');
+  it('types the amount with the phone keyboard and shows Indian grouping', async () => {
+    const { getByTestId } = await renderLive(<K5 />, mode);
+    fireEvent.changeText(getByTestId('amount'), '2890');
+    expect(getByTestId('amount').props.value).toBe('2,890');
+    // Typing more after the grouped text keeps the digits, not the commas.
+    fireEvent.changeText(getByTestId('amount'), '2,8901');
+    expect(getByTestId('amount').props.value).toBe('28,901');
+    fireEvent.changeText(getByTestId('amount'), '28,901.555');
+    expect(getByTestId('amount').props.value).toBe('28,901.55');
+    fireEvent.changeText(getByTestId('amount'), '');
+    expect(getByTestId('amount').props.value).toBe('');
   });
 
   it('switches Spent / Got / Moved and relabels the payee field', async () => {
@@ -211,11 +209,10 @@ describe.each(['light', 'dark'] as const)('k5 Add entry (%s)', (mode) => {
     const r = await renderLive(<K5 />, mode, { id: 'e-blinkit' });
     await waitFor(() => expect(r.getByTestId('payee-input').props.value).toBe('Blinkit'));
     expect(r.getByText('Edit entry')).toBeTruthy();
-    expect(r.getByTestId('amount-text').props.children).toBe('518');
-    fireEvent.press(r.getByTestId('amount'));
-    fireEvent.press(r.getByTestId('key-backspace'));
-    fireEvent.press(r.getByTestId('key-9'));
-    fireEvent.press(r.getByTestId('keypad-done'));
+    expect(r.getByTestId('amount').props.value).toBe('518');
+    // Editing does not pop the keyboard up on its own.
+    expect(r.getByTestId('amount').props.autoFocus).toBe(false);
+    fireEvent.changeText(r.getByTestId('amount'), '519');
     fireEvent.press(r.getByText('Save'));
     await waitFor(async () => expect((await r.services.db.entries.get('e-blinkit'))?.amountPaise).toBe(51900));
     const after = await r.services.db.entries.get('e-blinkit');

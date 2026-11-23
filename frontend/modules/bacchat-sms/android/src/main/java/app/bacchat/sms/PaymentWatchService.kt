@@ -30,6 +30,7 @@ class PaymentWatchService : Service() {
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     val context = applicationContext
+    // ACTION_REPOST arrives when the notification was swiped away (Android 14+ allows that): show it again.
     if (!shouldRun(context)) {
       stopSelf()
       return START_NOT_STICKY
@@ -53,6 +54,7 @@ class PaymentWatchService : Service() {
   companion object {
     private const val CHANNEL_ID = "reading"
     private const val NOTIFICATION_ID = 4102
+    private const val ACTION_REPOST = "app.bacchat.sms.REPOST_READING"
 
     fun shouldRun(context: Context): Boolean =
       SmsStore.isEnabled(context) || SmsStore.isNotificationsEnabled(context)
@@ -93,6 +95,13 @@ class PaymentWatchService : Service() {
         }
         manager.createNotificationChannel(channel)
       }
+      // Swiped away by mistake: the delete intent restarts this service, which shows it again.
+      val repost = PendingIntent.getService(
+        context,
+        2,
+        Intent(context, PaymentWatchService::class.java).setAction(ACTION_REPOST),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+      )
       val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
       val pending = launch?.let {
         PendingIntent.getActivity(context, 1, it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
@@ -110,6 +119,7 @@ class PaymentWatchService : Service() {
         .setCategory(NotificationCompat.CATEGORY_SERVICE)
         .setPriority(NotificationCompat.PRIORITY_MIN)
         .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+        .setDeleteIntent(repost)
         .apply { if (pending != null) setContentIntent(pending) }
         .build()
     }

@@ -6,7 +6,7 @@
 export type KId =
   | 'k1' | 'k2' | 'k3' | 'k4' | 'k5' | 'k6' | 'k7' | 'k8' | 'k9' | 'k10'
   | 'k11' | 'k12' | 'k13' | 'k14' | 'k15' | 'k16' | 'k17' | 'k18' | 'k19' | 'k20'
-  | 'k21' | 'k22' | 'k23' | 'k24' | 'k25' | 'k26' | 'k27' | 'k28' | 'k29' | 'k30';
+  | 'k21' | 'k22' | 'k23' | 'k24' | 'k25' | 'k26' | 'k27' | 'k28' | 'k29' | 'k30' | 'k31';
 
 export type ScreenGroup = 'start' | 'home' | 'money' | 'goals' | 'you' | 'debug';
 
@@ -44,6 +44,7 @@ export const SCREEN_MANIFEST: readonly ScreenDef[] = [
   def('k19', 'Search', 'Search', 'money', 'screen', 'money/search'),
   def('k27', 'LongPressMenu', 'Long-press menu', 'money', 'menu', 'money/entry_menu'),
   def('k28', 'SelectMode', 'Select mode', 'money', 'mode', 'money/select'),
+  def('k31', 'PickCategory', 'Pick a category', 'money', 'screen', 'money/pick_category'),
   def('k12', 'Goals', 'Goals', 'goals', 'tab', 'goals'),
   def('k13', 'GoalDetail', 'Goal detail', 'goals', 'screen', 'goals/detail'),
   def('k14', 'NewGoal', 'New goal', 'goals', 'screen', 'goals/new'),

@@ -1,4 +1,4 @@
-import type { RawSms, SmsNative, SmsPermissions } from './index';
+import type { CategoryPick, RawSms, SmsNative, SmsPermissions } from './index';
 
 export type FakeSmsNative = SmsNative & {
   /** Test controls. */
@@ -17,6 +17,13 @@ export type FakeSmsNative = SmsNative & {
   backgroundAllowed: boolean;
   backgroundAsked: number;
   notifications: { channelName: string; title: string; text: string; deepLink: string }[];
+  entryNotifications: { title: string; text: string; entryId: string; choiceIds: string[]; choiceLabels: string[]; savedTexts: string[]; moreLabel: string; deepLink: string }[];
+  cancelled: string[];
+  picks: CategoryPick[];
+  /** What isAppVisible answers. */
+  visible: boolean;
+  /** Tap a category button as if the app were running. */
+  pick(p: CategoryPick): void;
   /** Deliver a message as if it arrived while the app is running. */
   emit(sms: RawSms): void;
   listenerCount(): number;
@@ -25,6 +32,7 @@ export type FakeSmsNative = SmsNative & {
 /** In-memory SmsNative for tests. */
 export function createFakeSmsNative(): FakeSmsNative {
   const listeners = new Set<(sms: RawSms) => void>();
+  const pickListeners = new Set<(p: CategoryPick) => void>();
   const fake: FakeSmsNative = {
     inbox: [],
     queued: [],
@@ -37,6 +45,10 @@ export function createFakeSmsNative(): FakeSmsNative {
     backgroundAllowed: false,
     backgroundAsked: 0,
     notifications: [],
+    entryNotifications: [],
+    cancelled: [],
+    picks: [],
+    visible: false,
     getPermissions: () => ({ ...fake.permissions }),
     async requestPermissionsAsync() {
       if (fake.grantOnRequest) fake.permissions = { readSms: true, receiveSms: true, postNotifications: true };
@@ -67,9 +79,40 @@ export function createFakeSmsNative(): FakeSmsNative {
     acknowledge(ids) {
       fake.queued = fake.queued.filter((m) => !ids.includes(m.id));
     },
-    addListener(_event, listener) {
-      listeners.add(listener);
-      return { remove: () => void listeners.delete(listener) };
+    addListener(event: 'onSmsReceived' | 'onCategoryPicked', listener: ((sms: RawSms) => void) | ((p: CategoryPick) => void)) {
+      if (event === 'onCategoryPicked') {
+        const l = listener as (p: CategoryPick) => void;
+        pickListeners.add(l);
+        return { remove: () => void pickListeners.delete(l) };
+      }
+      const l = listener as (sms: RawSms) => void;
+      listeners.add(l);
+      return { remove: () => void listeners.delete(l) };
+    },
+    postEntryNotification(_channelName, title, text, entryId, choices, moreLabel, deepLink) {
+      fake.entryNotifications.push({
+        title,
+        text,
+        entryId,
+        choiceIds: choices.map((c) => c.id),
+        choiceLabels: choices.map((c) => c.label),
+        savedTexts: choices.map((c) => c.saved),
+        moreLabel,
+        deepLink,
+      });
+      return true;
+    },
+    cancelEntryNotification(entryId) {
+      fake.cancelled.push(entryId);
+    },
+    isAppVisible: () => fake.visible,
+    drainPicks: () => fake.picks.slice(),
+    acknowledgePicks(ids) {
+      fake.picks = fake.picks.filter((p) => !ids.includes(p.entryId));
+    },
+    pick(p) {
+      fake.picks = [...fake.picks.filter((x) => x.entryId !== p.entryId), p];
+      pickListeners.forEach((l) => l(p));
     },
     postNotification(channelName, title, text, deepLink) {
       fake.notifications.push({ channelName, title, text, deepLink });

@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
-import com.facebook.react.HeadlessJsTaskService
 
 /**
  * Receives incoming SMS. Always queues the message (so nothing is lost when the app is closed),
@@ -33,7 +32,7 @@ class SmsReceiver : BroadcastReceiver() {
   /** App not running: hand the message to the headless JS task. Failure is fine, the queue keeps it. */
   private fun startBackgroundTask(context: Context, id: String, address: String, body: String, receivedAt: Long) {
     try {
-      HeadlessJsTaskService.acquireWakeLockNow(context)
+      BackgroundTask.wakeLock(context)
       val service = Intent(context, SmsHeadlessService::class.java)
         .putExtra(SmsHeadlessService.EXTRA_ID, id)
         .putExtra(SmsHeadlessService.EXTRA_ADDRESS, address)

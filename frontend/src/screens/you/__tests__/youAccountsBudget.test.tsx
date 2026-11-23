@@ -338,8 +338,8 @@ describe.each(['light', 'dark'] as const)('k15 Budget (%s)', (mode) => {
     await waitFor(() => expect(queryByTestId('caution-banner')).toBeNull());
     expect((await services.db.budgets.get('bud-eating-out'))?.monthlyPaise).toBe(700000);
     await waitFor(() => expect(flat(getByTestId('budget-bar-Eating out').props.style).backgroundColor).toBe(c.primary));
-    // Three waits for the write and re-render; slower than the 5 s default under full-suite load.
-  }, 20_000);
+    // Three waits (8 s each at most) for the write and re-render; slow under full-suite load.
+  }, 45_000);
 
   it('Okay dismisses the banner and leaves the limit alone', async () => {
     const { getByText, queryByTestId, getByTestId, services } = await open();

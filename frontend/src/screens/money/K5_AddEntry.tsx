@@ -1,5 +1,5 @@
 /**
- * k5: Add entry. Spent / Got / Moved, amount (opens the keypad), Paid to autocomplete,
+ * k5: Add entry. Spent / Got / Moved, amount (the phone's number keyboard), Paid to autocomplete,
  * Paid with, Date and Time (open k6), note, split with friends and Save.
  * Route params from k6: date (yyyy-mm-dd) and time ("5:30 pm").
  */
@@ -8,7 +8,7 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SegmentedButtons, Switch } from 'react-native-paper';
 
-import { AmountKeypad, formatAmountDisplay } from '../../components/AmountKeypad';
+import { formatAmountDisplay } from '../../components/AmountKeypad';
 import { startOfDay } from '../../data/db/dates';
 import { formatTime, parseRupees } from '../../lib/format';
 import { categorise } from '../../lib/ingest';
@@ -21,11 +21,26 @@ import { CategoryChoices } from './parts/CategoryChoices';
 import { buildMethodOptions, methodKey, payeesFromHistory, saveEntry, type MethodOption } from './parts/addEntry';
 import { useMoneyNav } from './parts/nav';
 import { S } from './parts/strings';
-import { Icon, PillButton, ScreenFrame, TopBar, useSerif } from './parts/ui';
+import { Icon, ScreenFrame, TopBar, useSerif } from './parts/ui';
 import { parseClock } from './date/TimePanel';
 
 const PAYEE_LABEL = { spent: S.paidTo, got: 'Got from', moved: 'Moved to' } as const;
 type Kind = keyof typeof PAYEE_LABEL;
+
+/**
+ * What was typed into the amount, cleaned to a plain number text: grouping commas and other
+ * characters dropped, one decimal point, at most two decimals and nine rupee digits.
+ * "1,24,9.505" -> "1249.50", "007" -> "7".
+ */
+export function cleanAmountInput(text: string): string {
+  const raw = text.replace(/[^0-9.]/g, '');
+  const dot = raw.indexOf('.');
+  let int = dot < 0 ? raw : raw.slice(0, dot);
+  const dec = dot < 0 ? null : raw.slice(dot + 1).replace(/\./g, '').slice(0, 2);
+  int = int.replace(/^0+(?=\d)/, '').slice(0, 9);
+  if (dec === null) return int;
+  return `${int || '0'}.${dec}`;
+}
 
 /** Epoch ms for a calendar day plus a clock text such as "5:30 pm". */
 export function combineDateTime(day: Date, clock: string): number {
@@ -44,7 +59,6 @@ export default function K5_AddEntry(): React.JSX.Element {
   const editId = typeof nav.params.id === 'string' ? nav.params.id : null;
   const [kind, setKind] = useState<Kind>('spent');
   const [amount, setAmount] = useState('');
-  const [keypad, setKeypad] = useState(false);
   const [payee, setPayee] = useState('');
   const [pickedCategory, setPickedCategory] = useState<string | null>(null);
   const [budgetId, setBudgetId] = useState<string | null>(null);
@@ -172,19 +186,25 @@ export default function K5_AddEntry(): React.JSX.Element {
             { value: 'moved', label: S.moved, testID: 'kind-moved', showSelectedCheck: true },
           ]}
         />
-        <Pressable
-          testID="amount"
-          accessibilityRole="button"
-          accessibilityLabel={`Amount ${formatAmountDisplay(amount)} rupees. ${S.tapAmount}`}
-          onPress={() => setKeypad(true)}
-          style={{ alignItems: 'center', marginTop: 18, marginBottom: 4 }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center' }}>
-            <Text style={[serif(28), { color: colors.onSurfaceVariant, marginTop: 6 }]}>{'\u20B9'}</Text>
-            <Text testID="amount-text" style={[serif(48), { color: colors.onSurface }]}>{formatAmountDisplay(amount)}</Text>
-          </View>
-        </Pressable>
-        <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant, textAlign: 'center', marginBottom: 18 }]}>{S.tapAmount}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', marginTop: 18, marginBottom: 18 }}>
+          <Text style={[serif(28), { color: colors.onSurfaceVariant, marginTop: 6 }]}>{'\u20B9'}</Text>
+          <TextInput
+            testID="amount"
+            accessibilityLabel={S.amountLabel}
+            value={amount ? formatAmountDisplay(amount) : ''}
+            onChangeText={(v) => {
+              setAmount(cleanAmountInput(v));
+              setError(false);
+            }}
+            placeholder="0"
+            placeholderTextColor={colors.onSurfaceVariant}
+            keyboardType="decimal-pad"
+            autoFocus={!editId}
+            selectTextOnFocus={!!editId}
+            maxLength={16}
+            style={[serif(48), { color: colors.onSurface, padding: 0, minWidth: 40, textAlign: 'center' }, error && !(parseRupees(amount || '0') ?? 0) ? { borderBottomWidth: 2, borderBottomColor: colors.error } : null]}
+          />
+        </View>
         <View style={{ gap: spacing.lg }}>
           <PayeeField
             label={PAYEE_LABEL[kind]}
@@ -273,12 +293,6 @@ export default function K5_AddEntry(): React.JSX.Element {
           </View>
         </View>
       </ScrollView>
-      {keypad ? (
-        <View testID="keypad-panel" style={{ paddingHorizontal: spacing.screenMargin, paddingBottom: spacing.lg, paddingTop: spacing.sm, gap: spacing.sm, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.outlineVariant }}>
-          <AmountKeypad value={amount} onChange={setAmount} />
-          <PillButton testID="keypad-done" label={S.done} onPress={() => setKeypad(false)} />
-        </View>
-      ) : null}
     </ScreenFrame>
   );
 }
