@@ -17,6 +17,15 @@ import com.facebook.react.HeadlessJsTaskService
  * (already read through SmsReceiver) are skipped. Nothing is logged or sent anywhere.
  */
 class PaymentNotificationListener : NotificationListenerService() {
+  override fun onListenerConnected() {
+    // Bound again after the process was restarted: make sure the reading service holds it.
+    PaymentWatchService.sync(applicationContext)
+  }
+
+  override fun onListenerDisconnected() {
+    PaymentWatchService.rebindListener(applicationContext)
+  }
+
   override fun onNotificationPosted(sbn: StatusBarNotification?) {
     val n = sbn ?: return
     try {

@@ -280,6 +280,15 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
     native.acknowledge(queued.map((m) => m.id));
   }
 
+  /** Reading runs in a background service; ask once (on a switch turned on) that Android lets it keep running. */
+  function askBackground(): void {
+    try {
+      native?.askToRunInBackground();
+    } catch {
+      /* reading still works while the app is open */
+    }
+  }
+
   const service: IngestService = {
     async start() {
       if (!native) return 'unavailable';
@@ -328,6 +337,7 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
       if (!hasPermission()) return 'permission';
       prefs().setSmsIngestEnabled(true);
       native.setEnabled(true);
+      askBackground();
       await service.start();
       return 'enabled';
     },
@@ -350,6 +360,7 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
         }
         return 'access';
       }
+      askBackground();
       await service.start();
       return 'enabled';
     },

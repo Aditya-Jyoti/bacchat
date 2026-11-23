@@ -13,6 +13,9 @@ export type FakeSmsNative = SmsNative & {
   notifAccess: boolean;
   /** Times the Notification access settings screen was opened. */
   accessOpened: number;
+  /** Whether running in the background is allowed, and times the system prompt was shown. */
+  backgroundAllowed: boolean;
+  backgroundAsked: number;
   notifications: { channelName: string; title: string; text: string; deepLink: string }[];
   /** Deliver a message as if it arrived while the app is running. */
   emit(sms: RawSms): void;
@@ -31,6 +34,8 @@ export function createFakeSmsNative(): FakeSmsNative {
     notifEnabled: false,
     notifAccess: false,
     accessOpened: 0,
+    backgroundAllowed: false,
+    backgroundAsked: 0,
     notifications: [],
     getPermissions: () => ({ ...fake.permissions }),
     async requestPermissionsAsync() {
@@ -47,6 +52,10 @@ export function createFakeSmsNative(): FakeSmsNative {
     hasNotificationAccess: () => fake.notifAccess,
     openNotificationAccessSettings() {
       fake.accessOpened += 1;
+    },
+    askToRunInBackground() {
+      if (!fake.backgroundAllowed) fake.backgroundAsked += 1;
+      return fake.backgroundAllowed;
     },
     async readInbox(sinceMs, limit) {
       return fake.inbox

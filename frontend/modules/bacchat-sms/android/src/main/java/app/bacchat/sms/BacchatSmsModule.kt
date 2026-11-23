@@ -8,6 +8,7 @@ import androidx.core.app.NotificationManagerCompat
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import androidx.core.content.ContextCompat
 import expo.modules.interfaces.permissions.Permissions
 import expo.modules.kotlin.Promise
@@ -51,9 +52,33 @@ class BacchatSmsModule : Module() {
       Permissions.askForPermissionsWithPermissionsManager(appContext.permissions, promise, *wanted.toTypedArray())
     }
 
-    Function("setEnabled") { on: Boolean -> SmsStore.setEnabled(context, on) }
+    Function("setEnabled") { on: Boolean ->
+      SmsStore.setEnabled(context, on)
+      PaymentWatchService.sync(context)
+    }
 
-    Function("setNotificationsEnabled") { on: Boolean -> SmsStore.setNotificationsEnabled(context, on) }
+    Function("setNotificationsEnabled") { on: Boolean ->
+      SmsStore.setNotificationsEnabled(context, on)
+      PaymentWatchService.sync(context)
+    }
+
+    /**
+     * Asks Android to let Bacchat keep running in the background (battery optimisation off), so the
+     * reading service is not stopped. Shows the system prompt only when not already allowed.
+     * Returns true when it is already allowed.
+     */
+    Function("askToRunInBackground") {
+      val power = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+      if (power.isIgnoringBatteryOptimizations(context.packageName)) return@Function true
+      try {
+        val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + context.packageName))
+          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+      } catch (e: Exception) {
+        // No such screen on this phone: reading still works while the service runs.
+      }
+      false
+    }
 
     /** True when the user has granted Bacchat Notification access in system settings. */
     Function("hasNotificationAccess") {

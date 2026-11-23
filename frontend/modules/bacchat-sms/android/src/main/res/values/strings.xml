@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Ongoing notification while Bacchat reads payments in the background (PaymentWatchService). -->
+  <string name="bacchat_reading_channel">Reading payments</string>
+  <string name="bacchat_reading_channel_description">Keeps Bacchat reading bank messages and payment notifications while it is closed.</string>
+  <string name="bacchat_reading_title">Reading your payments</string>
+</resources>

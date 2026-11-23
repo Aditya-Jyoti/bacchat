@@ -2,6 +2,11 @@
   <uses-permission android:name="android.permission.READ_SMS" />
   <uses-permission android:name="android.permission.RECEIVE_SMS" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <!-- PaymentWatchService: keeps reading while the app is closed, and restarts after a reboot. -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+  <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
   <application>
     <!-- Does nothing unless the user switched SMS reading on (see SmsStore.isEnabled). -->
@@ -28,5 +33,23 @@
         <action android:name="android.service.notification.NotificationListenerService" />
       </intent-filter>
     </service>
+
+    <!-- Holds the process while SMS or notification reading is on, with a quiet ongoing notification.
+         Stops itself when both are off (see PaymentWatchService.shouldRun). -->
+    <service
+      android:name="app.bacchat.sms.PaymentWatchService"
+      android:exported="false"
+      android:foregroundServiceType="specialUse">
+      <property
+        android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+        android:value="Reads incoming bank SMS and payment notifications on the device to record the user's own spending." />
+    </service>
+
+    <receiver android:name="app.bacchat.sms.WatchBootReceiver" android:exported="false">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+      </intent-filter>
+    </receiver>
   </application>
 </manifest>

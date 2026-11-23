@@ -959,7 +959,7 @@ export const en = {
     settingsTitle: 'Read bank SMS',
     settingsSub: 'On this phone only. Never uploaded.',
     notifTitle: 'Read payment notifications',
-    notifSub: 'Bank, card, UPI and email apps. Catches spends that come without an SMS.',
+    notifSub: 'Bank, card, UPI and email apps. Catches spends that come without an SMS. A quiet notification keeps it reading while Bacchat is closed.',
     notifAccess: 'Allow Notification access for Bacchat in the screen that opened, then come back.',
     notifAccessRow: 'Open Notification access',
     permissionNeeded: 'SMS access was not allowed. You can still paste a message.',

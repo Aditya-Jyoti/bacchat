@@ -300,6 +300,8 @@ describe('payment notifications', () => {
     const { native, svc } = setup();
     expect(await svc.enableNotifications()).toBe('access');
     expect(native.accessOpened).toBe(1);
+    // One system screen at a time: background running is asked once access is there.
+    expect(native.backgroundAsked).toBe(0);
     expect(usePreferences.getState().notifIngestEnabled).toBe(true);
     expect(svc.isRunning()).toBe(false);
     native.notifAccess = true;
@@ -314,6 +316,31 @@ describe('payment notifications', () => {
     native.notifAccess = true;
     expect(await svc.enableNotifications()).toBe('enabled');
     expect(native.enabled).toBe(false);
+    await svc.disableNotifications();
+    expect(native.notifEnabled).toBe(false);
+  });
+
+  it('asks to keep running in the background when a switch is turned on, never on a plain start', async () => {
+    const { native, svc } = setup();
+    native.notifAccess = true;
+    usePreferences.setState({ smsIngestEnabled: true });
+    expect(await svc.start()).toBe('started');
+    expect(native.backgroundAsked).toBe(0);
+    expect(await svc.enableNotifications()).toBe('enabled');
+    expect(native.backgroundAsked).toBe(1);
+    expect(await svc.enable()).toBe('enabled');
+    expect(native.backgroundAsked).toBe(2);
+    // Already allowed: no prompt.
+    native.backgroundAllowed = true;
+    await svc.enableNotifications();
+    expect(native.backgroundAsked).toBe(2);
+    svc.stop();
+  });
+
+  it('turning notifications off stops listening when SMS is off too', async () => {
+    const { native, svc } = setup();
+    native.notifAccess = true;
+    await svc.enableNotifications();
     await svc.disableNotifications();
     expect(svc.isRunning()).toBe(false);
     expect(native.notifEnabled).toBe(false);

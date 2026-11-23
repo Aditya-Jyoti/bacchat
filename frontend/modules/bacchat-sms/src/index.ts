@@ -38,6 +38,11 @@ export interface SmsNative {
   hasNotificationAccess(): boolean;
   /** Open the system screen where Notification access is granted. */
   openNotificationAccessSettings(): void;
+  /**
+   * Ask Android to let Bacchat run in the background (battery optimisation off) so reading keeps
+   * going while the app is closed. Shows the system prompt only when needed; true when already allowed.
+   */
+  askToRunInBackground(): boolean;
   readInbox(sinceMs: number, limit: number): Promise<RawSms[]>;
   /** Messages that arrived while the app was closed and are not yet acknowledged. */
   drainQueued(): RawSms[];
