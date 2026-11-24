@@ -48,8 +48,11 @@ function vpa(text: string): string | null {
 }
 
 function merchantOf(text: string, dir: 'out' | 'in'): { name: string | null; weak: boolean } {
+  // Mail layout (slice): "Transaction date 24-Nov-26 To SHOP NAME RRN 632859566593".
+  let m = /\b(?:To|From)\s+([A-Za-z0-9&.'() -]{2,60}?)\s+(?:RRN|UPI Ref|Ref(?:erence)? No)\b/.exec(text);
+  if (m && /[A-Za-z]{2}/.test(m[1])) return { name: cleanMerchant(m[1]), weak: false };
   // Axis style: UPI/P2M/429876543210/Blinkit
-  let m = /\bUPI\/(?:P2[MPA]|[A-Z0-9]+)\/\d{6,}\/([^\s.,]+(?: [A-Za-z0-9&]+)?)/i.exec(text);
+  m = /\bUPI\/(?:P2[MPA]|[A-Z0-9]+)\/\d{6,}\/([^\s.,]+(?: [A-Za-z0-9&]+)?)/i.exec(text);
   if (m) return { name: cleanMerchant(m[1]), weak: false };
   // A payment address right after to/from/by/VPA is the clearest signal.
   m = /\b(?:VPA|to|from|by)\s+([A-Za-z0-9._-]{2,}@[A-Za-z]{2,})\b/i.exec(text);
@@ -108,7 +111,13 @@ function methodOf(text: string, cardLast: string | null, hasUpi: boolean): PayMe
  */
 export function parseSms(text: string, ctx: ParseContext): Candidate | null {
   // Zero-width characters (some banks put one inside "20,000") would split the amount.
-  const body = text.replace(/[\u200B-\u200D\u2060\uFEFF]/g, '').replace(/\s+/g, ' ').trim();
+  const body = text
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, '')
+    // Email addresses ("drop an email to help@slice.bank.in" in a mail footer) are not payment
+    // addresses; a UPI handle has no dot after the @.
+    .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (!body || NOT_TXN.test(body) || OWN_MOVE.test(body)) return null;
   const dir = direction(body);
   if (!dir) return null;
@@ -131,6 +140,9 @@ export function parseSms(text: string, ctx: ParseContext): Candidate | null {
   confidence += 0.1; // direction was clear
   if (m.name) confidence += m.weak ? 0.05 : 0.2;
   if (card || acct) confidence += 0.08;
+  // "spent on your credit card", "debited from your slice account": says whose money moved even
+  // without digits, enough for a spend whose payee the message leaves out (a mail subject line).
+  else if (/\byour\b[^.]{0,30}\b(?:credit card|debit card|card|account|a\/c)\b/i.test(body)) confidence += 0.06;
   if (upi) confidence += 0.07;
   if (when.timeKnown) confidence += 0.05;
 

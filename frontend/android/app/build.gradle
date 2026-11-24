@@ -93,8 +93,8 @@ android {
         applicationId 'app.bacchat'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 22
-        versionName "0.4.10"
+        versionCode 23
+        versionName "0.4.11"
         // Lite build (BACCHAT_LITE=1, see react-native.config.js): no on-device AI engine.
         if (bacchatLite) versionNameSuffix "-lite"
 

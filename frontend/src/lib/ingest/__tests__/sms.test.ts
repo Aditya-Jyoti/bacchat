@@ -277,3 +277,23 @@ describe('slice style messages', () => {
     expect(c).toMatchObject({ amountPaise: 50000, direction: 'out' });
   });
 });
+
+describe('slice mails read from a Gmail notification', () => {
+  const RX = new Date(2026, 10, 24, 16, 30).getTime();
+  const CARD = 'slice. ₹50 spent on your credit card\nHi Aditya,\n₹50 spent on your slice credit card xx1261 via UPI.\nTransaction date\n24-Nov-26\nTo\nShree raja rajeshwaricate pvt ltd mah\nRRN\n632859566593\nBest,\nTeam slice\nDigital safety tips\nTo talk to us, drop an email to help@slice.bank.in';
+  const SAVINGS = 'slice. ₹20 debited from your slice account\nHi Aditya,\n₹20 debited from your slice account xx1207 via UPI.\nTransaction date\n24-Nov-26\nTo\nYUMMY PHAL JUICY FRESH FRU\nRRN\n632826374591\nBest,\nTeam slice\nTo talk to us, drop an email to help@slice.bank.in';
+
+  it('takes the payee from "To ... RRN", never the help address in the footer', () => {
+    const c = parseSms(CARD, { receivedAt: RX, rawRef: 'm1' })!;
+    expect(c).toMatchObject({ amountPaise: 5000, direction: 'out', merchant: 'Shree raja rajeshwaricate pvt ltd mah', cardLast4: '1261', upiHandle: null });
+    const s = parseSms(SAVINGS, { receivedAt: RX, rawRef: 'm2' })!;
+    expect(s).toMatchObject({ amountPaise: 2000, merchant: 'Yummy Phal Juicy Fresh Fru', accountLast4: '1207' });
+  });
+
+  it('keeps a subject line with no payee ("spent on your credit card") above the bar', () => {
+    const c = parseSms('slice ₹50 spent on your credit card', { receivedAt: RX, rawRef: 'm3' })!;
+    expect(c.merchant).toBeNull();
+    expect(c.confidence).toBeGreaterThanOrEqual(0.6);
+    expect(parseSms('slice ₹20 debited from your slice account', { receivedAt: RX, rawRef: 'm4' })!.confidence).toBeGreaterThanOrEqual(0.6);
+  });
+});

@@ -19,6 +19,20 @@ class PaymentNotificationListener : NotificationListenerService() {
   override fun onListenerConnected() {
     // Bound again after the process was restarted: make sure the reading service holds it.
     PaymentWatchService.sync(applicationContext)
+    // Anything that arrived while we were not connected (restart, update, access just granted) and
+    // is still in the shade is read now. The TypeScript side skips what it already has (same rawRef).
+    try {
+      val since = System.currentTimeMillis() - CATCH_UP_MS
+      activeNotifications?.filter { it.postTime >= since }?.sortedBy { it.postTime }?.forEach { sbn ->
+        try {
+          handle(sbn)
+        } catch (e: Exception) {
+          // Skip the one we cannot read.
+        }
+      }
+    } catch (e: Exception) {
+      // Not allowed yet: new notifications still come through onNotificationPosted.
+    }
   }
 
   override fun onListenerDisconnected() {
@@ -75,6 +89,8 @@ class PaymentNotificationListener : NotificationListenerService() {
   }
 
   companion object {
+    /** How far back notifications still in the shade are read when the listener connects. */
+    private const val CATCH_UP_MS = 48L * 60 * 60 * 1000
     private val MONEY = Regex("(?:Rs\\.?|INR|₹)\\s*[0-9]", RegexOption.IGNORE_CASE)
 
     /** Title, then the longest body the notification carries (big text, inbox lines or text). */
