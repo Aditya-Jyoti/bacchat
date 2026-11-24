@@ -139,6 +139,8 @@ export const en = {
     total: '{amount} total',
     swipeActions: 'SWIPE ACTIONS',
     looksRight: 'Looks right',
+    notMine: 'Not mine',
+    removed: '{name} removed',
     deleted: '{name} deleted',
     deletedMany: '{n} deleted',
     undo: 'Undo',

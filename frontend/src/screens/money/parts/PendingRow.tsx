@@ -11,16 +11,20 @@ import { Icon, MiniTag } from './ui';
 
 /**
  * An entry added by SMS, email or a screenshot that still needs a look: dashed outline, a TO REVIEW
- * tag, a tap to confirm and a swipe right to confirm ("Looks right"). Long press opens the menu.
+ * tag, a tap or the tick to confirm ("Looks right", also swipe right), the cross to remove it ("Not
+ * mine", also swipe left; the screen offers Undo). Long press opens the menu.
  */
 export function PendingRow({
   row,
   onConfirm,
+  onDecline,
   onLongPress,
   testID,
 }: {
   row: EntryRowProps;
   onConfirm: () => void;
+  /** Remove the entry: it was not a real spend of yours. */
+  onDecline?: () => void;
   onLongPress?: () => void;
   testID?: string;
 }): React.JSX.Element {
@@ -36,7 +40,9 @@ export function PendingRow({
         height={64}
         accessibilityLabel={label}
         rightSwipe={{ label: t('moneyUi.looksRight'), icon: 'check_circle', onTrigger: onConfirm }}
+        leftSwipe={onDecline ? { label: t('moneyUi.notMine'), icon: 'close', onTrigger: onDecline, destructive: true } : undefined}
       >
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
         <Pressable
           testID={testID}
           accessibilityRole="button"
@@ -59,8 +65,28 @@ export function PendingRow({
             </Text>
           </View>
           <Amount paise={row.amountPaise} income={row.income} variant="bodyLarge" style={{ fontWeight: '600' }} />
+        </Pressable>
+        {onDecline ? (
+          <Pressable
+            testID={testID ? `decline-${testID}` : undefined}
+            accessibilityRole="button"
+            accessibilityLabel={`${t('moneyUi.notMine')}: ${row.name}`}
+            onPress={onDecline}
+            style={{ width: 44, minHeight: 48, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Icon name="close" size={22} color={colors.onSurfaceVariant} />
+          </Pressable>
+        ) : null}
+        <Pressable
+          testID={testID ? `confirm-${testID}` : undefined}
+          accessibilityRole="button"
+          accessibilityLabel={`${t('moneyUi.looksRight')}: ${row.name}`}
+          onPress={onConfirm}
+          style={{ width: 44, minHeight: 48, alignItems: 'center', justifyContent: 'center' }}
+        >
           <Icon name="check_circle" size={22} color={colors.primary} />
         </Pressable>
+        </View>
       </SwipeRow>
     </View>
   );

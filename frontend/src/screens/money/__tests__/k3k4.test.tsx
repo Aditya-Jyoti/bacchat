@@ -312,6 +312,24 @@ describe.each(['light', 'dark'] as const)('k4 Money Entries (%s)', (mode) => {
     await waitFor(async () => expect((await services.db.entries.toReview()).map((e) => e.merchant)).toEqual(['BigBasket']));
   });
 
+  it('the cross removes a To review entry ("Not mine") with Undo, and swipe left does too', async () => {
+    const { findByTestId, services, findByText } = await renderLive(<K4 />, mode);
+    fireEvent.press(await findByTestId('decline-entry-BigBasket'));
+    await waitFor(async () => expect((await services.db.entries.list()).some((e) => e.merchant === 'BigBasket')).toBe(false));
+    expect(await findByText('BigBasket removed')).toBeTruthy();
+    fireEvent.press(await findByTestId('undo'));
+    await waitFor(async () => expect((await services.db.entries.toReview()).map((e) => e.merchant).sort()).toEqual(['BigBasket', 'Myntra refund']));
+    const row = await findByTestId('swipe-entry-Myntra refund');
+    act(() => row.props.onAccessibilityAction({ nativeEvent: { actionName: 'swipeLeft' } }));
+    await waitFor(async () => expect((await services.db.entries.list()).some((e) => e.merchant === 'Myntra refund')).toBe(false));
+  });
+
+  it('the tick confirms without opening anything', async () => {
+    const { findByTestId, services } = await renderLive(<K4 />, mode);
+    fireEvent.press(await findByTestId('confirm-entry-BigBasket'));
+    await waitFor(async () => expect((await services.db.entries.toReview()).map((e) => e.merchant)).toEqual(['Myntra refund']));
+  });
+
   it('steps back through months and the older one lists its entries', async () => {
     const { getByTestId, findByText, queryByText } = await renderLive(<K4 />, mode);
     await findByText('Blinkit');

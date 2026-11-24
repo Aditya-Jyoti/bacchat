@@ -161,7 +161,18 @@ export default function K4_MoneyEntries(): React.JSX.Element {
                 const row = rowFor(e, lk);
                 const open = (): void => nav.open('k27', { id: e.id, name: e.merchant });
                 if (row.pending) {
-                  return <PendingRow key={e.id} testID={`entry-${e.merchant}`} row={row} onConfirm={() => void db.entries.confirm(e.id)} onLongPress={open} />;
+                  return (
+                    <PendingRow
+                      key={e.id}
+                      testID={`entry-${e.merchant}`}
+                      row={row}
+                      onConfirm={() => void db.entries.confirm(e.id)}
+                      onDecline={() =>
+                        void db.entries.remove(e.id).then(() => useUndo.getState().set({ label: fmt(S.removed, { name: e.merchant }), entries: [e] }))
+                      }
+                      onLongPress={open}
+                    />
+                  );
                 }
                 // Tap opens the entry to edit; long-press keeps the quick menu.
                 return <EntryRow key={e.id} testID={`entry-${e.merchant}`} {...row} onPress={() => nav.open('k5', { id: e.id })} onLongPress={open} />;
