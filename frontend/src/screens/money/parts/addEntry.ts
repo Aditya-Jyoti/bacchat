@@ -1,4 +1,4 @@
-/** Pure helpers for k5: method options, payee suggestions from history and building the Entry to save. */
+/** Pure helpers for k5: paid-from options, payee suggestions from history and building the Entry to save. */
 import type { Account, BacchatDb, Category, Entry, EntryDirection, MerchantHistory, PayMethod, UpiId } from '../../../data/db';
 import { newId } from '../../../data/db/ids';
 import { t } from '../../../lib/i18n';
@@ -6,25 +6,24 @@ import type { Payee } from './payees';
 
 export type MethodOption = { key: string; label: string; method: PayMethod; accountId: string | null; upiId: string | null };
 
-export const methodKey = (method: PayMethod, accountId: string | null | undefined, upiId: string | null | undefined): string =>
-  `${method}|${accountId ?? ''}|${upiId ?? ''}`;
+/** The choice is the account the money came from; the method is only kept inside the entry. */
+export const methodKey = (method: PayMethod, accountId: string | null | undefined, _upiId?: string | null): string =>
+  accountId ? `acc|${accountId}` : `none|${method === 'cash' ? 'cash' : ''}`;
 
-/** Paid-with choices from what the user has: UPI ids, cards, banks (debit and transfer) and cash. */
-export function buildMethodOptions(accounts: readonly Account[], upis: readonly UpiId[]): MethodOption[] {
+const METHOD_OF: Record<Account['kind'], PayMethod> = { card: 'card', bank: 'bank', cash: 'cash', mf: 'bank', nps: 'bank', loan: 'bank' };
+
+/**
+ * "Paid from" choices: one per account money can leave (cards, banks, cash). UPI, debit card or
+ * net banking all take money from one of these, so the method is not a choice (owner request).
+ */
+export function buildMethodOptions(accounts: readonly Account[], _upis: readonly UpiId[] = []): MethodOption[] {
   const out: MethodOption[] = [];
-  const opt = (label: string, method: PayMethod, accountId: string | null, upiId: string | null): void => {
-    out.push({ key: methodKey(method, accountId, upiId), label, method, accountId, upiId });
-  };
-  for (const u of upis) opt(`UPI \u00B7 ${u.handle}`, 'upi', u.accountId ?? null, u.id);
-  for (const a of accounts.filter((x) => x.kind === 'card')) opt(a.name, 'card', a.id, null);
-  for (const a of accounts.filter((x) => x.kind === 'bank')) {
-    if (a.last4) opt(t('moneyLive.debitOf', { name: a.name }), 'debit', a.id, null);
-    opt(a.name, 'bank', a.id, null);
+  const live = accounts.filter((a) => !a.deletedAt && (a.kind === 'card' || a.kind === 'bank' || a.kind === 'cash'));
+  const order: Account['kind'][] = ['card', 'bank', 'cash'];
+  for (const kind of order) {
+    for (const a of live.filter((x) => x.kind === kind)) out.push({ key: methodKey(METHOD_OF[a.kind], a.id), label: a.name, method: METHOD_OF[a.kind], accountId: a.id, upiId: null });
   }
-  // Plain UPI, with no UPI id to manage (UPI ids are not tracked any more).
-  if (upis.length === 0) opt(t('moneyLive.upi'), 'upi', null, null);
-  const cash = accounts.find((x) => x.kind === 'cash');
-  opt(t('moneyLive.cash'), 'cash', cash?.id ?? null, null);
+  if (!live.some((a) => a.kind === 'cash')) out.push({ key: methodKey('cash', null), label: t('moneyLive.cash'), method: 'cash', accountId: null, upiId: null });
   return out;
 }
 

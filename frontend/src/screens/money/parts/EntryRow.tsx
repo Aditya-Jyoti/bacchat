@@ -13,6 +13,8 @@ export type EntryRowProps = {
   icon: string;
   /** Second line, e.g. "Groceries \u00B7 UPI". */
   sub: string;
+  /** The owner's description of the spend; shown as one extra line when not empty. */
+  note?: string | null;
   amountPaise: number;
   income?: boolean;
   /** Source label under the amount. Omit to hide it. */
@@ -48,7 +50,7 @@ export function entryRowProps(e: EntryItem, extra: Partial<EntryRowProps> = {}):
 export function EntryRow(p: EntryRowProps): React.JSX.Element {
   const { colors, typography, spacing, shapes } = useTheme();
   const selMode = p.selected !== undefined;
-  const label = `${p.name}, ${p.sub}${p.resolved ? ', resolved' : ''}${p.toReview ? ', to review' : ''}`;
+  const label = `${p.name}, ${p.sub}${p.note ? `, ${p.note}` : ''}${p.resolved ? ', resolved' : ''}${p.toReview ? ', to review' : ''}`;
   return (
     <Pressable
       testID={p.testID}
@@ -93,6 +95,11 @@ export function EntryRow(p: EntryRowProps): React.JSX.Element {
         <Text numberOfLines={1} style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>
           {p.sub}
         </Text>
+        {p.note ? (
+          <Text testID={`entry-note-${p.name}`} numberOfLines={1} style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>
+            {p.note}
+          </Text>
+        ) : null}
       </View>
       <View style={{ alignItems: 'flex-end' }}>
         <Amount paise={p.amountPaise} income={p.income} variant="bodyLarge" style={{ fontWeight: '600' }} />

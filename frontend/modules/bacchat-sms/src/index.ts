@@ -26,8 +26,8 @@ export type SmsPermissions = {
 
 export type SmsSubscription = { remove: () => void };
 
-/** A category picked with a button on a "From your messages" notification. */
-export type CategoryPick = { entryId: string; categoryId: string };
+/** A category picked, or a note typed, on a spend notification. Empty or missing means not given. */
+export type CategoryPick = { entryId: string; categoryId?: string | null; note?: string | null };
 
 /** A category button on an entry notification: its id, label and the confirmation shown after a tap. */
 export type CategoryChoice = { id: string; label: string; saved: string };
@@ -72,6 +72,8 @@ export interface SmsNative {
     choices: CategoryChoice[],
     moreLabel: string,
     deepLink: string,
+    /** Label of the inline "Add note" reply; empty for none. */
+    noteLabel: string,
   ): boolean;
   cancelEntryNotification(entryId: string): void;
   /** Whether a Bacchat screen is on show (asked of Android; AppState is unreliable while the reading service runs). */

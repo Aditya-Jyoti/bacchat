@@ -92,6 +92,7 @@ export default function K3_MoneySummary(): React.JSX.Element {
                 </Text>
               </View>
             </View>
+            <DailySpendSection daily={s.daily} win={win} lookups={lk} picked={picked} onPick={setPicked} onSeeEntries={() => nav.openEntries()} />
             <MonthStory
               lines={buildStory({
                 isCurrent: win.isCurrent,
@@ -110,7 +111,7 @@ export default function K3_MoneySummary(): React.JSX.Element {
               })}
               onAction={(a) => (a.kind === 'accounts' ? nav.go('k10') : a.kind === 'category' ? nav.openEntries({ category: a.name }) : nav.openEntries())}
             />
-            <DailySpendSection daily={s.daily} win={win} lookups={lk} picked={picked} onPick={setPicked} onSeeEntries={() => nav.openEntries()} />
+
             <CategorySection
               categories={s.categories}
               totalPaise={s.spentPaise}
@@ -119,7 +120,7 @@ export default function K3_MoneySummary(): React.JSX.Element {
               onPick={(category) => nav.openEntries({ category })}
             />
             <BiggestSection biggest={s.biggest} oneOffPaise={s.oneOffPaise} oneOffCount={s.oneOffCount} everydayPaise={s.everydayPaise} lookups={lk} />
-            <MethodSection methods={s.methods} />
+            <MethodSection accounts={s.accounts} lookups={lk} />
             <MerchantSection merchants={s.merchants} lookups={lk} />
           </View>
         ) : (

@@ -11,27 +11,27 @@ import { formatRupees } from '../../../lib/format';
 import type { Lookups } from '../parts/live';
 import { S } from '../parts/strings';
 import { Icon } from '../parts/ui';
-import { METHOD_ICON, type MerchantTotal, type MethodShare } from './summaryData';
+import { METHOD_ICON, type AccountShare, type MerchantTotal } from './summaryData';
 
-const METHOD_KEY = { card: 'methodCard', upi: 'methodUpi', debit: 'methodDebit', cash: 'methodCash', bank: 'methodBank' } as const;
 
 export function timesText(n: number): string {
   return n === 1 ? t('moneyLive.once') : t('moneyLive.times', { n });
 }
 
-/** "Paid with" rows: icon, name, share bar in chart2, amount. */
-export function MethodSection({ methods }: { methods: readonly MethodShare[] }): React.JSX.Element | null {
+/** "Paid from" rows: the account's icon and name, a share bar in chart2, the amount. */
+export function MethodSection({ accounts, lookups }: { accounts: readonly AccountShare[]; lookups: Lookups }): React.JSX.Element | null {
   const { colors, typography, spacing } = useTheme();
-  if (methods.length === 0) return null;
+  if (accounts.length === 0) return null;
   return (
     <View>
       <SectionHeader title={S.paidWith} hint={t('moneyLive.paidWithHint')} />
-      {methods.map((b) => {
-        const name = t(`moneyLive.${METHOD_KEY[b.method]}`);
+      {accounts.map((b) => {
+        const acct = b.accountId ? lookups.accounts.get(b.accountId) : undefined;
+        const name = acct?.name ?? (b.method === 'cash' ? t('moneyLive.cash') : t('moneyLive.noAccount'));
         return (
-          <View key={b.method} testID={`method-${name}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 36, paddingVertical: 5 }}>
-            <Icon name={METHOD_ICON[b.method]} size={18} color={colors.onSurfaceVariant} />
-            <Text style={[typography.bodyMedium, { color: colors.onSurface, width: 96 }]}>{name}</Text>
+          <View key={b.accountId ?? b.method} testID={`method-${name}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 36, paddingVertical: 5 }}>
+            <Icon name={acct?.icon ?? METHOD_ICON[b.method]} size={18} color={colors.onSurfaceVariant} />
+            <Text numberOfLines={1} style={[typography.bodyMedium, { color: colors.onSurface, width: 110 }]}>{name}</Text>
             <View style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: colors.surfaceContainerHigh }}>
               <View style={{ width: `${b.percent}%`, height: 6, borderRadius: 3, backgroundColor: colors.chart2 }} />
             </View>

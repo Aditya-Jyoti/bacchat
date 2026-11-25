@@ -10,10 +10,10 @@ class CategoryPickHeadlessService : HeadlessJsTaskService() {
   override fun getTaskConfig(intent: Intent?): HeadlessJsTaskConfig? {
     val extras = intent?.extras ?: return null
     val entryId = extras.getString(CategoryPickReceiver.EXTRA_ENTRY) ?: return null
-    val categoryId = extras.getString(CategoryPickReceiver.EXTRA_CATEGORY) ?: return null
     val data = Arguments.createMap().apply {
       putString("entryId", entryId)
-      putString("categoryId", categoryId)
+      putString("categoryId", extras.getString(CategoryPickReceiver.EXTRA_CATEGORY).orEmpty())
+      putString("note", extras.getString(CategoryPickReceiver.EXTRA_NOTE).orEmpty())
     }
     return HeadlessJsTaskConfig(TASK_KEY, data, 30_000, true)
   }

@@ -1,16 +1,17 @@
-/** k31 Pick a category: opened from a "From your messages" notification for one entry. */
+/** k31 This spend: opened from a "From your messages" notification for one entry. */
 import { fireEvent, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
 import K31 from '../K31_PickCategory';
 import { mockNav, renderLive, R } from './helpers';
 
-describe.each(['light', 'dark'] as const)('k31 Pick a category (%s)', (mode) => {
+describe.each(['light', 'dark'] as const)('k31 This spend (%s)', (mode) => {
   it('shows the entry and every visible category, the current one marked', async () => {
     const r = await renderLive(<K31 />, mode, { entry: 'e-blinkit' });
     expect(r.getByTestId('screen-k31')).toBeTruthy();
-    expect(r.getByText('Pick a category')).toBeTruthy();
+    expect(r.getByText('This spend')).toBeTruthy();
     await r.findByTestId('pick-entry');
+    expect(r.getByText('Category')).toBeTruthy();
     expect(r.getByText('Blinkit')).toBeTruthy();
     expect(r.getByTestId('pick-amount').props.children).toBe(`${R}518`);
     expect(r.getByTestId('pick-Groceries').props.accessibilityLabel).toBe('Groceries, chosen now');
@@ -22,6 +23,29 @@ describe.each(['light', 'dark'] as const)('k31 Pick a category (%s)', (mode) => 
     fireEvent.press(await r.findByTestId('pick-Gifts'));
     await waitFor(async () => expect(await r.services.db.entries.get('e-blinkit')).toMatchObject({ categoryId: 'gifts', status: 'confirmed' }));
     await waitFor(() => expect(r.nav.goBack).toHaveBeenCalled());
+  });
+
+  it('saves the description when the field is left and confirms the entry', async () => {
+    const r = await renderLive(<K31 />, mode, { entry: 'e-blinkit' });
+    const field = await r.findByTestId('pick-note');
+    fireEvent.changeText(field, '  Party snacks ');
+    fireEvent(field, 'endEditing');
+    await waitFor(async () => expect(await r.services.db.entries.get('e-blinkit')).toMatchObject({ note: 'Party snacks', status: 'confirmed' }));
+  });
+
+  it('a category pick after typing a description keeps both', async () => {
+    const r = await renderLive(<K31 />, mode, { entry: 'e-blinkit' });
+    fireEvent.changeText(await r.findByTestId('pick-note'), 'Birthday');
+    fireEvent.press(r.getByTestId('pick-Gifts'));
+    await waitFor(async () => expect(await r.services.db.entries.get('e-blinkit')).toMatchObject({ categoryId: 'gifts', note: 'Birthday' }));
+  });
+
+  it('Edit all details saves the description and opens k5 for the entry', async () => {
+    const r = await renderLive(<K31 />, mode, { entry: 'e-blinkit' });
+    fireEvent.changeText(await r.findByTestId('pick-note'), 'Late night');
+    fireEvent.press(r.getByTestId('pick-edit-all'));
+    expect(r.nav.navigate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'e-blinkit' }));
+    await waitFor(async () => expect((await r.services.db.entries.get('e-blinkit'))?.note).toBe('Late night'));
   });
 
   it('search narrows the list and can create a new category', async () => {

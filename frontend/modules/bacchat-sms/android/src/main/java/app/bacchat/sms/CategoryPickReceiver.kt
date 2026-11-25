@@ -14,14 +14,25 @@ import androidx.core.app.NotificationCompat
  */
 class CategoryPickReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
-    if (intent.action != ACTION_PICK) return
     val entryId = intent.getStringExtra(EXTRA_ENTRY) ?: return
-    val categoryId = intent.getStringExtra(EXTRA_CATEGORY) ?: return
     val notifId = intent.getIntExtra(EXTRA_NOTIF, 0)
-    SmsStore.enqueuePick(context, entryId, categoryId)
-    confirm(context, notifId, intent.getStringExtra(EXTRA_SAVED).orEmpty())
+    var categoryId = ""
+    var note = ""
+    when (intent.action) {
+      ACTION_PICK -> {
+        categoryId = intent.getStringExtra(EXTRA_CATEGORY) ?: return
+        confirm(context, notifId, intent.getStringExtra(EXTRA_SAVED).orEmpty())
+      }
+      ACTION_NOTE -> {
+        note = androidx.core.app.RemoteInput.getResultsFromIntent(intent)?.getCharSequence(KEY_NOTE)?.toString()?.trim().orEmpty()
+        if (note.isEmpty()) return
+        confirm(context, notifId, context.getString(R.string.bacchat_note_saved))
+      }
+      else -> return
+    }
+    SmsStore.enqueuePick(context, entryId, categoryId, note)
     if (BacchatSmsModule.isLive()) {
-      BacchatSmsModule.deliverPick(entryId, categoryId)
+      BacchatSmsModule.deliverPick(entryId, categoryId, note)
       return
     }
     try {
@@ -29,7 +40,8 @@ class CategoryPickReceiver : BroadcastReceiver() {
       context.startService(
         Intent(context, CategoryPickHeadlessService::class.java)
           .putExtra(EXTRA_ENTRY, entryId)
-          .putExtra(EXTRA_CATEGORY, categoryId),
+          .putExtra(EXTRA_CATEGORY, categoryId)
+          .putExtra(EXTRA_NOTE, note),
       )
     } catch (e: Exception) {
       // Not allowed right now: the pick stays queued and is applied on the next app open.
@@ -59,6 +71,9 @@ class CategoryPickReceiver : BroadcastReceiver() {
 
   companion object {
     const val ACTION_PICK = "app.bacchat.sms.PICK_CATEGORY"
+    const val ACTION_NOTE = "app.bacchat.sms.ADD_NOTE"
+    const val KEY_NOTE = "note"
+    const val EXTRA_NOTE = "note"
     const val EXTRA_ENTRY = "entryId"
     const val EXTRA_CATEGORY = "categoryId"
     const val EXTRA_NOTIF = "notifId"

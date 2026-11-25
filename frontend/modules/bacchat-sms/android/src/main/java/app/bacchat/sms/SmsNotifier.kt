@@ -79,6 +79,7 @@ object SmsNotifier {
     savedTexts: List<String>,
     moreLabel: String,
     deepLink: String,
+    noteLabel: String = "",
   ): Boolean {
     val uri = Uri.parse(deepLink)
     if (uri.scheme != "bacchat") return false
@@ -104,7 +105,28 @@ object SmsNotifier {
       // Its own group, so Android does not stack several spends into one bundle that hides the buttons.
       .setGroup("entry-$notifId")
     if (text.isNotBlank()) builder.setContentText(text).setStyle(NotificationCompat.BigTextStyle().bigText(text))
-    val n = minOf(if (moreLabel.isBlank()) 3 else 2, choiceIds.size, choiceLabels.size)
+    // "Add note" first: typed straight into the notification (inline reply), saved without opening the app.
+    if (noteLabel.isNotBlank()) {
+      val noteIntent = Intent(context, CategoryPickReceiver::class.java).apply {
+        action = CategoryPickReceiver.ACTION_NOTE
+        data = Uri.parse("bacchat-note://$notifId")
+        putExtra(CategoryPickReceiver.EXTRA_ENTRY, entryId)
+        putExtra(CategoryPickReceiver.EXTRA_NOTIF, notifId)
+      }
+      // A reply needs a mutable PendingIntent so Android can add the typed text.
+      val notePending = PendingIntent.getBroadcast(
+        context,
+        notifId * 4 + 3,
+        noteIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0),
+      )
+      val input = androidx.core.app.RemoteInput.Builder(CategoryPickReceiver.KEY_NOTE).setLabel(noteLabel).build()
+      builder.addAction(
+        NotificationCompat.Action.Builder(0, noteLabel, notePending).addRemoteInput(input).setAllowGeneratedReplies(false).build(),
+      )
+    }
+    val slots = 3 - (if (noteLabel.isNotBlank()) 1 else 0) - (if (moreLabel.isBlank()) 0 else 1)
+    val n = minOf(maxOf(0, slots), choiceIds.size, choiceLabels.size)
     for (i in 0 until n) {
       val pick = Intent(context, CategoryPickReceiver::class.java).apply {
         action = CategoryPickReceiver.ACTION_PICK

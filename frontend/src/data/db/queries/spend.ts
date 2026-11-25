@@ -71,14 +71,19 @@ export type DayTotal = {
   top: { merchant: string; amountPaise: number; categoryId: string | null }[];
   /** Versus the average of days so far (negative = under). */
   vsAveragePaise: number;
+  /** Money that came in that day from someone else (not a move between your own accounts). */
+  inPaise: number;
 };
 
 export type DailySpend = { days: DayTotal[]; averagePaise: number; totalPaise: number };
 
 /** Daily spend for the month containing `now`. Days after today are marked future with zero. */
 export async function dailyTotals(db: BacchatDb, now: number): Promise<DailySpend> {
-  const entries = (await db.entries.between(startOfMonth(now), addMonths(now, 1))).filter(isSpend);
+  const all = await db.entries.between(startOfMonth(now), addMonths(now, 1));
+  const entries = all.filter(isSpend);
   const n = daysInMonth(now);
+  const incoming = Array.from({ length: n }, () => 0);
+  for (const e of all) if (e.direction === 'in' && !e.transferToAccountId && !e.deletedAt) incoming[dayOfMonth(e.at) - 1] += e.amountPaise;
   const today = dayOfMonth(now);
   const buckets: Entry[][] = Array.from({ length: n }, () => []);
   for (const e of entries) buckets[dayOfMonth(e.at) - 1].push(e);
@@ -100,6 +105,7 @@ export async function dailyTotals(db: BacchatDb, now: number): Promise<DailySpen
       today: i + 1 === today,
       top: future ? [] : top,
       vsAveragePaise: future ? 0 : totals[i] - averagePaise,
+      inPaise: future ? 0 : incoming[i],
     };
   });
   return { days, averagePaise, totalPaise };

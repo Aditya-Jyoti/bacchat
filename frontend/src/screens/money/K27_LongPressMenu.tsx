@@ -5,13 +5,16 @@
  * categories, Delete leaves an Undo for k4, Select opens k28; tapping outside returns to k4.
  */
 import React, { useMemo, useState } from 'react';
-import { Pressable, Text, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
+import { Pressable, Text, TextInput, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 
 import { Amount } from '../../components/Amount';
 import { CategoryIcon } from '../../components/CategoryIcon';
 import type { Entry } from '../../data/db';
 import { dateKey } from '../../data/db/dates';
+import { Button, Dialog, Portal } from 'react-native-paper';
+
 import { formatTime } from '../../lib/format';
+import { t } from '../../lib/i18n';
 import { useDbQuery, useWriters } from '../../services';
 import { useTheme } from '../../theme';
 import { CategoryChoices } from './parts/CategoryChoices';
@@ -21,11 +24,12 @@ import { S, fmt } from './parts/strings';
 import { useUndo } from './parts/undoStore';
 import { Icon, ScreenFrame, useSerif } from './parts/ui';
 
-export type MenuAction = 'edit' | 'category' | 'split' | 'goal' | 'copy' | 'select' | 'delete';
+export type MenuAction = 'edit' | 'category' | 'describe' | 'split' | 'goal' | 'copy' | 'select' | 'delete';
 
 const ITEMS: { id: MenuAction; icon: string; label: string }[] = [
   { id: 'edit', icon: 'edit', label: S.edit },
   { id: 'category', icon: 'category', label: S.changeCategory },
+  { id: 'describe', icon: 'notes', label: '' },
   { id: 'split', icon: 'call_split', label: S.splitWithFriends },
   { id: 'goal', icon: 'flag', label: S.addToGoal },
   { id: 'copy', icon: 'content_copy', label: S.copyAmount },
@@ -60,6 +64,8 @@ export default function K27_LongPressMenu({ onAction }: { onAction?: (a: MenuAct
   const group = useMemo(() => (found.data ? groupByDay(found.data.sameDay, found.data.now)[0] : null), [found.data]);
   const [y, setY] = useState<number | null>(null);
   const [picking, setPicking] = useState(false);
+  const [describing, setDescribing] = useState(false);
+  const [draft, setDraft] = useState('');
   const cats = useMemo(() => [...lk.cats.values()].sort((a, b) => a.name.localeCompare(b.name)), [lk]);
 
   const act = (a: MenuAction): void => {
@@ -68,6 +74,10 @@ export default function K27_LongPressMenu({ onAction }: { onAction?: (a: MenuAct
     if (a === 'select') nav.open('k28', { ids: [entry.id], name: entry.merchant });
     else if (a === 'edit' || a === 'split') nav.open('k5', { id: entry.id });
     else if (a === 'category') setPicking(true);
+    else if (a === 'describe') {
+      setDraft(entry.note ?? '');
+      setDescribing(true);
+    }
     else if (a === 'delete') {
       void db.entries.remove(entry.id).then(() => {
         useUndo.getState().set({ label: fmt(S.deleted, { name: entry.merchant }), entries: [entry] });
@@ -78,6 +88,13 @@ export default function K27_LongPressMenu({ onAction }: { onAction?: (a: MenuAct
   const recategorise = (categoryId: string): void => {
     if (!entry) return;
     void db.entries.put({ ...entry, categoryId }).then(() => db.merchants.record(entry.merchant, categoryId, entry.amountPaise, entry.at));
+    nav.back('k4');
+  };
+  const saveDescription = (): void => {
+    if (!entry) return;
+    const note = draft.trim();
+    void db.entries.put({ ...entry, note: note || null });
+    setDescribing(false);
     nav.back('k4');
   };
   const lifted = (e: Entry): React.JSX.Element => {
@@ -186,7 +203,7 @@ export default function K27_LongPressMenu({ onAction }: { onAction?: (a: MenuAct
           {ITEMS.map((it) => (
             <Pressable key={it.id} testID={`menu-${it.id}`} accessibilityRole="menuitem" onPress={() => act(it.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, height: 48, paddingHorizontal: spacing.lg }}>
               <Icon name={it.icon} size={22} color={colors.onSurfaceVariant} />
-              <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>{it.label}</Text>
+              <Text style={[typography.bodyLarge, { color: colors.onSurface }]}>{it.id === 'describe' ? (entry.note?.trim() ? S.editDescription : S.addDescription) : it.label}</Text>
             </Pressable>
           ))}
           <View style={{ height: 1, backgroundColor: colors.outlineVariant, marginVertical: 6 }} />
@@ -197,6 +214,28 @@ export default function K27_LongPressMenu({ onAction }: { onAction?: (a: MenuAct
         </View>
         )}
       </View>
+      <Portal>
+        <Dialog visible={describing} onDismiss={() => setDescribing(false)} style={{ backgroundColor: colors.surfaceContainerHigh }}>
+          <Dialog.Title style={[typography.headlineSmall, { color: colors.onSurface }]}>{entry.note?.trim() ? S.editDescription : S.addDescription}</Dialog.Title>
+          <Dialog.Content>
+            <TextInput
+              testID="description-input"
+              accessibilityLabel={S.addDescription}
+              value={draft}
+              onChangeText={setDraft}
+              multiline
+              autoFocus
+              placeholder={S.descriptionPlaceholder}
+              placeholderTextColor={colors.onSurfaceVariant}
+              style={[typography.bodyLarge, { color: colors.onSurface, minHeight: 72, textAlignVertical: 'top', borderWidth: 1, borderColor: colors.outline, borderRadius: shapes.field, padding: spacing.md }]}
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button testID="description-cancel" onPress={() => setDescribing(false)}>{t('common.cancel')}</Button>
+            <Button testID="description-save" onPress={saveDescription}>{t('common.save')}</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </ScreenFrame>
   );
 }

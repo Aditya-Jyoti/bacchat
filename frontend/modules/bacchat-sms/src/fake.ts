@@ -17,7 +17,7 @@ export type FakeSmsNative = SmsNative & {
   backgroundAllowed: boolean;
   backgroundAsked: number;
   notifications: { channelName: string; title: string; text: string; deepLink: string }[];
-  entryNotifications: { title: string; text: string; entryId: string; choiceIds: string[]; choiceLabels: string[]; savedTexts: string[]; moreLabel: string; deepLink: string }[];
+  entryNotifications: { title: string; text: string; entryId: string; choiceIds: string[]; choiceLabels: string[]; savedTexts: string[]; moreLabel: string; deepLink: string; noteLabel: string }[];
   cancelled: string[];
   picks: CategoryPick[];
   /** What isAppVisible answers. */
@@ -89,7 +89,7 @@ export function createFakeSmsNative(): FakeSmsNative {
       listeners.add(l);
       return { remove: () => void listeners.delete(l) };
     },
-    postEntryNotification(_channelName, title, text, entryId, choices, moreLabel, deepLink) {
+    postEntryNotification(_channelName, title, text, entryId, choices, moreLabel, deepLink, noteLabel) {
       fake.entryNotifications.push({
         title,
         text,
@@ -99,6 +99,7 @@ export function createFakeSmsNative(): FakeSmsNative {
         savedTexts: choices.map((c) => c.saved),
         moreLabel,
         deepLink,
+        noteLabel,
       });
       return true;
     },

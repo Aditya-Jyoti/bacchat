@@ -175,7 +175,7 @@ describe('commitImport', () => {
     expect(await importDefaults(db)).toEqual({ method: 'cash', accountId: 'c', upiId: null });
   });
 
-  it('Paid with offers cards and banks, starts on the old default, then on the last one picked', async () => {
+  it('Paid from offers cards and banks, starts on the old default, then on the last one picked', async () => {
     const db = createMemoryDb();
     await db.accounts.putMany([
       { id: 'c', name: 'Cash', kind: 'cash', balancePaise: 0, icon: 'payments' },

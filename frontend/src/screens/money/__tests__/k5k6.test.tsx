@@ -7,6 +7,7 @@ import { ThemeProvider, khataPalette } from '../../../theme';
 import K5 from '../K5_AddEntry';
 import K6 from '../K6_DatePicker';
 import { suggest } from '../parts/payees';
+import { buildMethodOptions, methodKey } from '../parts/addEntry';
 import { fromIso, toIso, entryDateLabel } from '../parts/dates';
 import { AppServicesProvider, createTestServices } from '../../../services';
 import { flat, mockNav, renderLive, renderScreen, R } from './helpers';
@@ -49,8 +50,8 @@ describe.each(['light', 'dark'] as const)('k5 Add entry (%s)', (mode) => {
     expect(getByTestId('amount').props.autoFocus).toBe(true);
     expect(getByTestId('payee-input').props.value).toBe('');
     expect(getByText('Paid to')).toBeTruthy();
-    expect(getByText('Paid with')).toBeTruthy();
-    expect(await findByText('UPI \u00B7 rahul@okhdfc')).toBeTruthy();
+    expect(getByText('Paid from')).toBeTruthy();
+    expect(await findByText('ICICI Amazon Pay')).toBeTruthy();
     expect(getByText('Today, 24 Oct')).toBeTruthy();
     expect(getByText('9:30 pm')).toBeTruthy();
     expect(getByText('Split with friends')).toBeTruthy();
@@ -59,7 +60,7 @@ describe.each(['light', 'dark'] as const)('k5 Add entry (%s)', (mode) => {
 
   it('suggests past payees with their usual category and offers Add as new', async () => {
     const r = await renderLive(<K5 />, mode);
-    await r.findByText('UPI \u00B7 rahul@okhdfc');
+    await r.findByText('ICICI Amazon Pay');
     fireEvent.changeText(r.getByTestId('payee-input'), 'Third Wa');
     expect(await r.findByText('Tea & coffee \u00B7 once')).toBeTruthy();
     expect(r.getByText('Add \u201CThird Wa\u201D as new')).toBeTruthy();
@@ -69,7 +70,7 @@ describe.each(['light', 'dark'] as const)('k5 Add entry (%s)', (mode) => {
 
   it('picking a suggestion fills the payee and its usual category', async () => {
     const r = await renderLive(<K5 />, mode);
-    await r.findByText('UPI \u00B7 rahul@okhdfc');
+    await r.findByText('ICICI Amazon Pay');
     fireEvent.changeText(r.getByTestId('payee-input'), 'Third Wa');
     fireEvent.press(await r.findByTestId('payee-option-0'));
     expect(r.getByDisplayValue('Third Wave Coffee')).toBeTruthy();
@@ -79,7 +80,7 @@ describe.each(['light', 'dark'] as const)('k5 Add entry (%s)', (mode) => {
 
   it('typing filters suggestions, clear empties the field, Add as new closes the menu', async () => {
     const { getByTestId, queryByTestId, getByText, findByText } = await renderLive(<K5 />, mode);
-    await findByText('UPI \u00B7 rahul@okhdfc');
+    await findByText('ICICI Amazon Pay');
     fireEvent.changeText(getByTestId('payee-input'), 'Zepto');
     expect(queryByTestId('payee-option-0')).toBeNull();
     fireEvent.press(getByTestId('payee-add-new'));
@@ -111,14 +112,17 @@ describe.each(['light', 'dark'] as const)('k5 Add entry (%s)', (mode) => {
     expect(getByText('Moved to')).toBeTruthy();
   });
 
-  it('chooses Paid with from the accounts you have and toggles the split switch and note', async () => {
+  it('chooses Paid from the accounts you have and toggles the split switch and note', async () => {
     const { getByTestId, getByText, queryByTestId, findByTestId } = await renderLive(<K5 />, mode);
     fireEvent.press(await findByTestId('method-field'));
-    for (const label of ['UPI \u00B7 rahul@okhdfc', 'ICICI Amazon Pay', 'HDFC Savings debit card', 'HDFC Savings', 'Cash']) {
+    // One option per account (cards, banks, cash); no payment methods, no UPI ids, no plain Cash beside a cash account.
+    for (const label of ['ICICI Amazon Pay', 'HDFC Savings', 'Cash wallet']) {
       expect(getByTestId(`method-${label}`)).toBeTruthy();
     }
-    fireEvent.press(getByTestId('method-Cash'));
-    expect(getByText('Cash')).toBeTruthy();
+    expect(queryByTestId('method-Cash')).toBeNull();
+    expect(queryByTestId('method-UPI')).toBeNull();
+    fireEvent.press(getByTestId('method-Cash wallet'));
+    expect(getByText('Cash wallet')).toBeTruthy();
     expect(queryByTestId('method-ICICI Amazon Pay')).toBeNull();
     fireEvent(getByTestId('split-switch'), 'valueChange', true);
     expect(getByTestId('split-switch').props.value).toBe(true);
@@ -142,7 +146,7 @@ describe.each(['light', 'dark'] as const)('k5 Add entry (%s)', (mode) => {
 
   it('Save writes a by-hand entry with the right account and method, learns the payee and returns to Entries', async () => {
     const r = await renderLive(<K5 />, mode);
-    await r.findByText('UPI \u00B7 rahul@okhdfc');
+    await r.findByText('ICICI Amazon Pay');
     await fill(r, 'Chai Point', ['4', '0', '.', '5']);
     fireEvent.changeText(r.getByTestId('note-input'), 'with Ria');
     fireEvent.press(r.getByText('Save'));
@@ -151,9 +155,9 @@ describe.each(['light', 'dark'] as const)('k5 Add entry (%s)', (mode) => {
     expect(saved).toMatchObject({
       amountPaise: 4050,
       direction: 'out',
-      method: 'upi',
-      upiId: 'upi-okhdfc',
-      accountId: 'acc-hdfc',
+      method: 'card',
+      upiId: null,
+      accountId: 'acc-icici',
       note: 'with Ria',
       status: 'confirmed',
       aiAdded: false,
@@ -165,7 +169,7 @@ describe.each(['light', 'dark'] as const)('k5 Add entry (%s)', (mode) => {
 
   it('picks a category with the search box and tags the spend with a budget', async () => {
     const r = await renderLive(<K5 />, mode);
-    await r.findByText('UPI \u00B7 rahul@okhdfc');
+    await r.findByText('ICICI Amazon Pay');
     await r.services.db.budgets.put({ id: 'b-fun', categoryId: '', name: 'Fun', icon: 'celebration', monthlyPaise: 300000 });
     await fill(r, 'Bowling alley', ['5', '0', '0']);
     fireEvent.press(r.getByTestId('category-field'));
@@ -178,18 +182,18 @@ describe.each(['light', 'dark'] as const)('k5 Add entry (%s)', (mode) => {
     await waitFor(async () => expect((await r.services.db.entries.list()).find((e) => e.merchant === 'Bowling alley')).toMatchObject({ budgetId: 'b-fun', amountPaise: 50000 }));
   });
 
-  it('a known payee brings its category; Got saves money in; the card account follows the method', async () => {
+  it('a known payee brings its category; Got saves money in; the account picked decides the method', async () => {
     const r = await renderLive(<K5 />, mode);
-    await r.findByText('UPI \u00B7 rahul@okhdfc');
+    await r.findByText('ICICI Amazon Pay');
     fireEvent.press(r.getByTestId('kind-got'));
     await fill(r, 'Blinkit', ['5', '0', '0']);
     expect(r.getByTestId('payee-category').props.children).toBe('Groceries');
     fireEvent.press(r.getByTestId('method-field'));
-    fireEvent.press(r.getByTestId('method-ICICI Amazon Pay'));
+    fireEvent.press(r.getByTestId('method-HDFC Savings'));
     fireEvent.press(r.getByText('Save'));
     await waitFor(async () => expect((await r.services.db.entries.list()).filter((e) => e.merchant === 'Blinkit')).toHaveLength(2));
     const saved = (await r.services.db.entries.list()).find((e) => e.merchant === 'Blinkit' && e.id !== 'e-blinkit');
-    expect(saved).toMatchObject({ direction: 'in', categoryId: 'groceries', method: 'card', accountId: 'acc-icici', upiId: null, amountPaise: 50000 });
+    expect(saved).toMatchObject({ direction: 'in', categoryId: 'groceries', method: 'bank', accountId: 'acc-hdfc', upiId: null, amountPaise: 50000 });
     // Money in does not teach the payee history.
     expect((await r.services.db.merchants.byName('Blinkit'))?.count).toBe(1);
   });
@@ -337,5 +341,26 @@ describe('k5 reacts to params arriving after mount', () => {
     rerender(wrap({ date: '2026-10-23', time: '9:10 am' }));
     expect(getByText('Yesterday, 23 Oct')).toBeTruthy();
     expect(getByText('9:10 am')).toBeTruthy();
+  });
+});
+
+describe('Paid from options', () => {
+  const acc = (id: string, name: string, kind: 'card' | 'bank' | 'cash' | 'mf') => ({ id, name, kind, balancePaise: 0, icon: 'x' }) as never;
+  it('lists one option per card, bank and cash account with the method derived, and skips investments', () => {
+    const o = buildMethodOptions([acc('b', 'Bank', 'bank'), acc('c', 'Card', 'card'), acc('m', 'Fund', 'mf'), acc('w', 'Wallet', 'cash')]);
+    expect(o.map((x) => [x.label, x.method, x.accountId, x.key])).toEqual([
+      ['Card', 'card', 'c', 'acc|c'],
+      ['Bank', 'bank', 'b', 'acc|b'],
+      ['Wallet', 'cash', 'w', 'acc|w'],
+    ]);
+    expect(o.every((x) => x.upiId === null)).toBe(true);
+  });
+  it('adds a plain Cash option only when there is no cash account', () => {
+    const o = buildMethodOptions([acc('b', 'Bank', 'bank')]);
+    expect(o.map((x) => [x.label, x.method, x.accountId, x.key])).toEqual([
+      ['Bank', 'bank', 'b', 'acc|b'],
+      ['Cash', 'cash', null, 'none|cash'],
+    ]);
+    expect(methodKey('cash', null)).toBe('none|cash');
   });
 });

@@ -5,6 +5,8 @@ import { normalizeMerchant } from '../../../lib/reconciliation';
 import { endOfMonth, monthWindow, type MonthWindow } from '../parts/live';
 
 export type MethodShare = { method: PayMethod; paise: number; percent: number };
+/** Spends by the account the money left from; accountId null when none was recorded. */
+export type AccountShare = { accountId: string | null; method: PayMethod; paise: number; percent: number };
 export type MerchantTotal = { name: string; paise: number; count: number; categoryId: string | null };
 
 export type MonthSummary = {
@@ -22,6 +24,8 @@ export type MonthSummary = {
   daily: DailySpend;
   categories: CategorySpend[];
   methods: MethodShare[];
+  /** Spends by account (shown as "Paid from"). */
+  accounts: AccountShare[];
   merchants: MerchantTotal[];
   /** The month's largest single spends, biggest first. */
   biggest: Entry[];
@@ -54,6 +58,20 @@ export function methodSplit(entries: readonly Entry[]): MethodShare[] {
   return [...by.entries()]
     .map(([method, paise]) => ({ method, paise, percent: total > 0 ? Math.round((paise / total) * 100) : 0 }))
     .sort((a, b) => b.paise - a.paise);
+}
+
+/** Where the money came from: spends by account (a UPI payment counts against the account it took money from). */
+export function accountSplit(entries: readonly Entry[]): AccountShare[] {
+  const by = new Map<string, AccountShare>();
+  for (const e of entries) {
+    if (!isSpend(e)) continue;
+    const key = e.accountId ?? `none:${e.method === 'cash' ? 'cash' : ''}`;
+    const cur = by.get(key) ?? { accountId: e.accountId ?? null, method: e.method, paise: 0, percent: 0 };
+    cur.paise += e.amountPaise;
+    by.set(key, cur);
+  }
+  const total = [...by.values()].reduce((s, v) => s + v.paise, 0);
+  return [...by.values()].map((a) => ({ ...a, percent: total > 0 ? Math.round((a.paise / total) * 100) : 0 })).sort((a, b) => b.paise - a.paise);
 }
 
 export function topMerchants(entries: readonly Entry[], limit = 8): MerchantTotal[] {
@@ -98,6 +116,7 @@ export async function monthSummary(db: BacchatDb, now: number, back: number): Pr
     daily,
     categories: spend.categories,
     methods: methodSplit(entries),
+    accounts: accountSplit(entries),
     merchants: topMerchants(entries),
     biggest: [...spends].sort((a, b) => b.amountPaise - a.amountPaise || b.at - a.at).slice(0, 6),
     oneOffPaise,

@@ -72,6 +72,11 @@ export function DailySpendSection({
           <Text style={[typography.bodySmall, { color: onInv, fontWeight: '600' }]}>{formatRupees(e.amountPaise)}</Text>
         </View>
       ))}
+      {day.inPaise > 0 ? (
+        <Text testID="daily-tip-income" style={[typography.bodySmall, { color: onInv, marginTop: 4 }]}>
+          {t('moneyLive.cameIn', { amount: formatRupees(day.inPaise) })}
+        </Text>
+      ) : null}
       <Text style={[typography.labelSmall, { color: onInv, opacity: 0.75, marginTop: 6 }]}>{vsText(day.vsAveragePaise)}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
         <Text style={[typography.labelMedium, { color: colors.primaryContainer, fontWeight: '700' }]}>{S.seeEntries}</Text>
@@ -84,6 +89,8 @@ export function DailySpendSection({
     <SectionHeader title={t('moneyLive.dailyTitle')} hint={t('moneyLive.dailyHint')} />
     <DailyBars
       values={values}
+      incomeValues={elapsed.map((d) => d.inPaise)}
+      legend={{ spent: t('moneyLive.legendSpent'), income: t('moneyLive.legendIn') }}
       daysInMonth={daily.days.length}
       todayIndex={win.isCurrent ? todayIndex : -1}
       selectedIndex={sel}

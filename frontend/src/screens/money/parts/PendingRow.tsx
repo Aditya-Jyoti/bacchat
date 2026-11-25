@@ -29,7 +29,7 @@ export function PendingRow({
   testID?: string;
 }): React.JSX.Element {
   const { colors, typography, shapes, spacing } = useTheme();
-  const label = `${row.name}, ${row.sub}, ${t('tags.toReview').toLowerCase()}`;
+  const label = `${row.name}, ${row.sub}${row.note ? `, ${row.note}` : ''}, ${t('tags.toReview').toLowerCase()}`;
   return (
     <View
       testID={testID ? `${testID}-frame` : undefined}
@@ -63,6 +63,11 @@ export function PendingRow({
             <Text numberOfLines={1} style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>
               {row.sub}
             </Text>
+            {row.note ? (
+              <Text testID={`entry-note-${row.name}`} numberOfLines={1} style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>
+                {row.note}
+              </Text>
+            ) : null}
           </View>
           <Amount paise={row.amountPaise} income={row.income} variant="bodyLarge" style={{ fontWeight: '600' }} />
         </Pressable>

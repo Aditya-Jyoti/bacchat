@@ -1,6 +1,6 @@
 /**
  * k5: Add entry. Spent / Got / Moved, amount (the phone's number keyboard), Paid to autocomplete,
- * Paid with, Date and Time (open k6), note, split with friends and Save.
+ * Paid from (an account), Date and Time (open k6), note, split with friends and Save.
  * Route params from k6: date (yyyy-mm-dd) and time ("5:30 pm").
  */
 import { t } from '../../lib/i18n';
@@ -255,7 +255,7 @@ export default function K5_AddEntry(): React.JSX.Element {
             </View>
           ) : null}
           <View>
-            <OutlinedField testID="method-field" label={S.paidWith} icon="qr_code_2" value={option?.label ?? ''} onPress={() => setMethodOpen((o) => !o)} trailing={<Icon name="arrow_drop_down" size={22} color={colors.onSurfaceVariant} />}>
+            <OutlinedField testID="method-field" label={S.paidWith} icon="account_balance_wallet" value={option?.label ?? ''} onPress={() => setMethodOpen((o) => !o)} trailing={<Icon name="arrow_drop_down" size={22} color={colors.onSurfaceVariant} />}>
               <Text numberOfLines={1} style={[typography.bodyLarge, { color: colors.onSurface }]}>{option?.label ?? ''}</Text>
             </OutlinedField>
             {methodOpen ? (

@@ -57,7 +57,7 @@ describe.each(['light', 'dark'] as const)('k19 Search (%s)', (mode) => {
     expect(getByTestId('result-total').props.children).toBe(`${R}2,346`);
     expect(getAllByText('Swiggy').length).toBe(3);
     expect(getByText(`Today \u00B7 ICICI Amazon Pay`)).toBeTruthy();
-    expect(getByText(`9 Oct \u00B7 HDFC Savings debit card`)).toBeTruthy();
+    expect(getByText(`9 Oct \u00B7 HDFC Savings`)).toBeTruthy();
   });
 
   it('finds by category name and clear empties the list', async () => {
@@ -129,7 +129,7 @@ describe.each(['light', 'dark'] as const)('k27 Long-press menu (%s)', (mode) => 
     expect(await findByText('Today \u00B7 Sat, 24 Oct')).toBeTruthy();
     expect(getByTestId('screen-k27')).toBeTruthy();
     expect(getAllByText('Third Wave Coffee').length).toBe(2);
-    expect(getByText('Tea & coffee \u00B7 UPI \u00B7 5:30 pm')).toBeTruthy();
+    expect(getByText('Tea & coffee \u00B7 HDFC Savings \u00B7 5:30 pm')).toBeTruthy();
     for (const l of ['Edit', 'Change category', 'Split with friends', 'Add to goal', 'Copy amount', 'Select', 'Delete']) {
       expect(getByText(l)).toBeTruthy();
     }

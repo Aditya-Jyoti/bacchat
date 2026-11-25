@@ -55,13 +55,31 @@ describe.each(['light', 'dark'] as const)('DailyBars (%s)', (mode) => {
     expect(u.onSelect).toHaveBeenLastCalledWith(5);
   });
 
-  it('colours bars: selected primary, today chart2, over 2000 chart3, others surfaceContainerHigh', () => {
+  it('colours every spend bar primary and steps the others back when one is picked', () => {
     const u = setup(mode);
-    expect(fill(u, 1)).toBe(c.primary);
-    expect(fill(u, 5)).toBe(c.chart2);
-    expect(fill(u, 3)).toBe(c.chart3);
-    expect(fill(u, 0)).toBe(c.surfaceContainerHigh);
-    expect(fill(u, 2)).toBe(c.surfaceContainerHigh);
+    for (const i of [0, 1, 2, 3, 5]) expect(fill(u, i)).toBe(c.primary);
+    const opacity = (i: number) => flat(u.getByTestId(`daily-bar-fill-${i}`).parent!.parent!.props.style).opacity;
+    expect(opacity(1)).toBe(1);
+    expect(opacity(0)).toBe(0.45);
+    expect(opacity(5)).toBe(0.45);
+    const none = setup(mode, { selectedIndex: null });
+    expect(flat(none.getAllByTestId('daily-bar-fill-0')[0].parent!.parent!.props.style).opacity).toBe(1);
+  });
+
+  it('draws a money-in bar beside the spend on days with income, and a legend only then', () => {
+    const plain = setup(mode, { legend: { spent: 'Spent', income: 'Got' } });
+    expect(plain.queryByTestId('daily-legend')).toBeNull();
+    expect(plain.queryByTestId('daily-income-fill-0')).toBeNull();
+    const u = setup(mode, { incomeValues: [0, 0, 250000, 0, 0, 0], legend: { spent: 'Spent', income: 'Got' } });
+    expect(u.queryByTestId('daily-income-fill-0')).toBeNull();
+    const inc = u.getByTestId('daily-income-fill-2');
+    expect(flat(inc.props.style).backgroundColor).toBe(c.moneyIn);
+    expect(parseFloat(flat(inc.props.style).height as string)).toBeCloseTo((250000 / 500000) * 100, 1);
+    expect(u.getByTestId('daily-legend')).toBeTruthy();
+    expect(u.getByText('Spent')).toBeTruthy();
+    expect(u.getByText('Got')).toBeTruthy();
+    // Income without legend words draws no legend.
+    expect(setup(mode, { incomeValues: [0, 0, 250000, 0, 0, 0] }).queryByTestId('daily-legend')).toBeNull();
   });
 
   it('draws the dashed future block with its label and the axis captions', () => {

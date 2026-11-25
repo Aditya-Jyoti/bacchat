@@ -9,16 +9,18 @@ import { t } from '../lib/i18n';
 export type DailyBarsProps = {
   /** Spend per elapsed day in integer paise (day 1 first). */
   values: readonly number[];
+  /** Money in per elapsed day; a day with any gets a second bar beside its spend (moneyIn). */
+  incomeValues?: readonly number[];
+  /** Legend words for the two bars, shown when any day has income. */
+  legend?: { spent: string; income: string };
   /** Days in the month; days after values.length are drawn as the dashed future block. */
   daysInMonth: number;
-  /** Index of today in values (drawn in chart2). */
+  /** Index of today in values (its caption sits under it). */
   todayIndex: number;
-  /** Selected bar (drawn in primary) or null. */
+  /** Selected bar (the others step back) or null. */
   selectedIndex: number | null;
   /** Called on tap, hover or keyboard focus press of a bar. */
   onSelect: (index: number) => void;
-  /** Bars above this paise value use chart3. Default 2000 rupees. */
-  highThresholdPaise?: number;
   /** Content of the tooltip for the selected bar (wrapped in ChartTooltip). */
   tooltip?: React.ReactNode;
   /** Called when the tooltip itself is pressed ("See entries"). */
@@ -60,7 +62,6 @@ export function DailyBars({
   todayIndex,
   selectedIndex,
   onSelect,
-  highThresholdPaise = 200000,
   tooltip,
   onTooltipPress,
   tooltipAccessibilityLabel,
@@ -68,6 +69,8 @@ export function DailyBars({
   summary,
   futureLabel,
   axisLabels,
+  incomeValues,
+  legend,
   barAreaHeight = 150,
   tooltipWidth = 208,
 }: DailyBarsProps): React.JSX.Element {
@@ -76,7 +79,9 @@ export function DailyBars({
   const [tipH, setTipH] = useState(0);
   const n = values.length;
   const future = Math.max(0, daysInMonth - n);
-  const top = niceMax(Math.max(0, ...values));
+  const incomeAt = (i: number): number => incomeValues?.[i] ?? 0;
+  const anyIncome = values.some((_, i) => incomeAt(i) > 0);
+  const top = niceMax(Math.max(0, ...values, ...values.map((_, i) => incomeAt(i))));
   const plotW = Math.max(0, width - AXIS_W);
   // Which bar sits above x (relative to the bars' left edge): bars and the future block share the
   // width in flex units with GAP between them.
@@ -95,14 +100,10 @@ export function DailyBars({
   const show = selectedIndex != null && selectedIndex < n && tooltip != null && width > 0;
   const center = show ? centerOf(selectedIndex) : 0;
   const left = Math.max(0, Math.min(center - tooltipWidth / 2, Math.max(0, width - tooltipWidth)));
-  const barTop = show ? barAreaHeight * (1 - Math.max(0.02, values[selectedIndex] / top)) : 0;
+  const barTop = show ? barAreaHeight * (1 - Math.max(0.02, Math.max(values[selectedIndex], incomeAt(selectedIndex)) / top)) : 0;
   const stemH = Math.max(0, barTop - tipH);
-  const colorFor = (i: number): string => {
-    if (i === selectedIndex) return colors.primary;
-    if (i === todayIndex) return colors.chart2;
-    if (values[i] > highThresholdPaise) return colors.chart3;
-    return colors.surfaceContainerHigh;
-  };
+  // One colour for spending; once a day is picked the others step back so it stands out.
+  const opacityFor = (i: number): number => (selectedIndex == null || i === selectedIndex ? 1 : 0.45);
   const tick = (fraction: number) => (
     <View
       key={fraction}
@@ -154,18 +155,26 @@ export function DailyBars({
               onFocus={() => onSelect(i)}
               style={{ flex: 1, height: '100%', justifyContent: 'flex-end' }}
             >
-              <View
-                testID={`daily-bar-fill-${i}`}
-                style={{
-                  width: '100%',
-                  height: `${Math.max(2, (v / top) * 100)}%`,
-                  borderTopLeftRadius: 3,
-                  borderTopRightRadius: 3,
-                  borderBottomLeftRadius: 1,
-                  borderBottomRightRadius: 1,
-                  backgroundColor: colorFor(i),
-                }}
-              />
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: '100%', gap: 1, opacity: opacityFor(i) }}>
+                <View
+                  testID={`daily-bar-fill-${i}`}
+                  style={{
+                    flex: 1,
+                    height: `${Math.max(2, (v / top) * 100)}%`,
+                    borderTopLeftRadius: 3,
+                    borderTopRightRadius: 3,
+                    borderBottomLeftRadius: 1,
+                    borderBottomRightRadius: 1,
+                    backgroundColor: colors.primary,
+                  }}
+                />
+                {incomeAt(i) > 0 ? (
+                  <View
+                    testID={`daily-income-fill-${i}`}
+                    style={{ flex: 1, height: `${Math.max(2, (incomeAt(i) / top) * 100)}%`, borderTopLeftRadius: 3, borderTopRightRadius: 3, backgroundColor: colors.moneyIn }}
+                  />
+                ) : null}
+              </View>
             </Pressable>
           ))}
           {future > 0 ? (
@@ -238,6 +247,19 @@ export function DailyBars({
           </>
         ) : null}
       </View>
+      {anyIncome && legend ? (
+        <View testID="daily-legend" style={{ flexDirection: 'row', gap: 16, marginLeft: AXIS_W, marginTop: 2 }}>
+          {[
+            { label: legend.spent, color: colors.primary },
+            { label: legend.income, color: colors.moneyIn },
+          ].map((l) => (
+            <View key={l.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: l.color }} />
+              <Text style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>{l.label}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }

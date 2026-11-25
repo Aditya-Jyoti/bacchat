@@ -82,17 +82,32 @@ object SmsStore {
     p.edit().putString(KEY_QUEUE, keep.toString()).apply()
   }
 
-  /** A category picked from a notification button, waiting for JS to write it. Latest pick per entry wins. */
+  /**
+   * A category or a note chosen on a notification, waiting for JS to write it. One pending pick per
+   * entry: a later category or note is merged into it (an empty value keeps the earlier one).
+   */
   @Synchronized
-  fun enqueuePick(context: Context, entryId: String, categoryId: String) {
+  fun enqueuePick(context: Context, entryId: String, categoryId: String, note: String = "") {
     val p = prefs(context)
     val arr = try { JSONArray(p.getString(KEY_PICKS, "[]")) } catch (e: Exception) { JSONArray() }
     val keep = JSONArray()
+    var prevCategory = ""
+    var prevNote = ""
     for (i in 0 until arr.length()) {
       val o = arr.getJSONObject(i)
-      if (o.optString("entryId") != entryId) keep.put(o)
+      if (o.optString("entryId") == entryId) {
+        prevCategory = o.optString("categoryId")
+        prevNote = o.optString("note")
+      } else {
+        keep.put(o)
+      }
     }
-    keep.put(JSONObject().put("entryId", entryId).put("categoryId", categoryId))
+    keep.put(
+      JSONObject()
+        .put("entryId", entryId)
+        .put("categoryId", categoryId.ifEmpty { prevCategory })
+        .put("note", note.ifEmpty { prevNote }),
+    )
     p.edit().putString(KEY_PICKS, keep.toString()).apply()
   }
 
@@ -102,7 +117,7 @@ object SmsStore {
     val out = ArrayList<Map<String, Any>>()
     for (i in 0 until arr.length()) {
       val o = arr.getJSONObject(i)
-      out.add(mapOf("entryId" to o.getString("entryId"), "categoryId" to o.getString("categoryId")))
+      out.add(mapOf("entryId" to o.getString("entryId"), "categoryId" to o.optString("categoryId"), "note" to o.optString("note")))
     }
     return out
   }

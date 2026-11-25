@@ -1,8 +1,9 @@
 /**
- * k31: Pick a category. Not in the Khata design (added 2026-11-24, see docs/decisions.md). Opened by
- * tapping a "From your messages" notification (bacchat://category?entry=<id>): the entry on top,
- * a search box, then every category with the likeliest first. One tap files the entry, confirms it
- * (it leaves To review), clears its notification and returns.
+ * k31: This spend. Not in the Khata design (added 2026-11-24, see docs/decisions.md). Opened from a
+ * spend's notification (bacchat://category?entry=<id>): the entry on top, a note to write what it
+ * was for (saved when the field is left), "Edit all details" (k5), then every category with the
+ * likeliest first. One tap on a category files the entry, confirms it, clears its notification and
+ * returns.
  */
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -29,6 +30,7 @@ export default function K31_PickCategory(): React.JSX.Element {
   const entryId = typeof nav.params.entry === 'string' ? nav.params.entry : null;
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
 
   const q = useDbQuery(async (d) => {
     const [entry, categories, history, accounts] = await Promise.all([
@@ -46,6 +48,11 @@ export default function K31_PickCategory(): React.JSX.Element {
   }, [entryId]);
 
   const entry = q.data?.entry ?? null;
+  const noteText = note ?? entry?.note ?? '';
+  const saveNote = async (): Promise<void> => {
+    if (!entry || note == null || note.trim() === (entry.note ?? '')) return;
+    await db.entries.put({ ...entry, note: note.trim() || null, status: 'confirmed' });
+  };
   const ranked = useMemo(() => q.data?.ranked ?? [], [q.data]);
   const text = query.trim();
   const shown = useMemo(() => {
@@ -73,7 +80,7 @@ export default function K31_PickCategory(): React.JSX.Element {
     if (!entry || busy) return;
     setBusy(true);
     try {
-      await applyCategoryPick(db, { entryId: entry.id, categoryId });
+      await applyCategoryPick(db, { entryId: entry.id, categoryId, note: note ?? undefined });
       done();
     } finally {
       setBusy(false);
@@ -105,6 +112,31 @@ export default function K31_PickCategory(): React.JSX.Element {
               {[formatDateLong(new Date(entry.at)), q.data?.account].filter(Boolean).join(' \u00B7 ')}
             </Text>
           </View>
+          <View style={{ gap: spacing.sm, marginBottom: spacing.lg }}>
+            <Text style={[typography.labelLarge, { color: colors.onSurfaceVariant }]}>{t('ingestUi.noteLabel')}</Text>
+            <TextInput
+              testID="pick-note"
+              accessibilityLabel={t('ingestUi.noteLabel')}
+              value={noteText}
+              onChangeText={setNote}
+              onEndEditing={() => void saveNote()}
+              placeholder={t('ingestUi.notePlaceholder')}
+              placeholderTextColor={colors.onSurfaceVariant}
+              multiline
+              style={[typography.bodyLarge, { color: colors.onSurface, minHeight: 56, paddingHorizontal: 12, paddingVertical: 10, borderRadius: shapes.field, borderWidth: 1, borderColor: colors.outline, textAlignVertical: 'top' }]}
+            />
+            <PillButton
+              testID="pick-edit-all"
+              variant="outlined"
+              icon="edit"
+              label={t('ingestUi.editAll')}
+              onPress={() => {
+                void saveNote();
+                nav.open('k5', { id: entry.id });
+              }}
+            />
+          </View>
+          <Text style={[typography.titleMedium, { color: colors.onSurface, marginBottom: spacing.sm }]}>{t('ingestUi.categoryHeading')}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, paddingHorizontal: 12, borderRadius: shapes.field, borderWidth: 1, borderColor: colors.outline, marginBottom: spacing.sm }}>
             <Icon name="search" size={20} color={colors.onSurfaceVariant} />
             <TextInput

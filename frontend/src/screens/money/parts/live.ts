@@ -42,21 +42,13 @@ export function categoryName(e: Pick<Entry, 'categoryId'>, lk: Lookups): string 
   return (e.categoryId ? lk.cats.get(e.categoryId)?.name : undefined) ?? t('moneyLive.noCategory');
 }
 
-/** "UPI . rahul@okhdfc", the card or account name, or "Cash". */
+/** The account the money came from ("Slice Savings", "Slice Credit"), or "Cash". UPI is never shown: it always takes money from an account. */
 export function viaLabel(e: Entry, lk: Lookups): string {
-  const acct = e.accountId ? lk.accounts.get(e.accountId) : undefined;
-  switch (e.method) {
-    case 'upi': {
-      const handle = e.upiId ? lk.upis.get(e.upiId)?.handle : undefined;
-      return handle ? `UPI \u00B7 ${handle}` : 'UPI';
-    }
-    case 'cash':
-      return t('moneyLive.cash');
-    case 'debit':
-      return acct ? t('moneyLive.debitOf', { name: acct.name }) : t('moneyLive.debit');
-    default:
-      return acct?.name ?? t('moneyLive.bank');
-  }
+  const id = e.accountId ?? (e.upiId ? lk.upis.get(e.upiId)?.accountId : null) ?? null;
+  const acct = id ? lk.accounts.get(id) : undefined;
+  if (acct) return acct.name;
+  if (e.method === 'cash') return t('moneyLive.cash');
+  return t('moneyLive.noAccount');
 }
 
 /** First part of the via label ("UPI", "ICICI Amazon Pay"). */
@@ -76,6 +68,7 @@ export function rowFor(e: Entry, lk: Lookups, extra: Partial<EntryRowProps> = {}
     name: e.merchant,
     icon: cat?.icon ?? 'help',
     sub: `${categoryName(e, lk)} \u00B7 ${viaLabel(e, lk)}`,
+    note: e.note?.trim() || null,
     amountPaise: e.amountPaise,
     income: e.direction === 'in',
     source: e.sources[0]?.kind ?? 'hand',

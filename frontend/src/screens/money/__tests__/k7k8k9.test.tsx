@@ -311,10 +311,10 @@ describe.each(['light', 'dark'] as const)('k8 Screenshot review (%s)', (mode) =>
     fireEvent.press(getByTestId('add-entries'));
     await waitFor(() => expect(nav.navigate).toHaveBeenCalled());
     const mohan = (await services.db.entries.list()).find((e) => e.merchant === 'Mohan S');
-    expect(mohan).toMatchObject({ categoryId: 'gifts', status: 'confirmed', method: 'upi', upiId: 'upi-1' });
+    expect(mohan).toMatchObject({ categoryId: 'gifts', status: 'confirmed', method: 'bank', accountId: 'acc-hdfc', upiId: null });
   });
 
-  it('files one row under a different account with its own Paid with', async () => {
+  it('files one row under a different account with its own Paid from', async () => {
     const { getByTestId, getAllByText, findByTestId, nav, services } = await renderStory(<K8 />, mode, { conflict: 'shot' });
     fireEvent.press(await findByTestId('paid-Mohan S'));
     const cash = getAllByText('Cash');
@@ -323,8 +323,8 @@ describe.each(['light', 'dark'] as const)('k8 Screenshot review (%s)', (mode) =>
     await waitFor(() => expect(nav.navigate).toHaveBeenCalled());
     const all = await services.db.entries.list();
     expect(all.find((e) => e.merchant === 'Mohan S')).toMatchObject({ method: 'cash' });
-    // The other rows keep the import's Paid with.
-    expect(all.find((e) => e.merchant === 'Chai Point')).toMatchObject({ method: 'upi', upiId: 'upi-1' });
+    // The other rows keep the import's Paid from.
+    expect(all.find((e) => e.merchant === 'Chai Point')).toMatchObject({ method: 'bank', accountId: 'acc-hdfc', upiId: null });
   });
 
   it('shows a skeleton while the plan loads', async () => {

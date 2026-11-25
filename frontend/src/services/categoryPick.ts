@@ -1,17 +1,17 @@
 /**
  * Picking a category for a new entry straight from its "From your messages" notification.
  *
- * The notification carries the two likeliest categories and a "More" button (Android shows at
- * most three buttons); a category button files the entry without opening the app. More, or
- * tapping the notification, opens k31 with every category. A pick also confirms the entry (it leaves To review) and teaches the payee's
+ * The notification shows the account and amount, and the category and payee already filled in.
+ * Its buttons (Android shows three at most): Add note (typed into the notification), the likeliest
+ * category when there is none yet, and Edit, which opens k31 (category, note, every other detail). A pick also confirms the entry (it leaves To review) and teaches the payee's
  * category for next time, the same as re-categorising in k27.
  */
 import type { CategoryPick, SmsNative } from '../../modules/bacchat-sms/src';
 import type { BacchatDb } from '../data/db/repositories';
 import type { Category, Entry } from '../data/db/models';
 
-/** How many category buttons a notification carries; the third button is "More". */
-export const QUICK_PICKS = 2;
+/** Category buttons on a notification for a spend with no category yet (beside Add note and Edit). */
+export const QUICK_PICKS = 1;
 /** Window used to find the categories picked most often. */
 const RECENT_MS = 60 * 86_400_000;
 
@@ -43,12 +43,20 @@ export async function quickCategories(db: BacchatDb, entry: Entry, n = QUICK_PIC
   return rankCategories(entry, categories, history).slice(0, n);
 }
 
-/** File an entry under a category and confirm it. False when the entry or category is gone. */
+/**
+ * Apply what was chosen on a notification: a category (files the entry and teaches the payee) and/or
+ * a note. Either one confirms the entry. False when the entry, or a named category, is gone.
+ */
 export async function applyCategoryPick(db: BacchatDb, pick: CategoryPick): Promise<boolean> {
-  const [entry, category] = await Promise.all([db.entries.get(pick.entryId), db.categories.get(pick.categoryId)]);
-  if (!entry || entry.deletedAt || !category) return false;
-  await db.entries.put({ ...entry, categoryId: category.id, status: 'confirmed' });
-  await db.merchants.record(entry.merchant, category.id, entry.amountPaise, entry.at);
+  const entry = await db.entries.get(pick.entryId);
+  if (!entry || entry.deletedAt) return false;
+  const categoryId = pick.categoryId || null;
+  const note = pick.note?.trim() || null;
+  const category = categoryId ? await db.categories.get(categoryId) : null;
+  if (categoryId && !category) return false;
+  if (!category && !note) return false;
+  await db.entries.put({ ...entry, ...(category ? { categoryId: category.id } : {}), ...(note ? { note } : {}), status: 'confirmed' });
+  if (category) await db.merchants.record(entry.merchant, category.id, entry.amountPaise, entry.at);
   return true;
 }
 

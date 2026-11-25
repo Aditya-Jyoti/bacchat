@@ -129,13 +129,13 @@ class BacchatSmsModule : Module() {
     Function("acknowledge") { ids: List<String> -> SmsStore.acknowledge(context, ids) }
 
     // choices: [{ id, label, saved }], at most 8 arguments per native function.
-    Function("postEntryNotification") { channelName: String, title: String, text: String, entryId: String, choices: List<Map<String, String>>, moreLabel: String, deepLink: String ->
+    Function("postEntryNotification") { channelName: String, title: String, text: String, entryId: String, choices: List<Map<String, String>>, moreLabel: String, deepLink: String, noteLabel: String ->
       SmsNotifier.postEntry(
         context, channelName, title, text, entryId,
         choices.map { it["id"].orEmpty() },
         choices.map { it["label"].orEmpty() },
         choices.map { it["saved"].orEmpty() },
-        moreLabel, deepLink,
+        moreLabel, deepLink, noteLabel,
       )
     }
 
@@ -175,8 +175,8 @@ class BacchatSmsModule : Module() {
     }
 
     /** Called by CategoryPickReceiver when the app is alive. */
-    fun deliverPick(entryId: String, categoryId: String) {
-      live?.sendEvent("onCategoryPicked", mapOf("entryId" to entryId, "categoryId" to categoryId))
+    fun deliverPick(entryId: String, categoryId: String, note: String = "") {
+      live?.sendEvent("onCategoryPicked", mapOf("entryId" to entryId, "categoryId" to categoryId, "note" to note))
     }
   }
 }

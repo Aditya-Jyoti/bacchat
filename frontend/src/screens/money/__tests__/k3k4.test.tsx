@@ -102,12 +102,15 @@ describe.each(['light', 'dark'] as const)('k3 Money Summary (%s)', (mode) => {
     fireEvent(bars, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 320, height: 260 } } });
     const sel = (i: number) => flat(getByTestId(`daily-bar-fill-${i}`).props.style).backgroundColor;
     expect(queryByTestId('daily-tooltip')).toBeNull();
-    expect(sel(23)).toBe(c.chart2);
-    expect(sel(16)).toBe(c.chart3);
-    expect(sel(0)).toBe(c.surfaceContainerHigh);
+    // Every spend bar is primary; nothing is picked, so none is stepped back.
+    for (const i of [0, 16, 23]) expect(sel(i)).toBe(c.primary);
+    const dim = (i: number) => flat(getByTestId(`daily-bar-fill-${i}`).parent!.parent!.props.style).opacity;
+    expect(dim(0)).toBe(1);
     expect(getByTestId('daily-axis')).toBeTruthy();
     act(() => fireEvent.press(getByTestId('daily-bar-23')));
     expect(sel(23)).toBe(c.primary);
+    expect(dim(23)).toBe(1);
+    expect(dim(0)).toBe(0.45);
     expect(getByText('Sat 24 Oct')).toBeTruthy();
     expect(getByText('7 entries')).toBeTruthy();
     expect(getByText('See entries')).toBeTruthy();
@@ -143,7 +146,7 @@ describe.each(['light', 'dark'] as const)('k3 Money Summary (%s)', (mode) => {
   });
 
   it('lists categories with share, the change versus last month in words, then methods and merchants', async () => {
-    const { getByText, getAllByText, getByTestId, nav, findByText } = await renderLive(<K3 />, mode);
+    const { getByText, queryByText, getAllByText, getByTestId, nav, findByText } = await renderLive(<K3 />, mode);
     expect(await findByText('By category')).toBeTruthy();
     expect(getByText('vs Sept')).toBeTruthy();
     for (const [name, amount, delta] of [
@@ -159,11 +162,14 @@ describe.each(['light', 'dark'] as const)('k3 Money Summary (%s)', (mode) => {
     expect(getByText('28%')).toBeTruthy();
     expect(flat(getByTestId('share-Eating out').props.style).backgroundColor).toBe(c.primary);
     expect(flat(getByTestId('share-Groceries').props.style).backgroundColor).toBe(c.chart2);
-    expect(getByText('Paid with')).toBeTruthy();
-    expect(getByText('Credit cards')).toBeTruthy();
-    expect(getByText('UPI')).toBeTruthy();
-    expect(getByText(`${R}7,065`)).toBeTruthy();
-    expect(flat(getByTestId('method-UPI').props.style).minHeight).toBeGreaterThan(0);
+    expect(getByText('Paid from')).toBeTruthy();
+    expect(getByTestId('method-ICICI Amazon Pay')).toBeTruthy();
+    expect(getByTestId('method-HDFC Savings')).toBeTruthy();
+    expect(queryByText('UPI')).toBeNull();
+    expect(queryByText('Credit cards')).toBeNull();
+    expect(within(getByTestId('method-HDFC Savings')).getByText(`${R}8,444`)).toBeTruthy();
+    expect(within(getByTestId('method-ICICI Amazon Pay')).getByText(`${R}1,735`)).toBeTruthy();
+    expect(flat(getByTestId('method-HDFC Savings').props.style).minHeight).toBeGreaterThan(0);
     expect(getByText('Top merchants')).toBeTruthy();
     expect(getByText('3 times')).toBeTruthy();
     // Up to 8 payees now (was 4), so more of them were paid once.

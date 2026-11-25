@@ -265,21 +265,27 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
     if (!native || (sum.added.length === 0 && sum.pending === 0)) return;
     const title = t('ingestUi.notifyTitle');
     if (sum.added.length === 1 && sum.pending === 0) {
-      // One new entry: "Slice Credit: Rs 128" with two category buttons (its guessed category first,
-      // so one tap confirms it) and More (k31, every category).
+      // One new entry: "Slice Credit: Rs 128", with what is filled in under it ("Food \u00B7 Swiggy").
+      // Buttons: Add note (inline reply), the likeliest category when there is none yet, and Edit (k31).
       const e = sum.added[0];
       try {
-        const [choices, account] = await Promise.all([quickCategories(db, e), e.accountId ? db.accounts.get(e.accountId) : Promise.resolve(null)]);
+        const [account, category] = await Promise.all([
+          e.accountId ? db.accounts.get(e.accountId) : Promise.resolve(null),
+          e.categoryId ? db.categories.get(e.categoryId) : Promise.resolve(null),
+        ]);
+        const choices = category ? [] : await quickCategories(db, e);
         const amount = (e.direction === 'in' ? '+' : '') + formatRupees(e.amountPaise);
         const heading = account ? t('ingestUi.notifyAccount', { account: account.name, amount }) : amount;
+        const filled = `${category?.name ?? t('moneyLive.noCategory')} \u00B7 ${e.merchant}`;
         const posted = native.postEntryNotification(
           t('ingestUi.channelName'),
           heading,
-          '',
+          filled,
           e.id,
           choices.map((c) => ({ id: c.id, label: c.name, saved: t('ingestUi.pickSaved', { category: c.name }) })),
-          t('ingestUi.pickMore'),
+          t('ingestUi.pickEdit'),
           pickCategoryLink(e.id),
+          t('ingestUi.addNote'),
         );
         if (posted) return;
       } catch {

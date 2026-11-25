@@ -5,7 +5,7 @@ import { usePreferences } from '../../lib/preferences';
 import { createMemoryStorage, setStorage } from '../../lib/storage';
 import { AI_WAIT_MS, REVIEW_LINK, createIngestService, hashText, smsRawRef } from '../ingestService';
 import { splitPastedEmail } from '../emailSource';
-import { pickCategoryLink } from '../categoryPick';
+import { applyCategoryPick, pickCategoryLink } from '../categoryPick';
 
 const NOW = new Date(2026, 9, 24, 20, 30).getTime();
 const DAY = 86_400_000;
@@ -117,7 +117,7 @@ describe('conflicts', () => {
 });
 
 describe('notifications', () => {
-  it('posts one notification per new entry: the account and amount, two categories and More (k31)', async () => {
+  it('posts one notification per new entry: the account and amount, one category, Edit (k31) and Add description', async () => {
     const { db, native, svc } = setup();
     await db.categories.putMany([
       { id: 'food', name: 'Food', icon: 'restaurant' },
@@ -131,24 +131,24 @@ describe('notifications', () => {
     expect(native.entryNotifications).toHaveLength(1);
     const n = native.entryNotifications[0];
     const [e] = await db.entries.list();
-    expect(n).toMatchObject({ text: '', moreLabel: 'More', entryId: e.id, deepLink: pickCategoryLink(e.id) });
+    expect(n).toMatchObject({ text: `No category yet \u00B7 ${e.merchant}`, moreLabel: 'Edit', noteLabel: 'Add description', entryId: e.id, deepLink: pickCategoryLink(e.id) });
     expect(pickCategoryLink(e.id)).toBe(`bacchat://category?entry=${e.id}`);
     // No account matched in this bare database: the amount alone.
     expect(n.title).toBe('\u20B9150');
-    expect(n.choiceIds).toHaveLength(2);
+    expect(n.choiceIds).toHaveLength(1);
     expect(n.choiceIds).not.toContain('old');
-    expect(n.choiceLabels).toHaveLength(2);
+    expect(n.choiceLabels).toHaveLength(1);
     expect(n.savedTexts[0]).toBe(`Filed under ${n.choiceLabels[0]}.`);
   });
 
-  it('always offers categories: a known payee has its category on the first button', async () => {
+  it('a known payee shows its category in the text and offers no category buttons', async () => {
     const { db, native, svc } = setup();
     await db.categories.putMany([{ id: 'food', name: 'Food', icon: 'restaurant' }, { id: 'fun', name: 'Fun', icon: 'movie' }]);
     await db.merchants.record('Ramesh Fruits', 'food', 15000, NOW - 2 * DAY);
     await svc.processSms(sms(BODY), { notify: true });
     const [e] = await db.entries.list();
     expect(e.categoryId).toBe('food');
-    expect(native.entryNotifications[0]).toMatchObject({ choiceIds: ['food', 'fun'], moreLabel: 'More', deepLink: pickCategoryLink(e.id) });
+    expect(native.entryNotifications[0]).toMatchObject({ text: `Food \u00B7 ${e.merchant}`, choiceIds: [], moreLabel: 'Edit', noteLabel: 'Add description', deepLink: pickCategoryLink(e.id) });
   });
 
   it('saves a spend within seconds even when the AI reader hangs', async () => {
@@ -223,6 +223,35 @@ describe('notifications', () => {
     expect((await db.merchants.list()).find((m) => m.name === e.merchant)?.categoryId).toBe('food');
     expect(native.picks).toHaveLength(0);
     svc.stop();
+  });
+
+  it('a note-only pick saves the description and confirms the entry without a category', async () => {
+    const { db, native, svc } = setup();
+    usePreferences.setState({ smsIngestEnabled: true });
+    await svc.start();
+    await svc.processSms(sms(BODY), { notify: true });
+    const [e] = await db.entries.list();
+    native.pick({ entryId: e.id, note: '  Fruit for the week  ' });
+    await svc.idle();
+    const after = await db.entries.get(e.id);
+    expect(after).toMatchObject({ note: 'Fruit for the week', status: 'confirmed' });
+    expect(after?.categoryId).toBe(e.categoryId);
+    expect(native.picks).toHaveLength(0);
+    svc.stop();
+  });
+
+  it('a pick with a category and a note applies both; an empty pick or a missing category changes nothing', async () => {
+    const { db, svc } = setup();
+    await db.categories.putMany([{ id: 'food', name: 'Food', icon: 'restaurant' }]);
+    await svc.processSms(sms(BODY));
+    const [e] = await db.entries.list();
+    expect(await applyCategoryPick(db, { entryId: e.id })).toBe(false);
+    expect(await applyCategoryPick(db, { entryId: e.id, note: '   ' })).toBe(false);
+    expect(await applyCategoryPick(db, { entryId: e.id, categoryId: 'nope', note: 'x' })).toBe(false);
+    expect((await db.entries.get(e.id))?.status).toBe('toReview');
+    expect(await applyCategoryPick(db, { entryId: 'gone', note: 'x' })).toBe(false);
+    expect(await applyCategoryPick(db, { entryId: e.id, categoryId: 'food', note: 'Weekly' })).toBe(true);
+    expect(await db.entries.get(e.id)).toMatchObject({ categoryId: 'food', note: 'Weekly', status: 'confirmed' });
   });
 
   it('picks made while the app was closed are applied on start and by applyPicks', async () => {

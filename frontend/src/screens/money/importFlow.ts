@@ -14,7 +14,7 @@ import { formatRupees } from '../../lib/format';
 import { parseOcrLines, planScreenshotImport, type ImportPlan, type ImportPlanItem, type ScreenRow } from '../../lib/ingest';
 import { normalizeMerchant } from '../../lib/reconciliation';
 import { sha256, toHex, utf8 } from '../../lib/sync/targets/sha256';
-import { buildMethodOptions, type MethodOption } from './parts/addEntry';
+import { buildMethodOptions, methodKey, type MethodOption } from './parts/addEntry';
 
 /** Reads an image and returns the text lines found. May be async (a real OCR engine). */
 export type OcrEngine = (imageUri: string | null) => string[] | Promise<string[]>;
@@ -155,7 +155,7 @@ export type PaidWithChoices = { options: MethodOption[]; key: string };
 export async function paidWithChoices(db: BacchatDb): Promise<PaidWithChoices> {
   const [accounts, upis, last, fallback] = await Promise.all([db.accounts.list(), db.upiIds.list(), db.meta.get(PAID_WITH_KEY), importDefaults(db)]);
   const options = buildMethodOptions(accounts, upis);
-  const fromFallback = options.find((o) => o.method === fallback.method && o.accountId === fallback.accountId && o.upiId === fallback.upiId);
+  const fromFallback = options.find((o) => o.key === methodKey(fallback.method, fallback.accountId));
   const key = (last && options.some((o) => o.key === last) ? last : null) ?? fromFallback?.key ?? options[0]?.key ?? '';
   return { options, key };
 }
