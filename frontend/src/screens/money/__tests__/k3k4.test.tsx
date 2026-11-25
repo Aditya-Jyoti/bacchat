@@ -64,7 +64,8 @@ describe.each(['light', 'dark'] as const)('k3 Money Summary (%s)', (mode) => {
     const net = getByTestId('month-net-amount');
     expect(net.props.children).toBe(`+${R}1,16,600`);
     expect(flat(net.props.style).color).toBe(c.moneyIn);
-    expect(getByText(`${R}3,299 more than Sept`)).toBeTruthy();
+    // The comparison with last month is in the plain-words card, counted over the same days.
+    expect(getByTestId('month-story')).toBeTruthy();
     expect(getByTestId('segment-summary')).toBeTruthy();
   });
 
@@ -141,14 +142,14 @@ describe.each(['light', 'dark'] as const)('k3 Money Summary (%s)', (mode) => {
     expect(nav.navigate).toHaveBeenCalledWith('main', { screen: 'money', params: { screen: 'money/entries', params: undefined } });
   });
 
-  it('lists categories with share, change versus last month, then methods and merchants', async () => {
+  it('lists categories with share, the change versus last month in words, then methods and merchants', async () => {
     const { getByText, getAllByText, getByTestId, nav, findByText } = await renderLive(<K3 />, mode);
     expect(await findByText('By category')).toBeTruthy();
     expect(getByText('vs Sept')).toBeTruthy();
     for (const [name, amount, delta] of [
-      ['Groceries', `${R}2,833`, `-${R}167`],
-      ['Eating out', `${R}3,956`, `-${R}44`],
-      ['Shopping', `${R}1,249`, `+${R}1,249`],
+      ['Groceries', `${R}2,833`, `${R}167 less than Sept`],
+      ['Eating out', `${R}3,956`, `${R}44 less than Sept`],
+      ['Shopping', `${R}1,249`, 'Nothing here in Sept'],
     ]) {
       expect(getByText(name)).toBeTruthy();
       expect(getAllByText(amount).length).toBeGreaterThan(0);

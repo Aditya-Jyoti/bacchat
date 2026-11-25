@@ -1,3 +1,5 @@
+import { monthSummary } from '../../money/summary/summaryData';
+import { monthWindow , EMPTY_LOOKUPS, useLookups } from '../../money/parts/live';
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
@@ -14,6 +16,7 @@ import type { KId } from '../../../navigation/screenManifest';
 import {
   useAccounts,
   useBudgetPace,
+  useDbQuery,
   useDebts,
   useGoalsWithTotals,
   useNetWorth,
@@ -24,7 +27,6 @@ import {
 } from '../../../services';
 import { useTheme } from '../../../theme';
 import { MONTH_NAMES } from '../../money/parts/dates';
-import { EMPTY_LOOKUPS, useLookups } from '../../money/parts/live';
 import { useAiInsightText } from '../aiInsight';
 import { useBudgetAlerts } from '../alertsStore';
 import { useBudget } from '../../you/budgetStore';
@@ -203,36 +205,80 @@ function Accounts({ go, arrange }: SectionsProps): React.JSX.Element {
   );
 }
 
+const SHARE_ROLES = ['primary', 'chart2', 'chart3', 'chart4'] as const;
+
+/**
+ * This month, at a glance: one plain line on the pace, a share bar of where the money went (four
+ * colours at most, the rest together), the top three with their amounts, and the way to the full
+ * month in Summary.
+ */
 function Spend({ go, arrange }: SectionsProps): React.JSX.Element {
-  const { colors } = useTheme();
+  const { colors, typography, spacing } = useTheme();
   const spend = useSpendByCategory();
   const lookups = useLookups();
+  const now = useNow();
+  const month = useDbQuery((db, n) => monthSummary(db, n, 0));
   const lk = lookups.data ?? EMPTY_LOOKUPS;
-  const rows = useMemo(() => (spend.data?.categories ?? []).slice(0, 6), [spend.data]);
-  const max = Math.max(1, ...rows.map((r) => r.totalPaise));
+  const all = spend.data?.categories ?? [];
+  const total = spend.data?.totalPaise ?? 0;
+  const top = all.slice(0, 3);
+  const restPaise = all.slice(3).reduce((x, c) => x + c.totalPaise, 0);
+  const name = (id: string | null): string => (id ? lk.cats.get(id)?.name : undefined) ?? t('moneyLive.noCategory');
+  const m = month.data;
+  const pace =
+    m && m.daysElapsed > 0 && m.spentPaise > 0
+      ? m.lastMonthToDatePaise > 0
+        ? t(m.spentPaise <= m.lastMonthToDatePaise ? 'homeLive.paceLess' : 'homeLive.paceMore', {
+            perDay: formatRupees(Math.round(m.spentPaise / m.daysElapsed / 100) * 100),
+            diff: formatRupees(Math.round(Math.abs(m.spentPaise - m.lastMonthToDatePaise) / 100) * 100),
+            month: monthWindow(now, 1).shortName,
+          })
+        : t('homeLive.paceNew', { perDay: formatRupees(Math.round(m.spentPaise / m.daysElapsed / 100) * 100) })
+      : null;
   return (
     <HomeSection
       testID="section-spend"
       title={sectionMeta.spend.label}
-      trailing={spend.data ? `${formatRupees(spend.data.totalPaise)} ${homeCopy.spentSuffix}` : undefined}
+      trailing={spend.data ? `${formatRupees(total)} ${homeCopy.spentSuffix}` : undefined}
       onPress={() => go('k3')}
       onLongPress={arrange}
     >
       {!spend.data || !lookups.data ? (
         <Loading />
-      ) : rows.length === 0 ? (
+      ) : all.length === 0 ? (
         <Text style={{ color: colors.onSurfaceVariant }}>{t('homeLive.noSpend')}</Text>
       ) : (
-        rows.map((s) => {
-          const cat = s.categoryId ? lk.cats.get(s.categoryId) : undefined;
-          return (
-            <Row key={s.categoryId ?? 'none'} title={cat?.name ?? t('moneyLive.noCategory')} amount={formatRupees(s.totalPaise)} icon={cat?.icon ?? 'help'} paddingVertical={7}>
-              <View style={{ height: 4, borderRadius: 2, backgroundColor: colors.surfaceContainerHigh, marginTop: 6 }}>
-                <View style={{ height: 4, borderRadius: 2, backgroundColor: colors.primary, width: `${Math.min(100, (s.totalPaise / max) * 100)}%` }} />
-              </View>
-            </Row>
-          );
-        })
+        <View style={{ gap: spacing.md }}>
+          {pace ? (
+            <Text testID="spend-pace" style={[typography.bodyMedium, { color: colors.onSurfaceVariant }]}>
+              {pace}
+            </Text>
+          ) : null}
+          <View testID="spend-share" accessible accessibilityLabel={all.map((c) => `${name(c.categoryId)} ${formatRupees(c.totalPaise)}`).join(', ')} style={{ flexDirection: 'row', gap: 3, height: 12 }}>
+            {top.map((c, i) => (
+              <View key={c.categoryId ?? 'none'} style={{ flex: total > 0 ? c.totalPaise / total : 0, borderRadius: 4, backgroundColor: colors[SHARE_ROLES[i]] }} />
+            ))}
+            {restPaise > 0 ? <View style={{ flex: restPaise / total, borderRadius: 4, backgroundColor: colors.outlineVariant }} /> : null}
+          </View>
+          {top.map((c, i) => (
+            <View key={c.categoryId ?? 'none'} testID={`spend-top-${name(c.categoryId)}`} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors[SHARE_ROLES[i]] }} />
+              <Text numberOfLines={1} style={[typography.bodyLarge, { color: colors.onSurface, flex: 1 }]}>
+                {name(c.categoryId)}
+              </Text>
+              <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant }]}>{`${Math.round(c.share * 100)}%`}</Text>
+              <Text style={[typography.labelLarge, { color: colors.onSurface, minWidth: 80, textAlign: 'right' }]}>{formatRupees(c.totalPaise)}</Text>
+            </View>
+          ))}
+          {restPaise > 0 ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.outlineVariant }} />
+              <Text style={[typography.bodyLarge, { color: colors.onSurfaceVariant, flex: 1 }]}>{t('homeLive.spendRest', { n: all.length - 3 })}</Text>
+              <Text style={[typography.labelLarge, { color: colors.onSurfaceVariant, minWidth: 80, textAlign: 'right' }]}>{formatRupees(restPaise)}</Text>
+            </View>
+          ) : null}
+          <Text style={[typography.labelLarge, { color: colors.primary }]}>{t('homeLive.spendSeeMonth')}</Text>
+        </View>
       )}
     </HomeSection>
   );

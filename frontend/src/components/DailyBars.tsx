@@ -182,7 +182,12 @@ export function DailyBars({
                 borderColor: colors.outlineVariant,
               }}
             >
-              {futureLabel ? <Text style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>{futureLabel}</Text> : null}
+              {/* Only with room for one line; a narrow strip would wrap it word by word. */}
+              {futureLabel && future >= 6 ? (
+                <Text numberOfLines={1} style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>
+                  {futureLabel}
+                </Text>
+              ) : null}
             </View>
           ) : null}
         </View>
@@ -213,13 +218,25 @@ export function DailyBars({
         onResponderMove={scrub}
         style={{ flexDirection: 'row', justifyContent: 'space-between', marginLeft: AXIS_W, paddingTop: 4, minHeight: 32 }}
       >
-        {axisLabels
-          ? axisLabels.map((l, i) => (
-              <Text key={i} pointerEvents="none" style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>
-                {l}
+        {axisLabels ? (
+          <>
+            <Text pointerEvents="none" style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>
+              {axisLabels[0]}
+            </Text>
+            <Text pointerEvents="none" style={[typography.labelSmall, { color: colors.onSurfaceVariant }]}>
+              {axisLabels[2]}
+            </Text>
+            {/* The middle caption ("today") sits under today's bar, unless it would run into the ends. */}
+            {axisLabels[1] && todayIndex >= 3 && todayIndex <= daysInMonth - 4 && width > 0 ? (
+              <Text
+                pointerEvents="none"
+                style={[typography.labelSmall, { color: colors.onSurfaceVariant, position: 'absolute', top: 4, width: 56, textAlign: 'center', left: ((width - AXIS_W) / daysInMonth) * (todayIndex + 0.5) - 28 }]}
+              >
+                {axisLabels[1]}
               </Text>
-            ))
-          : null}
+            ) : null}
+          </>
+        ) : null}
       </View>
     </View>
   );

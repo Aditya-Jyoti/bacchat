@@ -200,6 +200,21 @@ describe.each(['light', 'dark'] as const)('k1 Home live (%s)', (mode) => {
     expect(queryByText('Card dues')).toBeNull();
   });
 
+  it('This month shows the pace in words, a share bar, the top three and the rest together', async () => {
+    const NOW = new Date(2026, 10, 26, 18).getTime();
+    const db = createMemoryDb();
+    await db.accounts.put({ id: 'sb', name: 'Slice Savings', kind: 'bank', balancePaise: 1_00_000_00, openingBalancePaise: 1_00_000_00, icon: 'account_balance' });
+    await db.categories.putMany(['Travel', 'Food', 'Groceries', 'Fun', 'Gifts'].map((n) => ({ id: n.toLowerCase(), name: n, icon: 'category' })));
+    const e = (id: string, cat: string, m: number, day: number, rs: number) => ({ id, amountPaise: rs * 100, direction: 'out' as const, at: new Date(2026, m, day, 12).getTime(), merchant: id, note: null, categoryId: cat, accountId: 'sb', method: 'upi' as const, upiId: null, sources: [{ kind: 'hand' as const }], status: 'confirmed' as const, aiAdded: false });
+    await db.entries.putMany([e('a', 'travel', 10, 3, 26_000), e('b', 'food', 10, 5, 13_000), e('c', 'groceries', 10, 6, 6_500), e('d', 'fun', 10, 7, 2_600), e('f', 'gifts', 10, 8, 1_300), e('old', 'food', 9, 10, 10_000)]);
+    const { findByTestId, getByTestId, getByText } = renderWithTheme(<K1_Home />, mode, { db, servicesOptions: { seed: false, now: () => NOW } });
+    expect((await findByTestId('spend-pace')).props.children).toBe('About \u20B91,900 a day so far, \u20B939,400 more than Oct by this point.');
+    expect(getByTestId('spend-top-Travel')).toBeTruthy();
+    expect(getByTestId('spend-top-Groceries')).toBeTruthy();
+    expect(getByText('2 more categories')).toBeTruthy();
+    expect(getByText('See the whole month')).toBeTruthy();
+  });
+
   it('uses the real clock greeting outside sample mode', async () => {
     const { findByText } = renderWithTheme(<K1_Home />, mode, { servicesOptions: { seed: false, now: () => new Date(2026, 10, 3, 8, 15).getTime() } });
     expect(await findByText('Good morning')).toBeTruthy();

@@ -15,6 +15,10 @@ export type MonthSummary = {
   inPaise: number;
   /** Money out in the month before (for "less than Sept"). */
   lastMonthPaise: number;
+  /** Money out in the month before up to the same day of the month (a fair pace comparison). */
+  lastMonthToDatePaise: number;
+  /** Days of the month counted so far (all of them for a past month). */
+  daysElapsed: number;
   daily: DailySpend;
   categories: CategorySpend[];
   methods: MethodShare[];
@@ -70,10 +74,14 @@ export async function monthSummary(db: BacchatDb, now: number, back: number): Pr
   const win = monthWindow(now, back);
   // A past month counts every day as elapsed, so its "now" is the last instant of the month.
   const ref = win.isCurrent ? now : endOfMonth(win.fromMs);
-  const [entries, spend, daily] = await Promise.all([
+  const prevFrom = monthWindow(now, back + 1).fromMs;
+  const daysElapsed = new Date(ref).getDate();
+  const prevTo = Math.min(win.fromMs, new Date(new Date(prevFrom).getFullYear(), new Date(prevFrom).getMonth(), daysElapsed + 1).getTime());
+  const [entries, spend, daily, prevEntries] = await Promise.all([
     db.entries.between(win.fromMs, win.toMs),
     spendByCategory(db, ref),
     dailyTotals(db, ref),
+    db.entries.between(prevFrom, prevTo),
   ]);
   // Money in from someone else; a move from your own account is not income.
   const inPaise = entries.filter((e) => e.direction === 'in' && !e.transferToAccountId).reduce((s, e) => s + e.amountPaise, 0);
@@ -85,6 +93,8 @@ export async function monthSummary(db: BacchatDb, now: number, back: number): Pr
     spentPaise: spend.totalPaise,
     inPaise,
     lastMonthPaise: spend.lastMonthTotalPaise,
+    lastMonthToDatePaise: prevEntries.filter(isSpend).reduce((t, e) => t + e.amountPaise, 0),
+    daysElapsed,
     daily,
     categories: spend.categories,
     methods: methodSplit(entries),

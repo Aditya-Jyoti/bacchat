@@ -1,3 +1,5 @@
+import { SectionHeader } from '../../../components/SectionHeader';
+import { t } from '../../../lib/i18n';
 import React from 'react';
 import { Text, View } from 'react-native';
 
@@ -78,6 +80,8 @@ export function DailySpendSection({
     </View>
   );
   return (
+    <View>
+    <SectionHeader title={t('moneyLive.dailyTitle')} hint={t('moneyLive.dailyHint')} />
     <DailyBars
       values={values}
       daysInMonth={daily.days.length}
@@ -92,5 +96,6 @@ export function DailySpendSection({
       futureLabel={futureCount > 0 ? fmt(S.daysToGo, { n: futureCount }) : undefined}
       axisLabels={[`1 ${win.shortName}`, win.isCurrent ? S.axisToday : '', String(daily.days.length)]}
     />
+    </View>
   );
 }

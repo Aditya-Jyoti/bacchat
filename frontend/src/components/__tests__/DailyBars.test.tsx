@@ -69,8 +69,14 @@ describe.each(['light', 'dark'] as const)('DailyBars (%s)', (mode) => {
     const future = flat(u.getByTestId('daily-future').props.style);
     expect(future.borderStyle).toBe('dashed');
     expect(future.flex).toBe(3);
-    expect(u.getByText('3 days to go')).toBeTruthy();
-    expect(u.getByText('today')).toBeTruthy();
+    // Three days is too narrow for the caption on one line, so it is left out.
+    expect(u.queryByText('3 days to go')).toBeNull();
+    // "today" sits under today's bar (index 5 of 9 days on a 300 wide chart with a 34 wide scale).
+    expect(flat(u.getByText('today').props.style).left).toBeCloseTo(((300 - 34) / 9) * 5.5 - 28, 3);
+    const wide = setup(mode, { daysInMonth: 30, futureLabel: '24 days to go' });
+    expect(wide.getByText('24 days to go')).toBeTruthy();
+    // Near the start or the end of the month the caption would run into "1 Oct" or the last day.
+    expect(setup(mode, { todayIndex: 1 }).queryByText('today')).toBeNull();
   });
 
   it('scales bar heights against the top of the amount scale', () => {

@@ -33,7 +33,7 @@ export function BiggestSection({
   if (biggest.length === 0) return null;
   return (
     <View testID="biggest-section">
-      <SectionHeader title={t('moneyLive.biggestTitle')} />
+      <SectionHeader title={t('moneyLive.biggestTitle')} hint={t('moneyLive.biggestHint')} />
       <Text testID="biggest-split" style={[typography.bodyMedium, { color: colors.onSurfaceVariant, marginBottom: spacing.sm }]}>
         {oneOffCount > 0
           ? t(oneOffCount === 1 ? 'moneyLive.splitOne' : 'moneyLive.splitMany', {

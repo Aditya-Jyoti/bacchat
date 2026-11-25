@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { CategoryIcon } from '../../../components/CategoryIcon';
@@ -10,14 +10,24 @@ import type { Lookups } from '../parts/live';
 import { S, fmt } from '../parts/strings';
 import { useSerif } from '../parts/ui';
 
-const ROLES = ['primary', 'chart2', 'chart3', 'chart4', 'onSurfaceVariant', 'outline'] as const;
+const ROLES = ['primary', 'chart2', 'chart3', 'chart4'] as const;
+
+/** How many categories show before "Show all". */
+export const SHOWN = 6;
+
+/** "Rs 2,739 more than Oct", "Rs 2,681 less than Oct", "New this month", "Same as Oct". */
+export function changeWords(deltaPaise: number, lastMonthPaise: number, versus: string): string {
+  if (lastMonthPaise <= 0 && deltaPaise > 0) return t('moneyLive.changeNew', { month: versus });
+  if (deltaPaise === 0) return t('moneyLive.changeSame', { month: versus });
+  return t(deltaPaise > 0 ? 'moneyLive.changeMore' : 'moneyLive.changeLess', { amount: formatRupees(Math.abs(deltaPaise)), month: versus });
+}
 
 export function deltaText(deltaPaise: number): string {
   if (deltaPaise === 0) return formatRupees(0);
   return `${deltaPaise > 0 ? '+' : '-'}${formatRupees(Math.abs(deltaPaise))}`;
 }
 
-/** Spend by category: stacked share bar, then rows with share and change versus last month. */
+/** Spend by category: stacked share bar, then rows with their share and, in words, the change versus last month. */
 export function CategorySection({
   categories,
   totalPaise,
@@ -34,9 +44,10 @@ export function CategorySection({
 }): React.JSX.Element {
   const { colors, typography, spacing } = useTheme();
   const serif = useSerif();
+  const [open, setOpen] = useState(false);
   const named = categories.map((c, i) => {
     const cat = c.categoryId ? lookups.cats.get(c.categoryId) : undefined;
-    return { c, name: cat?.name ?? t('moneyLive.noCategory'), icon: cat?.icon ?? 'help', known: !!cat, color: colors[ROLES[Math.min(i, ROLES.length - 1)]] };
+    return { c, name: cat?.name ?? t('moneyLive.noCategory'), icon: cat?.icon ?? 'help', known: !!cat, color: i < 4 ? colors[ROLES[i]] : colors.outlineVariant };
   });
   return (
     <View>
@@ -46,48 +57,57 @@ export function CategorySection({
         </Text>
         <Text style={[typography.bodyMedium, { color: colors.onSurfaceVariant }]}>{fmt(t('moneyLive.vsMonth'), { month: versus })}</Text>
       </View>
+      <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant, marginBottom: 8 }]}>{t('moneyLive.byCategoryHint')}</Text>
       <View
         testID="share-bar"
         accessible
         accessibilityLabel={named.map((n) => `${n.name} ${formatRupees(n.c.totalPaise)}`).join(', ')}
         style={{ flexDirection: 'row', gap: 2, height: 8, marginBottom: 6 }}
       >
-        {named.map((n) => (
+        {named.slice(0, 4).map((n) => (
           <View
             key={n.c.categoryId ?? 'none'}
             testID={`share-${n.name}`}
             style={{ flex: totalPaise > 0 ? n.c.totalPaise / totalPaise : 0, borderRadius: 3, backgroundColor: n.color }}
           />
         ))}
+        {/* Everything past the top four as one quiet piece, so the bar never breaks into slivers. */}
+        {named.length > 4 && totalPaise > 0 ? (
+          <View testID="share-rest" style={{ flex: named.slice(4).reduce((x, n) => x + n.c.totalPaise, 0) / totalPaise, borderRadius: 3, backgroundColor: colors.outlineVariant }} />
+        ) : null}
       </View>
-      {named.map((n) => (
+      {(open ? named : named.slice(0, SHOWN)).map((n) => (
         <Pressable
           key={n.c.categoryId ?? 'none'}
           testID={`category-${n.name}`}
           accessibilityRole="button"
-          accessibilityLabel={`${n.name}, ${formatRupees(n.c.totalPaise)}, ${deltaText(n.c.deltaPaise)} ${fmt(t('moneyLive.vsMonth'), { month: versus })}`}
+          accessibilityLabel={`${n.name}, ${formatRupees(n.c.totalPaise)}, ${Math.round(n.c.share * 100)}%. ${changeWords(n.c.deltaPaise, n.c.lastMonthPaise, versus)}`}
           onPress={n.known ? () => onPick(n.name) : undefined}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: spacing.md,
-            minHeight: 48,
-            paddingVertical: 6,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.outlineVariant,
-          }}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 60, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.outlineVariant }}
         >
-          <CategoryIcon name={n.icon} size={32} />
-          <Text style={[typography.bodyMedium, { color: colors.onSurface, flex: 1 }]}>{n.name}</Text>
-          <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant, minWidth: 30, textAlign: 'right' }]}>
-            {`${Math.round(n.c.share * 100)}%`}
-          </Text>
-          <Text style={[typography.labelMedium, { color: n.c.deltaPaise > 0 ? colors.onSurfaceVariant : colors.primary, minWidth: 52, textAlign: 'right' }]}>
-            {deltaText(n.c.deltaPaise)}
-          </Text>
-          <Text style={[typography.labelLarge, { color: colors.onSurface, minWidth: 58, textAlign: 'right' }]}>{formatRupees(n.c.totalPaise)}</Text>
+          <CategoryIcon name={n.icon} size={36} />
+          <View style={{ flex: 1, gap: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm }}>
+              <Text numberOfLines={1} style={[typography.bodyLarge, { color: colors.onSurface, flex: 1 }]}>{n.name}</Text>
+              <Text style={[typography.labelLarge, { color: colors.onSurface }]}>{formatRupees(n.c.totalPaise)}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <View style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: colors.surfaceContainerHigh }}>
+                <View style={{ width: `${Math.max(2, Math.round(n.c.share * 100))}%`, height: 6, borderRadius: 3, backgroundColor: n.color }} />
+              </View>
+              <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant, minWidth: 32, textAlign: 'right' }]}>{`${Math.round(n.c.share * 100)}%`}</Text>
+            </View>
+            <Text testID={`change-${n.name}`} style={[typography.bodySmall, { color: n.c.deltaPaise < 0 ? colors.primary : colors.onSurfaceVariant }]}>
+              {changeWords(n.c.deltaPaise, n.c.lastMonthPaise, versus)}
+            </Text>
+          </View>
         </Pressable>
       ))}
+      {named.length > SHOWN ? (
+        <Pressable testID="categories-more" accessibilityRole="button" onPress={() => setOpen((o) => !o)} style={{ minHeight: 48, justifyContent: 'center' }}>
+          <Text style={[typography.labelLarge, { color: colors.primary }]}>{open ? t('moneyLive.showFewer') : t('moneyLive.showAll', { n: named.length })}</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

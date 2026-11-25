@@ -81,7 +81,7 @@ describe.each(['light', 'dark'] as const)('k1 Home (%s)', (mode) => {
     expect(await findByTestId('home-budget-over')).toBeTruthy();
     const fill = getByTestId('home-budget-fill').props.style as { width: string };
     expect(parseFloat(fill.width)).toBeGreaterThan(0);
-    expect(getByText(/past \u20B91,000/)).toBeTruthy();
+    expect(getByText(/over your \u20B91,000 budget/)).toBeTruthy();
     // The bar says what its parts are.
     expect(getByText('\u20B91,000 budget')).toBeTruthy();
     expect(getByText(/over$/)).toBeTruthy();

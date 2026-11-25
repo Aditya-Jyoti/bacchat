@@ -11,12 +11,14 @@ export type SectionHeaderProps = {
   /** Skip the 22dp gap above (first section on a screen). */
   noTopGap?: boolean;
   style?: StyleProp<ViewStyle>;
+  /** One plain line under the title saying what the section shows or what to do with it. */
+  hint?: string;
 };
 
 /** Serif section title with 22dp above and an optional text action. */
-export function SectionHeader({ title, action, onAction, noTopGap, style }: SectionHeaderProps): React.JSX.Element {
+export function SectionHeader({ title, action, onAction, noTopGap, style, hint }: SectionHeaderProps): React.JSX.Element {
   const { colors, typography, spacing } = useTheme();
-  return (
+  const head = (
     <View
       style={[
         {
@@ -42,6 +44,13 @@ export function SectionHeader({ title, action, onAction, noTopGap, style }: Sect
           <Text style={[typography.labelLarge, { color: colors.primary }]}>{action}</Text>
         </Pressable>
       ) : null}
+    </View>
+  );
+  if (!hint) return head;
+  return (
+    <View style={{ marginBottom: spacing.sm }}>
+      {head}
+      <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant, marginTop: -4 }]}>{hint}</Text>
     </View>
   );
 }

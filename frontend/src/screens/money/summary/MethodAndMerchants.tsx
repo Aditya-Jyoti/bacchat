@@ -25,7 +25,7 @@ export function MethodSection({ methods }: { methods: readonly MethodShare[] }):
   if (methods.length === 0) return null;
   return (
     <View>
-      <SectionHeader title={S.paidWith} />
+      <SectionHeader title={S.paidWith} hint={t('moneyLive.paidWithHint')} />
       {methods.map((b) => {
         const name = t(`moneyLive.${METHOD_KEY[b.method]}`);
         return (
@@ -48,7 +48,7 @@ export function MerchantSection({ merchants, lookups }: { merchants: readonly Me
   if (merchants.length === 0) return null;
   return (
     <View>
-      <SectionHeader title={S.topMerchants} />
+      <SectionHeader title={S.topMerchants} hint={t('moneyLive.merchantsHint')} />
       {merchants.map((m) => (
         <View key={m.name}>
           <ListRow

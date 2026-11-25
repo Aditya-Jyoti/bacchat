@@ -20,6 +20,8 @@ import { BiggestSection } from './summary/BiggestSection';
 import { CategorySection } from './summary/CategorySection';
 import { DailySpendSection } from './summary/DailySpendSection';
 import { MerchantSection, MethodSection } from './summary/MethodAndMerchants';
+import { MonthStory, useMoneyCheck } from './summary/MonthStory';
+import { buildStory } from './summary/story';
 import { monthSummary } from './summary/summaryData';
 
 export default function K3_MoneySummary(): React.JSX.Element {
@@ -43,14 +45,11 @@ export default function K3_MoneySummary(): React.JSX.Element {
   const lk = lookups.data ?? EMPTY_LOOKUPS;
   const canPrev = earliest != null && monthsBack(now, earliest) > back;
 
+  const check = useMoneyCheck();
+  const first = s?.categories[0];
+  const firstCat = first?.categoryId ? lk.cats.get(first.categoryId) : undefined;
+  const topCat = first && firstCat ? { name: firstCat.name, paise: first.totalPaise, share: first.share, deltaPaise: first.deltaPaise } : null;
   const net = s ? s.inPaise - s.spentPaise : 0;
-  let compare: string | null = null;
-  if (s && s.lastMonthPaise > 0) {
-    const diff = s.spentPaise - s.lastMonthPaise;
-    const amount = formatRupees(Math.abs(diff));
-    compare = diff === 0 ? fmt(t('moneyLive.sameAs'), { month: prev.shortName }) : fmt(t(diff < 0 ? 'moneyLive.lessThan' : 'moneyLive.moreThan'), { amount, month: prev.shortName });
-  }
-
   return (
     <ScreenScaffold testID="screen-k3" contentStyle={{ flexGrow: 1 }}>
       <Pressable testID="summary-body" accessible={false} onPress={() => setPicked(null)} disabled={picked === null} style={{ flexGrow: 1 }}>
@@ -91,9 +90,26 @@ export default function K3_MoneySummary(): React.JSX.Element {
                   {`${t('moneyLive.outLabel')} `}
                   <Text style={{ color: colors.onSurface, fontWeight: '700' }}>{formatRupees(s.spentPaise)}</Text>
                 </Text>
-                {compare ? <Text style={[typography.labelMedium, { color: colors.primary }]}>{compare}</Text> : null}
               </View>
             </View>
+            <MonthStory
+              lines={buildStory({
+                isCurrent: win.isCurrent,
+                monthName: win.name,
+                prevShort: prev.shortName,
+                spentPaise: s.spentPaise,
+                inPaise: s.inPaise,
+                daysElapsed: s.daysElapsed,
+                lastMonthToDatePaise: s.lastMonthToDatePaise,
+                top: topCat,
+                oneOffPaise: s.oneOffPaise,
+                oneOffCount: s.oneOffCount,
+                everydayPaise: s.everydayPaise,
+                bill: win.isCurrent ? check.data?.bill ?? null : null,
+                freePaise: check.data?.freePaise ?? 0,
+              })}
+              onAction={(a) => (a.kind === 'accounts' ? nav.go('k10') : a.kind === 'category' ? nav.openEntries({ category: a.name }) : nav.openEntries())}
+            />
             <DailySpendSection daily={s.daily} win={win} lookups={lk} picked={picked} onPick={setPicked} onSeeEntries={() => nav.openEntries()} />
             <CategorySection
               categories={s.categories}
