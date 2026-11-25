@@ -132,7 +132,15 @@ function Accounts({ go, arrange }: SectionsProps): React.JSX.Element {
   const cards = owed.filter((d) => kindOf.get(d.accountId) === 'card');
   const loans = owed.filter((d) => kindOf.get(d.accountId) === 'loan');
   const sum = (xs: { outstandingPaise: number }[]): number => xs.reduce((s, d) => s + d.outstandingPaise, 0);
-  const next = cards.length ? Math.min(...cards.map((d) => nextDueDate(d.dueDay, now))) : null;
+  // Cards with a bill day show the bill still to pay and this cycle's spends apart; others show their dues.
+  const cycled = cards.filter((d) => d.cycle);
+  const plain = cards.filter((d) => !d.cycle);
+  const billLeft = cycled.reduce((s, d) => s + (d.cycle?.billLeftPaise ?? 0), 0);
+  const cycleSpent = cycled.reduce((s, d) => s + Math.max(0, d.cycle?.cyclePaise ?? 0), 0);
+  const billDue = Math.min(...cycled.filter((d) => (d.cycle?.billLeftPaise ?? 0) > 0).map((d) => d.cycle?.billDueAt ?? Infinity));
+  const nextBill = Math.min(...cycled.map((d) => d.cycle?.nextStatementAt ?? Infinity));
+  const shortDate = (ms: number): string => (Number.isFinite(ms) ? `${new Date(ms).getDate()} ${MONTH_NAMES[new Date(ms).getMonth()].slice(0, 3)}` : '');
+  const next = plain.length ? Math.min(...plain.map((d) => nextDueDate(d.dueDay, now))) : null;
   const nextText = next ? `${new Date(next).getDate()} ${MONTH_NAMES[new Date(next).getMonth()].slice(0, 3)}` : '';
   const own = net.data?.ownBy;
   const groups = own
@@ -156,11 +164,31 @@ function Accounts({ go, arrange }: SectionsProps): React.JSX.Element {
           {groups.map((g) => (
             <Row key={g.id} title={g.title} subtitle={countText(g.n)} amount={formatRupees(g.paise)} icon={g.icon} paddingVertical={9} />
           ))}
-          {cards.length > 0 ? (
+          {plain.length > 0 ? (
             <Row
               title={c.dues.name}
-              subtitle={t(cards.length === 1 ? 'homeLive.duesSubOne' : 'homeLive.duesSub', { n: cards.length, date: nextText })}
-              amount={formatRupees(sum(cards))}
+              subtitle={t(plain.length === 1 ? 'homeLive.duesSubOne' : 'homeLive.duesSub', { n: plain.length, date: nextText })}
+              amount={formatRupees(sum(plain))}
+              icon={c.dues.icon}
+              neutral
+              paddingVertical={9}
+            />
+          ) : null}
+          {billLeft > 0 ? (
+            <Row
+              title={t('homeLive.cardBill')}
+              subtitle={t('homeLive.cardBillSub', { date: shortDate(billDue) })}
+              amount={formatRupees(billLeft)}
+              icon="receipt_long"
+              neutral
+              paddingVertical={9}
+            />
+          ) : null}
+          {cycled.length > 0 ? (
+            <Row
+              title={t('homeLive.cardCycle')}
+              subtitle={t('homeLive.cardCycleSub', { date: shortDate(nextBill) })}
+              amount={formatRupees(cycleSpent)}
               icon={c.dues.icon}
               neutral
               paddingVertical={9}

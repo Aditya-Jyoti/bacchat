@@ -183,6 +183,23 @@ describe.each(['light', 'dark'] as const)('k1 Home live (%s)', (mode) => {
     expect(queryByText(/\/ \u20B90/)).toBeNull();
   });
 
+  it('a card with a bill day shows the bill to pay and this cycle as two lines', async () => {
+    const NOW = new Date(2026, 10, 26, 18).getTime();
+    const db = createMemoryDb();
+    await db.accounts.put({ id: 'cc', name: 'Slice Credit', kind: 'card', balancePaise: 0, openingBalancePaise: 0, icon: 'credit_card' });
+    await db.debts.put({ id: 'd-cc', accountId: 'cc', dueDay: 9, statementDay: 25, outstandingPaise: 0, openingOutstandingPaise: 0, limitPaise: 1_76_000_00 });
+    const spend = (id: string, day: number, rs: number) => ({ id, amountPaise: rs * 100, direction: 'out' as const, at: new Date(2026, 10, day, 12).getTime(), merchant: id, note: null, categoryId: null, accountId: 'cc', method: 'card' as const, upiId: null, sources: [{ kind: 'shot' as const }], status: 'confirmed' as const, aiAdded: false });
+    await db.entries.putMany([spend('Zomato', 20, 69_270), spend('Amazon', 26, 2_304)]);
+    const { findByText, getByText, queryByText } = renderWithTheme(<K1_Home />, mode, { db, servicesOptions: { seed: false, now: () => NOW } });
+    expect(await findByText('Card bill')).toBeTruthy();
+    expect(getByText('Pay by 9 Dec')).toBeTruthy();
+    expect(getByText('\u20B969,270')).toBeTruthy();
+    expect(getByText('Card, this cycle')).toBeTruthy();
+    expect(getByText('Next bill on 25 Dec')).toBeTruthy();
+    expect(getByText('\u20B92,304')).toBeTruthy();
+    expect(queryByText('Card dues')).toBeNull();
+  });
+
   it('uses the real clock greeting outside sample mode', async () => {
     const { findByText } = renderWithTheme(<K1_Home />, mode, { servicesOptions: { seed: false, now: () => new Date(2026, 10, 3, 8, 15).getTime() } });
     expect(await findByText('Good morning')).toBeTruthy();

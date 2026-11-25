@@ -76,7 +76,7 @@ export default function K10_Accounts(): React.JSX.Element {
                   kind={o.kindText}
                   icon={o.icon}
                   amount={formatRupees(o.paise)}
-                  owe={{ used: `${o.usedPct}%`, limitText: t('accountsUi.limitSuffix', { amount: formatRupees(o.limitPaise) }) }}
+                  owe={{ used: `${o.usedPct}%`, limitText: t(o.cycle && o.cycle.billLeftPaise > 0 ? 'accountsUi.limitWithBill' : 'accountsUi.limitSuffix', { amount: formatRupees(o.limitPaise) }) }}
                 />
                 {o.cycle ? <CardBill cardAccountId={o.accountId} cardName={o.name} cycle={o.cycle} /> : null}
                 </React.Fragment>

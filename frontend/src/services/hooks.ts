@@ -23,8 +23,8 @@ import {
   type UpcomingItem,
   type UpiFlow,
 } from '../data/db/queries';
-import { accountsWithBalances, ledger } from '../data/db/queries/balances';
-import type { Account, DebtCard, Entry, EntryDirection, EntrySourceKind, EntryStatus, Goal, PayMethod } from '../data/db/models';
+import { accountsWithBalances, ledger, type LedgerDebt } from '../data/db/queries/balances';
+import type { Account, Entry, EntryDirection, EntrySourceKind, EntryStatus, Goal, PayMethod } from '../data/db/models';
 import { useDbQuery, type QueryResult } from './useDbQuery';
 import { useServices } from './AppServicesProvider';
 import type { ObservableDb } from './observable';
@@ -47,7 +47,7 @@ export type EntryFilter = {
 
 export type Spendable = { paise: number; liquidPaise: number; cardDuesPaise: number };
 export type GoalWithTotal = { goal: Goal; total: GoalTotal };
-export type DebtWithAccount = DebtCard & { name: string; icon: string };
+export type DebtWithAccount = LedgerDebt & { name: string; icon: string };
 
 export function useNetWorth(): QueryResult<NetWorth> {
   return useDbQuery((db) => netWorth(db));
@@ -151,8 +151,8 @@ export function useAccounts(): QueryResult<Account[]> {
 
 /** Card dues and loans, each with its account name. Debt is always listed on its own. */
 export function useDebts(): QueryResult<DebtWithAccount[]> {
-  return useDbQuery(async (db) => {
-    const { accounts, debts } = await ledger(db);
+  return useDbQuery(async (db, now) => {
+    const { accounts, debts } = await ledger(db, now);
     const byId = new Map(accounts.map((a) => [a.id, a] as const));
     return debts.map((d) => ({
       ...d,
