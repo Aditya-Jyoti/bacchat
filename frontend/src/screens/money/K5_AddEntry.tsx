@@ -66,6 +66,8 @@ export default function K5_AddEntry(): React.JSX.Element {
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [methodSel, setMethodSel] = useState<string | null>(null);
   const [methodOpen, setMethodOpen] = useState(false);
+  const [toSel, setToSel] = useState<string | null>(null);
+  const [toOpen, setToOpen] = useState(false);
   const [note, setNote] = useState('');
   const [split, setSplit] = useState(false);
   const [date, setDate] = useState(() => fromIso(nav.params.date) ?? today);
@@ -88,13 +90,27 @@ export default function K5_AddEntry(): React.JSX.Element {
   const catMap = useMemo(() => new Map((data.data?.cats ?? []).map((c) => [c.id, c] as const)), [data.data]);
   const payees = useMemo(() => (data.data ? payeesFromHistory(data.data.history, catMap) : []), [data.data, catMap]);
   const option: MethodOption | undefined = options.find((o) => o.key === methodSel) ?? options[0];
+  // Moved: any of your other accounts (paying a card counts as a move into it).
+  const toOptions = options.filter((o) => o.accountId && o.accountId !== option?.accountId);
+  const toOption = toOptions.find((o) => o.accountId === toSel) ?? toOptions[0];
+  const isMove = kind === 'moved';
+  const changeKind = (v: Kind): void => {
+    // Turning money that came in into a move: it arrived in this account, so that is where it went to.
+    if (v === 'moved' && kind === 'got' && option?.accountId) {
+      setToSel(option.accountId);
+      const other = options.find((o) => o.accountId && o.accountId !== option.accountId);
+      if (other) setMethodSel(other.key);
+    }
+    setKind(v);
+  };
 
   // Editing: fill the form once from the stored entry (state set while rendering, not in an effect).
   const [filled, setFilled] = useState(false);
   const base = data.data?.base;
   if (!filled && base) {
     setFilled(true);
-    setKind(base.direction === 'in' ? 'got' : 'spent');
+    setKind(base.transferToAccountId ? 'moved' : base.direction === 'in' ? 'got' : 'spent');
+    if (base.transferToAccountId) setToSel(base.transferToAccountId);
     setAmount(String(base.amountPaise / 100));
     setPayee(base.merchant);
     setPickedCategory(base.categoryId);
@@ -142,7 +158,7 @@ export default function K5_AddEntry(): React.JSX.Element {
 
   const save = (): void => {
     const paise = parseRupees(amount || '0') ?? 0;
-    if (!payee.trim() || !(paise > 0) || !option || saving) {
+    if ((!isMove && !payee.trim()) || (isMove && !toOption) || !(paise > 0) || !option || saving) {
       setError(true);
       return;
     }
@@ -150,10 +166,11 @@ export default function K5_AddEntry(): React.JSX.Element {
     void saveEntry(db, {
       kind,
       amountPaise: paise,
-      payee,
+      payee: isMove && toOption ? t('moneyLive.movedToName', { name: toOption.label }) : payee,
       categoryId,
       budgetId,
       option,
+      toAccountId: isMove ? toOption?.accountId ?? null : null,
       at: combineDateTime(date, time),
       note,
       base: data.data?.base ?? null,
@@ -179,7 +196,7 @@ export default function K5_AddEntry(): React.JSX.Element {
       <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.screenMargin, paddingBottom: spacing.xxl }} keyboardShouldPersistTaps="handled">
         <SegmentedButtons
           value={kind}
-          onValueChange={(v) => setKind(v as Kind)}
+          onValueChange={(v) => changeKind(v as Kind)}
           buttons={[
             { value: 'spent', label: S.spent, testID: 'kind-spent', showSelectedCheck: true },
             { value: 'got', label: S.got, testID: 'kind-got', showSelectedCheck: true },
@@ -206,6 +223,7 @@ export default function K5_AddEntry(): React.JSX.Element {
           />
         </View>
         <View style={{ gap: spacing.lg }}>
+          {isMove ? null : (
           <PayeeField
             label={PAYEE_LABEL[kind]}
             value={payee}
@@ -221,6 +239,8 @@ export default function K5_AddEntry(): React.JSX.Element {
               setPickedCategory((p as { categoryId?: string | null }).categoryId ?? null);
             }}
           />
+          )}
+          {isMove ? null : (
           <View>
             <OutlinedField testID="category-field" label={t('moneyLive.categoryField')} icon="category" value={category ?? ''} onPress={() => setCatOpen((o) => !o)} trailing={<Icon name="arrow_drop_down" size={22} color={colors.onSurfaceVariant} />}>
               <Text testID="payee-category" numberOfLines={1} style={[typography.bodyLarge, { color: category ? colors.onSurface : colors.onSurfaceVariant }]}>{category ?? t('moneyLive.categoryPick')}</Text>
@@ -238,6 +258,7 @@ export default function K5_AddEntry(): React.JSX.Element {
               </View>
             ) : null}
           </View>
+          )}
           {kind === 'spent' && budgetChoices.length > 0 ? (
             <View>
               <OutlinedField testID="budget-field" label={t('moneyLive.budgetField')} icon="account_balance_wallet" value={budgetName ?? ''} onPress={() => setBudgetOpen((o) => !o)} trailing={<Icon name="arrow_drop_down" size={22} color={colors.onSurfaceVariant} />}>
@@ -255,7 +276,7 @@ export default function K5_AddEntry(): React.JSX.Element {
             </View>
           ) : null}
           <View>
-            <OutlinedField testID="method-field" label={S.paidWith} icon="account_balance_wallet" value={option?.label ?? ''} onPress={() => setMethodOpen((o) => !o)} trailing={<Icon name="arrow_drop_down" size={22} color={colors.onSurfaceVariant} />}>
+            <OutlinedField testID="method-field" label={isMove ? t('moneyLive.moveFrom') : S.paidWith} icon="account_balance_wallet" value={option?.label ?? ''} onPress={() => setMethodOpen((o) => !o)} trailing={<Icon name="arrow_drop_down" size={22} color={colors.onSurfaceVariant} />}>
               <Text numberOfLines={1} style={[typography.bodyLarge, { color: colors.onSurface }]}>{option?.label ?? ''}</Text>
             </OutlinedField>
             {methodOpen ? (
@@ -268,6 +289,23 @@ export default function K5_AddEntry(): React.JSX.Element {
               </View>
             ) : null}
           </View>
+          {isMove ? (
+            <View>
+              <OutlinedField testID="move-to-field" label={t('moneyLive.moveTo')} icon="move_down" value={toOption?.label ?? ''} onPress={() => setToOpen((o) => !o)} trailing={<Icon name="arrow_drop_down" size={22} color={colors.onSurfaceVariant} />}>
+                <Text numberOfLines={1} style={[typography.bodyLarge, { color: toOption ? colors.onSurface : colors.onSurfaceVariant }]}>{toOption?.label ?? t('moneyLive.moveNoOther')}</Text>
+              </OutlinedField>
+              {toOpen ? (
+                <View style={{ marginTop: 4, backgroundColor: colors.surfaceContainer, borderRadius: 12, paddingVertical: 6 }}>
+                  {toOptions.map((m) => (
+                    <Pressable key={m.key} testID={`move-to-${m.label}`} accessibilityRole="button" accessibilityState={{ selected: m.accountId === toOption?.accountId }} onPress={() => { setToSel(m.accountId); setToOpen(false); }} style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: 14, backgroundColor: m.accountId === toOption?.accountId ? colors.surfaceContainerHigh : 'transparent' }}>
+                      <Text style={[typography.bodyMedium, { color: colors.onSurface }]}>{m.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+              <Text style={[typography.bodySmall, { color: colors.onSurfaceVariant, marginTop: 6 }]}>{t('moneyLive.moveHint')}</Text>
+            </View>
+          ) : null}
           <View style={{ flexDirection: 'row', gap: spacing.md }}>
             <View style={{ flex: 1.3 }}>
               <OutlinedField testID="date-field" label={S.date} icon="calendar_today" value={entryDateLabel(date, today)} onPress={() => nav.open('k6', { date: toIso(date), mode: 'date' })}>

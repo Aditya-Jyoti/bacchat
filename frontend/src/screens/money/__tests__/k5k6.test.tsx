@@ -104,12 +104,14 @@ describe.each(['light', 'dark'] as const)('k5 Add entry (%s)', (mode) => {
     expect(getByTestId('amount').props.value).toBe('');
   });
 
-  it('switches Spent / Got / Moved and relabels the payee field', async () => {
-    const { getByTestId, getByText } = await renderLive(<K5 />, mode);
+  it('switches Spent / Got / Moved: Got relabels the payee, Moved asks From and To instead', async () => {
+    const { getByTestId, getByText, queryByTestId } = await renderLive(<K5 />, mode);
     fireEvent.press(getByTestId('kind-got'));
     expect(getByText('Got from')).toBeTruthy();
     fireEvent.press(getByTestId('kind-moved'));
-    expect(getByText('Moved to')).toBeTruthy();
+    expect(queryByTestId('payee-input')).toBeNull();
+    expect(getByText('From')).toBeTruthy();
+    expect(getByTestId('move-to-field')).toBeTruthy();
   });
 
   it('chooses Paid from the accounts you have and toggles the split switch and note', async () => {

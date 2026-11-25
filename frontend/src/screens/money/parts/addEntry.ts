@@ -47,6 +47,8 @@ export type EntryForm = {
   /** Budget the spend is tagged with, if any. */
   budgetId?: string | null;
   option: MethodOption;
+  /** Moved: the account the money went to (one of your own). */
+  toAccountId?: string | null;
   at: number;
   note: string;
   /** When editing: the stored entry, so sources, status and flags stay as they were. */
@@ -58,17 +60,20 @@ const DIRECTION: Record<EntryForm['kind'], EntryDirection> = { spent: 'out', got
 /** The Entry a filled-in form describes. By hand, confirmed. */
 export function entryFromForm(f: EntryForm): Entry {
   const note = f.note.trim() || null;
+  const moved = f.kind === 'moved' && !!f.toAccountId;
   const common = {
     amountPaise: f.amountPaise,
     direction: DIRECTION[f.kind],
     at: f.at,
     merchant: f.payee.trim(),
     note,
-    categoryId: f.categoryId,
+    categoryId: moved ? null : f.categoryId,
     budgetId: f.kind === 'spent' ? f.budgetId ?? null : null,
     accountId: f.option.accountId,
     method: f.option.method,
     upiId: f.option.upiId,
+    // A move between your own accounts: out of one, into the other; never spending or income.
+    transferToAccountId: moved ? f.toAccountId ?? null : null,
   };
   if (f.base) return { ...f.base, ...common, updatedAt: f.base.updatedAt };
   return { id: f.id ?? newId('e'), updatedAt: 0, sources: [{ kind: 'hand' }], status: 'confirmed', aiAdded: false, ...common };
@@ -78,6 +83,6 @@ export function entryFromForm(f: EntryForm): Entry {
 export async function saveEntry(db: BacchatDb, f: EntryForm): Promise<Entry> {
   const entry = entryFromForm(f);
   const stored = await db.entries.put(entry);
-  if (stored.direction === 'out') await db.merchants.record(stored.merchant, stored.categoryId, stored.amountPaise, stored.at);
+  if (stored.direction === 'out' && !stored.transferToAccountId) await db.merchants.record(stored.merchant, stored.categoryId, stored.amountPaise, stored.at);
   return stored;
 }

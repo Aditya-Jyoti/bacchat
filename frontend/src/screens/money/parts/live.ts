@@ -64,10 +64,13 @@ export function isResolved(e: Entry): boolean {
 export function rowFor(e: Entry, lk: Lookups, extra: Partial<EntryRowProps> = {}): EntryRowProps {
   const cat = e.categoryId ? lk.cats.get(e.categoryId) : undefined;
   const second = e.sources.length > 1;
+  // A move is named by where it went ("To Slice Savings"), from the account itself, not the stored text.
+  const to = e.transferToAccountId ? lk.accounts.get(e.transferToAccountId) : undefined;
   return {
-    name: e.merchant,
-    icon: cat?.icon ?? 'help',
-    sub: `${categoryName(e, lk)} \u00B7 ${viaLabel(e, lk)}`,
+    name: to ? t('moneyLive.movedToName', { name: to.name }) : e.merchant,
+    icon: e.transferToAccountId ? 'swap_horiz' : cat?.icon ?? 'help',
+    // A move between your own accounts has no category: say it was a move, and from where.
+    sub: `${e.transferToAccountId ? t('moneyLive.movedLabel') : categoryName(e, lk)} \u00B7 ${viaLabel(e, lk)}`,
     note: e.note?.trim() || null,
     amountPaise: e.amountPaise,
     income: e.direction === 'in',
