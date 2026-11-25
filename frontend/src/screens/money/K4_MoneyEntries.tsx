@@ -1,6 +1,6 @@
 /**
  * k4: Money - Entries. Search bar, source filter chips, day groups with totals, rows tagged
- * MATCHED / RESOLVED / TO REVIEW, and docked add actions. Route params: filter
+ * RESOLVED / TO REVIEW (an entry read from two places is just one row, no tag), and docked add actions. Route params: filter
  * ('review' | 'sms' | 'mail' | 'shot') opens pre-filtered, category (id or name) narrows to one category.
  * Entries come from the local database. To review rows confirm by tap or by swiping right.
  */

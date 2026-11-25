@@ -11,6 +11,7 @@ import { useTheme } from '../../theme';
 import { useScreenNav } from '../shared/useScreenNav';
 import { AccountRow } from './sections/AccountRow';
 import { AccountSplitRows } from './sections/AccountSplitRows';
+import { CardBill } from './sections/CardBill';
 import { GroupHeader } from './sections/GroupHeader';
 import { useAccountsData } from './useAccountsData';
 import { t } from '../../lib/i18n';
@@ -67,8 +68,9 @@ export default function K10_Accounts(): React.JSX.Element {
             <>
               <GroupHeader title={t('accountsUi.groupOwe')} total={formatRupees(d.owePaise)} />
               {d.owe.map((o) => (
+                <React.Fragment key={o.id}>
                 <AccountRow
-                  key={o.id}
+                  divider={!o.cycle}
                   onPress={() => nav.go('k11', { id: o.accountId })}
                   name={o.name}
                   kind={o.kindText}
@@ -76,6 +78,8 @@ export default function K10_Accounts(): React.JSX.Element {
                   amount={formatRupees(o.paise)}
                   owe={{ used: `${o.usedPct}%`, limitText: t('accountsUi.limitSuffix', { amount: formatRupees(o.limitPaise) }) }}
                 />
+                {o.cycle ? <CardBill cardAccountId={o.accountId} cardName={o.name} cycle={o.cycle} /> : null}
+                </React.Fragment>
               ))}
             </>
           ) : null}

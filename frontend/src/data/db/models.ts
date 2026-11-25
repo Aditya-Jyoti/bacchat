@@ -42,6 +42,8 @@ export type DebtCard = BaseRecord & {
   accountId: string;
   /** Day of month the bill is due, 1..31. */
   dueDay: number;
+  /** Day of month the bill is made (the cycle restarts), 1..31. Absent: no cycle, all dues are one bill. */
+  statementDay?: number | null;
   outstandingPaise: number;
   /** Dues before the first entry; the current dues are derived like account balances. Absent means outstandingPaise. */
   openingOutstandingPaise?: number | null;

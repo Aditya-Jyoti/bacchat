@@ -1,5 +1,7 @@
 import type { BacchatDb, Repository } from '../repositories';
 import type { Account, DebtCard, Entry, UpiId } from '../models';
+import { dateKey } from '../dates';
+import { cardCycle, type CardCycle, type DueChange } from './cardCycle';
 
 /**
  * Balances follow entries. Nothing writes a running balance: the current balance of a bank or cash
@@ -77,31 +79,35 @@ export const currentBalance = (a: Account, sums: Map<string, number>): number =>
 export const currentOutstanding = (d: DebtCard, sums: Map<string, number>): number =>
   d.openingOutstandingPaise == null ? d.outstandingPaise : d.openingOutstandingPaise + (sums.get(d.accountId) ?? 0);
 
-export type Ledger = { accounts: Account[]; debts: DebtCard[] };
+/** A debt with its current billing cycle (cards with a bill day). */
+export type LedgerDebt = DebtCard & { cycle?: CardCycle | null };
+export type Ledger = { accounts: Account[]; debts: LedgerDebt[] };
 
 /**
  * Accounts and debts with balancePaise and outstandingPaise replaced by the derived current values.
  * A card or loan account that has entries but no DebtCard gets one made up (not stored) so its dues
  * are never lost. Pure: reads only.
  */
-export async function ledger(db: BacchatDb): Promise<Ledger> {
+export async function ledger(db: BacchatDb, now: number = Date.now()): Promise<Ledger> {
   // An observable database (services) bumps a version on every write: reuse the result until then,
   // since several sections of one screen each ask for balances.
   const version = (db as Partial<{ version: () => number }>).version?.();
   if (version !== undefined) {
+    // The cycle moves on at midnight on the bill day, so the day is part of the key.
+    const key = `${version}:${dateKey(now)}`;
     const hit = ledgerCache.get(db);
-    if (hit && hit.version === version) return hit.result;
-    const result = computeLedger(db);
-    ledgerCache.set(db, { version, result });
+    if (hit && hit.key === key) return hit.result;
+    const result = computeLedger(db, now);
+    ledgerCache.set(db, { key, result });
     result.catch(() => ledgerCache.get(db)?.result === result && ledgerCache.delete(db));
     return result;
   }
-  return computeLedger(db);
+  return computeLedger(db, now);
 }
 
-const ledgerCache = new WeakMap<object, { version: number; result: Promise<Ledger> }>();
+const ledgerCache = new WeakMap<object, { key: string; result: Promise<Ledger> }>();
 
-async function computeLedger(db: BacchatDb): Promise<Ledger> {
+async function computeLedger(db: BacchatDb, now: number): Promise<Ledger> {
   const [accounts, debts, entries, upis] = await Promise.all([
     db.accounts.list(),
     db.debts.list(),
@@ -110,7 +116,22 @@ async function computeLedger(db: BacchatDb): Promise<Ledger> {
   ]);
   const sums = sumDeltas(entries, accounts, upis);
   const outAccounts = accounts.map((a) => (isDebtKind(a.kind) ? a : { ...a, balancePaise: currentBalance(a, sums) }));
-  const outDebts: DebtCard[] = debts.map((d) => ({ ...d, outstandingPaise: currentOutstanding(d, sums) }));
+  const ctx = ctxOf(accounts, upis);
+  const outDebts: LedgerDebt[] = debts.map((d) => {
+    const outstandingPaise = currentOutstanding(d, sums);
+    let cycle: CardCycle | null = null;
+    if (d.statementDay && d.openingOutstandingPaise != null) {
+      const changes: DueChange[] = [];
+      for (const e of entries) {
+        if (e.deletedAt) continue;
+        for (const x of deltasWith(e, ctx)) {
+          if (x.accountId === d.accountId) changes.push({ at: e.at, deltaPaise: x.deltaPaise, payment: e.transferToAccountId === d.accountId });
+        }
+      }
+      cycle = cardCycle(d, outstandingPaise, d.openingOutstandingPaise, changes, now);
+    }
+    return { ...d, outstandingPaise, cycle };
+  });
   const haveDebt = new Set(debts.map((d) => d.accountId));
   for (const a of accounts) {
     if (!isDebtKind(a.kind) || haveDebt.has(a.id) || a.openingBalancePaise == null) continue;

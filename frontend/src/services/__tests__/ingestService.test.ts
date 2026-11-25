@@ -3,7 +3,7 @@ import { createMemoryDb } from '../../data/db';
 import { createFakeSmsNative } from '../../../modules/bacchat-sms/src/fake';
 import { usePreferences } from '../../lib/preferences';
 import { createMemoryStorage, setStorage } from '../../lib/storage';
-import { REVIEW_LINK, createIngestService, hashText, smsRawRef } from '../ingestService';
+import { AI_WAIT_MS, REVIEW_LINK, createIngestService, hashText, smsRawRef } from '../ingestService';
 import { splitPastedEmail } from '../emailSource';
 import { pickCategoryLink } from '../categoryPick';
 
@@ -141,14 +141,29 @@ describe('notifications', () => {
     expect(n.savedTexts[0]).toBe(`Filed under ${n.choiceLabels[0]}.`);
   });
 
-  it('asks only for a spend with no category: a known payee says where it went, with Change', async () => {
+  it('always offers categories: a known payee has its category on the first button', async () => {
     const { db, native, svc } = setup();
     await db.categories.putMany([{ id: 'food', name: 'Food', icon: 'restaurant' }, { id: 'fun', name: 'Fun', icon: 'movie' }]);
     await db.merchants.record('Ramesh Fruits', 'food', 15000, NOW - 2 * DAY);
     await svc.processSms(sms(BODY), { notify: true });
     const [e] = await db.entries.list();
     expect(e.categoryId).toBe('food');
-    expect(native.entryNotifications[0]).toMatchObject({ text: 'Food', choiceIds: [], moreLabel: 'Change', deepLink: pickCategoryLink(e.id) });
+    expect(native.entryNotifications[0]).toMatchObject({ choiceIds: ['food', 'fun'], moreLabel: 'More', deepLink: pickCategoryLink(e.id) });
+  });
+
+  it('saves a spend within seconds even when the AI reader hangs', async () => {
+    jest.useFakeTimers();
+    try {
+      const db = createMemoryDb();
+      const native = createFakeSmsNative();
+      const svc = createIngestService({ db, now: () => NOW, native, shouldNotify: () => true, extractor: () => new Promise(() => undefined) });
+      const done = svc.processSms(sms(BODY), { notify: true });
+      await jest.advanceTimersByTimeAsync(AI_WAIT_MS + 10);
+      expect((await done).kind).toBe('added');
+      expect(native.entryNotifications).toHaveLength(1);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('names the account first: "Slice Credit: Rs 270", and "+" for money in', async () => {

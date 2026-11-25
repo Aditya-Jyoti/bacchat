@@ -63,6 +63,7 @@ export async function addAccount(db: BacchatDb, input: NewAccountInput): Promise
       id: newId('debt'),
       accountId: id,
       dueDay: input.type === 'card' ? dayOf(input.due) : 1,
+      statementDay: input.type === 'card' ? dayOf(input.bill) : null,
       outstandingPaise: input.amountPaise,
       openingOutstandingPaise: input.amountPaise,
       limitPaise: input.type === 'card' ? input.limitPaise : input.amountPaise,
@@ -110,6 +111,7 @@ export async function updateAccount(db: BacchatDb, edit: AccountEdit): Promise<v
       await db.debts.put({
         ...stored,
         dueDay: prev.kind === 'card' ? dayOf(edit.due) : stored.dueDay,
+        statementDay: prev.kind === 'card' ? dayOf(edit.bill) : stored.statementDay ?? null,
         limitPaise: prev.kind === 'card' ? edit.limitPaise : stored.limitPaise,
         ...(debt.outstandingPaise !== edit.amountPaise ? { outstandingPaise: edit.amountPaise } : {}),
       });
@@ -135,3 +137,39 @@ export async function deleteAccount(db: BacchatDb, id: string): Promise<void> {
   await db.accounts.remove(id);
 }
 
+
+/**
+ * Mark a card bill paid: a move of the amount from a bank or cash account into the card, dated now.
+ * The card's dues and the bank balance follow from the entry like any other.
+ */
+export async function markCardBillPaid(db: BacchatDb, o: { cardAccountId: string; fromAccountId: string; amountPaise: number; at: number }): Promise<void> {
+  if (!(o.amountPaise > 0)) return;
+  const card = await db.accounts.get(o.cardAccountId);
+  await db.entries.put({
+    id: newId('e'),
+    updatedAt: 0,
+    amountPaise: o.amountPaise,
+    direction: 'out',
+    at: o.at,
+    merchant: t('accountsUi.billPaidEntry', { card: card?.name ?? '' }),
+    note: null,
+    categoryId: null,
+    budgetId: null,
+    accountId: o.fromAccountId,
+    method: 'bank',
+    upiId: null,
+    sources: [{ kind: 'hand' }],
+    status: 'confirmed',
+    aiAdded: false,
+    deletedAt: null,
+    transferToAccountId: o.cardAccountId,
+  });
+}
+
+/** The account the card was last paid from (a move into it), else the first bank account. */
+export async function usualPayFrom(db: BacchatDb, cardAccountId: string): Promise<string | null> {
+  const [entries, accounts] = await Promise.all([db.entries.list(), db.accounts.list()]);
+  const last = entries.filter((e) => !e.deletedAt && e.transferToAccountId === cardAccountId).sort((a, b) => b.at - a.at)[0];
+  if (last?.accountId && accounts.some((a) => a.id === last.accountId && !a.deletedAt)) return last.accountId;
+  return accounts.find((a) => a.kind === 'bank' && !a.deletedAt)?.id ?? null;
+}

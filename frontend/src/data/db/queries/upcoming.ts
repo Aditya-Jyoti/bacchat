@@ -1,9 +1,18 @@
 import type { BacchatDb } from '../repositories';
 import type { Cadence, EntryDirection, Recurring, Repeat } from '../models';
 import { ledger } from './balances';
+import { nextDueDate } from './dueDate';
+import { nextBillDay } from './cardCycle';
 import { addDays, addMonthsClamped, dateKey, parseDateKey, startOfDay } from '../dates';
 
-export type UpcomingKind = 'sip' | 'bill' | 'monthly' | 'income' | 'transfer' | 'cardDue';
+/** First bill day on or after `from`. */
+function lastBillDayOnOrAfter(day: number, from: number): number {
+  const d = new Date(startOfDay(from));
+  const t = new Date(d.getFullYear(), d.getMonth(), Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate())).getTime();
+  return t >= d.getTime() ? t : nextBillDay(day, t);
+}
+
+export type UpcomingKind = 'sip' | 'bill' | 'monthly' | 'income' | 'transfer' | 'cardDue' | 'cardBill';
 
 export type UpcomingItem = {
   /** Local date key YYYY-MM-DD. */
@@ -57,14 +66,7 @@ export function occurrences(r: Recurring, fromMs: number, toMs: number): number[
   return repeatDates(r.nextDue, r.cadence, fromMs, toMs);
 }
 
-/** Next date a card bill is due on or after `from`, given a due day of month. */
-export function nextDueDate(dueDay: number, from: number): number {
-  const d = new Date(from);
-  const clampTo = (y: number, m: number): number =>
-    new Date(y, m, Math.min(dueDay, new Date(y, m + 1, 0).getDate())).getTime();
-  const thisMonth = clampTo(d.getFullYear(), d.getMonth());
-  return thisMonth >= startOfDay(from) ? thisMonth : clampTo(d.getFullYear(), d.getMonth() + 1);
-}
+export { nextDueDate } from './dueDate';
 
 /**
  * Projection of what is coming up in the next `days` days from today: recurring items (SIPs,
@@ -83,7 +85,7 @@ export async function upcoming(db: BacchatDb, now: number, days = 45): Promise<U
 export async function upcomingBetween(db: BacchatDb, now: number, fromMs: number, toMs: number): Promise<UpcomingItem[]> {
   const from = fromMs;
   const to = toMs;
-  const [recs, { accounts, debts }] = await Promise.all([db.recurring.list(), ledger(db)]);
+  const [recs, { accounts, debts }] = await Promise.all([db.recurring.list(), ledger(db, now)]);
   const items: UpcomingItem[] = [];
   for (const r of recs) {
     for (const t of occurrences(r, from, to)) {
@@ -103,7 +105,35 @@ export async function upcomingBetween(db: BacchatDb, now: number, fromMs: number
   }
   for (const d of debts) {
     const acct = accounts.find((a) => a.id === d.accountId);
-    if (!acct || acct.kind !== 'card' || d.outstandingPaise <= 0) continue;
+    if (!acct || acct.kind !== 'card') continue;
+    const c = d.cycle;
+    if (c) {
+      // A card with a bill day: the bill made on that day each month, and the bill due on the due day.
+      // The due date of the last bill carries what is left to pay; later ones have no amount yet.
+      const day = d.statementDay ?? 1;
+      for (let t = lastBillDayOnOrAfter(day, from); t < to; t = nextBillDay(day, t)) {
+        items.push({ date: dateKey(t), atMs: t, title: `${acct.name} bill made`, icon: 'receipt_long', amountPaise: 0, direction: 'out', kind: 'cardBill', recurringId: null, accountId: acct.id, noAmount: true });
+      }
+      for (let t = nextDueDate(d.dueDay, from); t < to; t = nextDueDate(d.dueDay, addDays(t, 1))) {
+        if (t < startOfDay(now) && t !== c.billDueAt) continue;
+        const current = t === c.billDueAt;
+        if (current && c.billLeftPaise <= 0) continue;
+        items.push({
+          date: dateKey(t),
+          atMs: t,
+          title: `${acct.name} bill`,
+          icon: 'credit_card',
+          amountPaise: current ? c.billLeftPaise : 0,
+          direction: 'out',
+          kind: 'cardDue',
+          recurringId: null,
+          accountId: acct.id,
+          noAmount: current ? undefined : true,
+        });
+      }
+      continue;
+    }
+    if (d.outstandingPaise <= 0) continue;
     // A card bill repeats monthly. The next due date from today carries the current dues; later ones
     // have no amount yet. Due dates before today are not shown.
     const firstDue = nextDueDate(d.dueDay, startOfDay(now));

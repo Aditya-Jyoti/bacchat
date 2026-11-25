@@ -41,6 +41,7 @@ const KIND_LABEL: Record<UpcomingKind, string> = {
   get income() { return t('budgetUi.kindIncome'); },
   get transfer() { return t('budgetUi.kindTransfer'); },
   get cardDue() { return t('budgetUi.kindCardDue'); },
+  get cardBill() { return t('budgetUi.kindCardBill'); },
 };
 
 export default function K17_ComingUp(): React.JSX.Element {

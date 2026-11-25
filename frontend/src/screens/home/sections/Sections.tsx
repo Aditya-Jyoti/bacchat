@@ -210,7 +210,7 @@ function Spend({ go, arrange }: SectionsProps): React.JSX.Element {
   );
 }
 
-const KIND_KEY = { sip: 'kindSip', bill: 'kindBill', monthly: 'kindMonthly', income: 'kindIncome', transfer: 'kindTransfer', cardDue: 'kindCardDue' } as const;
+const KIND_KEY = { sip: 'kindSip', bill: 'kindBill', monthly: 'kindMonthly', income: 'kindIncome', transfer: 'kindTransfer', cardDue: 'kindCardDue', cardBill: 'kindCardBill' } as const;
 /** Home shows the next item and the two after it; the rest are in Coming up (k17). */
 const UPCOMING_ON_HOME = 3;
 

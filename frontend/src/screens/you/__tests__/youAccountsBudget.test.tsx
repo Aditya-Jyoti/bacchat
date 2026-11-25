@@ -156,6 +156,32 @@ describe.each(['light', 'dark'] as const)('k10 Accounts (%s)', (mode) => {
     expect(await findAllByText('Amount invested \u00B7 added by hand')).toHaveLength(2);
   });
 
+  it('a card with a bill day shows the bill, this cycle, and Mark paid moves money from the bank', async () => {
+    const NOW = new Date(2026, 10, 26, 18).getTime();
+    const db = createMemoryDb();
+    await db.accounts.putMany([
+      { id: 'cc', name: 'Slice Credit', kind: 'card', balancePaise: 0, openingBalancePaise: 0, icon: 'credit_card' },
+      { id: 'sb', name: 'Slice Savings', kind: 'bank', balancePaise: 1_00_000_00, openingBalancePaise: 1_00_000_00, icon: 'account_balance' },
+    ]);
+    await db.debts.put({ id: 'd-cc', accountId: 'cc', dueDay: 9, statementDay: 25, outstandingPaise: 0, openingOutstandingPaise: 0, limitPaise: 1_76_000_00 });
+    const spend = (id: string, day: number, rs: number) => ({ id, amountPaise: rs * 100, direction: 'out' as const, at: new Date(2026, 10, day, 12).getTime(), merchant: id, note: null, categoryId: null, accountId: 'cc', method: 'card' as const, upiId: null, sources: [{ kind: 'shot' as const }], status: 'confirmed' as const, aiAdded: false });
+    await db.entries.putMany([spend('Zomato', 20, 69_270), spend('Amazon', 26, 2_304)]);
+    const { findByTestId, getByTestId, getByText } = renderWithTheme(<K10_Accounts />, mode, { db, servicesOptions: { seed: false, now: () => NOW } });
+    expect((await findByTestId('card-bill-left')).props.children).toBe(`${R}69,270`);
+    expect(getByTestId('card-cycle').props.children).toBe(`${R}2,304`);
+    expect(getByText('Bill for 25 Oct to 24 Nov')).toBeTruthy();
+    expect(getByText('Pay by 9 Dec')).toBeTruthy();
+    expect(getByText('Next bill on 25 Dec')).toBeTruthy();
+    fireEvent.press(getByTestId('card-bill-paid'));
+    fireEvent.press(await findByTestId('pay-confirm'));
+    await waitFor(async () => {
+      const move = (await db.entries.list()).find((e) => e.transferToAccountId === 'cc');
+      expect(move).toMatchObject({ accountId: 'sb', amountPaise: 69_270_00, merchant: 'Slice Credit bill paid' });
+    });
+    await waitFor(() => expect(getByText('Paid \u20B969,270. Nothing left on this bill.')).toBeTruthy());
+    expect(getByTestId('card-cycle').props.children).toBe(`${R}2,304`);
+  });
+
   it('shows a calm empty line with no accounts', async () => {
     const { findByTestId, getByLabelText } = renderWithTheme(<K10_Accounts />, mode, { servicesOptions: { seed: false } });
     expect(await findByTestId('accounts-empty')).toBeTruthy();

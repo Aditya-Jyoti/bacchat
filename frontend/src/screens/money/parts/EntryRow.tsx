@@ -48,7 +48,7 @@ export function entryRowProps(e: EntryItem, extra: Partial<EntryRowProps> = {}):
 export function EntryRow(p: EntryRowProps): React.JSX.Element {
   const { colors, typography, spacing, shapes } = useTheme();
   const selMode = p.selected !== undefined;
-  const label = `${p.name}, ${p.sub}${p.matched ? ', matched' : ''}${p.resolved ? ', resolved' : ''}${p.toReview ? ', to review' : ''}`;
+  const label = `${p.name}, ${p.sub}${p.resolved ? ', resolved' : ''}${p.toReview ? ', to review' : ''}`;
   return (
     <Pressable
       testID={p.testID}
@@ -87,7 +87,6 @@ export function EntryRow(p: EntryRowProps): React.JSX.Element {
           <Text numberOfLines={1} style={[typography.bodyLarge, { color: colors.onSurface, flexShrink: 1 }]}>
             {p.name}
           </Text>
-          {p.matched ? <MiniTag testID="tag-matched" label={t('tags.matched')} bg={colors.primaryContainer} fg={colors.onPrimaryContainer} /> : null}
           {p.resolved ? <MiniTag testID="tag-resolved" label={t('tags.resolved')} bg={colors.tertiaryContainer} fg={colors.onTertiaryContainer} /> : null}
           {p.toReview ? <MiniTag testID="tag-toReview" label={t('tags.toReview')} bg={colors.tertiaryContainer} fg={colors.onTertiaryContainer} /> : null}
         </View>

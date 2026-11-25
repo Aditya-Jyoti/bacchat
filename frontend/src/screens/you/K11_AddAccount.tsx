@@ -83,6 +83,10 @@ export default function K11_AddAccount(): React.JSX.Element {
       setLimit(String(Math.round(debt.limitPaise / 100)));
       const sfx = (n: number) => DAYS[Math.max(0, Math.min(DAYS.length - 1, n - 1))];
       setDue(sfx(debt.dueDay));
+      // The bill day: stored on the card, or read back from the note of an older card ("bill made on 25th").
+      const noted = a.note ? /(\d{1,2})(?:st|nd|rd|th)\s*$/.exec(a.note) : null;
+      const billDay = debt.statementDay ?? (noted ? parseInt(noted[1], 10) : null);
+      if (billDay) setBill(sfx(billDay));
     }
     const k = a.nextPaymentDate ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(a.nextPaymentDate) : null;
     setNextPay(k ? new Date(+k[1], +k[2] - 1, +k[3]) : null);

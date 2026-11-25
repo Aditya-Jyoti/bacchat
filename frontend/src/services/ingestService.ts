@@ -32,6 +32,26 @@ export const REVIEW_LINK = 'bacchat://entries?filter=review';
 export const DEFAULT_BACKFILL_DAYS = 30;
 export const DEFAULT_BACKFILL_LIMIT = 500;
 export const DEFAULT_MIN_CONFIDENCE = 0.6;
+/** How long the AI reader may take when the rule reader already has an answer, and when it does not. */
+export const AI_WAIT_MS = 4_000;
+export const AI_WAIT_ALONE_MS = 20_000;
+
+/** Resolves to null when the promise has not settled within ms. */
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => resolve(null), ms);
+    p.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e: unknown) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
 const DAY_MS = 86_400_000;
 
 export type MessageResult =
@@ -225,7 +245,13 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
     if (opts.extractor) {
       // Every message goes to the AI reader when one is set up (it also picks a category); the rule
       // parser's answer is the fallback when AI is off, has no engine or consent, or fails.
-      const ai = await opts.extractor(sms.body, { source: source === 'mail' ? 'mail' : 'sms', receivedAt: sms.receivedAt, rawRef, ruleConfidence: Number.POSITIVE_INFINITY }).catch(() => null);
+      // A spend must show up within seconds: when the rule reader already understood the message the
+      // AI gets a short wait, otherwise a longer one; past that the rule answer (or nothing) is used.
+      const wait = c && c.confidence >= minConfidence ? AI_WAIT_MS : AI_WAIT_ALONE_MS;
+      const ai = await withTimeout(
+        opts.extractor(sms.body, { source: source === 'mail' ? 'mail' : 'sms', receivedAt: sms.receivedAt, rawRef, ruleConfidence: Number.POSITIVE_INFINITY }),
+        wait,
+      ).catch(() => null);
       // When both agree (the AI's amount is checked against the rule reader's), keep the higher
       // confidence so a clear message is never dropped because the model was modest about it.
       c = ai ? (c ? { ...ai, confidence: Math.max(ai.confidence, c.confidence) } : ai) : c;
@@ -239,24 +265,20 @@ export function createIngestService(opts: IngestServiceOptions): IngestService {
     if (!native || (sum.added.length === 0 && sum.pending === 0)) return;
     const title = t('ingestUi.notifyTitle');
     if (sum.added.length === 1 && sum.pending === 0) {
-      // One new entry: "Slice Credit: Rs 128". With no category yet it asks: two likely categories
-      // and More (k31, every category). Already filed (the payee is known): says where, with Change.
+      // One new entry: "Slice Credit: Rs 128" with two category buttons (its guessed category first,
+      // so one tap confirms it) and More (k31, every category).
       const e = sum.added[0];
       try {
-        const [choices, account, category] = await Promise.all([
-          e.categoryId ? Promise.resolve([]) : quickCategories(db, e),
-          e.accountId ? db.accounts.get(e.accountId) : Promise.resolve(null),
-          e.categoryId ? db.categories.get(e.categoryId) : Promise.resolve(null),
-        ]);
+        const [choices, account] = await Promise.all([quickCategories(db, e), e.accountId ? db.accounts.get(e.accountId) : Promise.resolve(null)]);
         const amount = (e.direction === 'in' ? '+' : '') + formatRupees(e.amountPaise);
         const heading = account ? t('ingestUi.notifyAccount', { account: account.name, amount }) : amount;
         const posted = native.postEntryNotification(
           t('ingestUi.channelName'),
           heading,
-          category ? category.name : '',
+          '',
           e.id,
           choices.map((c) => ({ id: c.id, label: c.name, saved: t('ingestUi.pickSaved', { category: c.name }) })),
-          category ? t('ingestUi.pickChange') : t('ingestUi.pickMore'),
+          t('ingestUi.pickMore'),
           pickCategoryLink(e.id),
         );
         if (posted) return;

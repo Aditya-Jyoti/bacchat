@@ -197,13 +197,14 @@ describe.each(['light', 'dark'] as const)('k4 Money Entries (%s)', (mode) => {
     expect(await findByTestId('day-Today')).toBeTruthy();
   });
 
-  it('tags MATCHED and TO REVIEW with the design colours, and shows the source', async () => {
-    const { getAllByTestId, getByTestId, getByText, getAllByText, findByText } = await renderLive(<K4 />, mode);
+  it('tags RESOLVED and TO REVIEW with the design colours, never MATCHED, and shows the source', async () => {
+    const { getAllByTestId, getByTestId, getByText, getAllByText, queryByText, queryByTestId, findByText } = await renderLive(<K4 />, mode);
     await findByText('Today \u00B7 Sat, 24 Oct');
-    expect(flat(getByTestId('tag-matched').props.style).backgroundColor).toBe(c.primaryContainer);
+    // An entry read from two places is one row; that is not something to act on, so it has no tag.
+    expect(queryByTestId('tag-matched')).toBeNull();
     expect(flat(getByTestId('tag-resolved').props.style).backgroundColor).toBe(c.tertiaryContainer);
     expect(flat(getAllByTestId('tag-toReview')[0].props.style).backgroundColor).toBe(c.tertiaryContainer);
-    expect(getAllByText('MATCHED')).toHaveLength(1);
+    expect(queryByText('MATCHED')).toBeNull();
     expect(getByText('RESOLVED')).toBeTruthy();
     expect(getAllByText('TO REVIEW')).toHaveLength(2);
     expect(getAllByText('Screenshot').length).toBeGreaterThan(1);

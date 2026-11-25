@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import { ledger } from '../../data/db/queries/balances';
 import { addDays, holdingValue, nextDueDate, repeatDates, startOfDay, type Account } from '../../data/db';
+import type { CardCycle } from '../../data/db/queries/cardCycle';
 import { t } from '../../lib/i18n';
 import { useDbQuery, useNetWorth, useSpendable, useUpiFlows, type QueryResult } from '../../services';
 import { dayMonth } from './parts/monthName';
@@ -9,7 +10,18 @@ import { dayMonth } from './parts/monthName';
 /** A bank or cash account that holds goal money: what is plain savings and what sits in each goal. */
 export type AccountSplit = { freePaise: number; goalsPaise: number; goals: { id: string; name: string; icon: string; paise: number }[] };
 export type OwnRow = { id: string; name: string; kindText: string; icon: string; paise: number; kind: Account['kind']; split?: AccountSplit };
-export type OweRow = { id: string; accountId: string; name: string; kindText: string; icon: string; paise: number; limitPaise: number; usedPct: number };
+export type OweRow = {
+  id: string;
+  accountId: string;
+  name: string;
+  kindText: string;
+  icon: string;
+  paise: number;
+  limitPaise: number;
+  usedPct: number;
+  /** Cards with a bill day: the last bill and this cycle (see cardCycle). */
+  cycle?: CardCycle | null;
+};
 export type UpiRowData = { id: string; handle: string; bank: string; inPaise: number; outPaise: number; inPct: number; outPct: number };
 
 export type AccountsData = {
@@ -39,7 +51,7 @@ export function useAccountsData(): AccountsData {
   const sp = useSpendable();
   const upi = useUpiFlows();
   const rows: QueryResult<{ own: OwnRow[]; owe: OweRow[] }> = useDbQuery(async (db, at) => {
-    const [{ accounts, debts }, holdings, goals, allocations] = await Promise.all([ledger(db), db.holdings.list(), db.goals.list(), db.allocations.list()]);
+    const [{ accounts, debts }, holdings, goals, allocations] = await Promise.all([ledger(db, at), db.holdings.list(), db.goals.list(), db.allocations.list()]);
     const goalById = new Map(goals.map((g) => [g.id, g] as const));
     const own: OwnRow[] = [];
     for (const a of accounts) {
@@ -84,7 +96,7 @@ export function useAccountsData(): AccountsData {
     for (const d of debts) {
       const a = accounts.find((x) => x.id === d.accountId);
       if (!a) continue;
-      const due = dayMonth(nextDueDate(d.dueDay, at));
+      const due = dayMonth(d.cycle && d.cycle.billLeftPaise > 0 ? d.cycle.billDueAt : nextDueDate(d.dueDay, at));
       owe.push({
         id: d.id,
         accountId: a.id,
@@ -94,6 +106,7 @@ export function useAccountsData(): AccountsData {
         paise: d.outstandingPaise,
         limitPaise: d.limitPaise,
         usedPct: d.limitPaise > 0 ? Math.round((d.outstandingPaise * 100) / d.limitPaise) : 0,
+        cycle: d.cycle ?? null,
       });
     }
     return { own, owe };
